@@ -7,6 +7,7 @@ import javax.servlet.http.HttpServletRequest;
 import org.sagebionetworks.repo.model.ConflictingUpdateException;
 import org.sagebionetworks.repo.model.DatastoreException;
 import org.sagebionetworks.repo.model.InvalidModelException;
+import org.sagebionetworks.repo.model.MigratableObjectCount;
 import org.sagebionetworks.repo.model.MigratableObjectData;
 import org.sagebionetworks.repo.model.PaginatedResults;
 import org.sagebionetworks.repo.model.UnauthorizedException;
@@ -22,7 +23,12 @@ public interface AdministrationService {
 			String userId, Integer offset, Integer limit,
 			Boolean includeDependencies) throws DatastoreException,
 			UnauthorizedException, NotFoundException;
-
+	
+	public PaginatedResults<MigratableObjectCount> getAllBackupObjectsCounts(
+			String userId, Integer offset, Integer limit,
+			Boolean includeDependencies) throws DatastoreException,
+			UnauthorizedException, NotFoundException;
+	
 	/**
 	 * Start a backup daemon.  Monitor the status of the daemon with the getStatus method.
 	 * @param userId

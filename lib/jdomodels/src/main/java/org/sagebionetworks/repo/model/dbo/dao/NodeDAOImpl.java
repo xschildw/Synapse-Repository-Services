@@ -48,6 +48,7 @@ import org.sagebionetworks.repo.model.DatastoreException;
 import org.sagebionetworks.repo.model.EntityHeader;
 import org.sagebionetworks.repo.model.EntityType;
 import org.sagebionetworks.repo.model.InvalidModelException;
+import org.sagebionetworks.repo.model.MigratableObjectCount;
 import org.sagebionetworks.repo.model.MigratableObjectData;
 import org.sagebionetworks.repo.model.MigratableObjectDescriptor;
 import org.sagebionetworks.repo.model.NameConflictException;
@@ -1177,4 +1178,17 @@ public class NodeDAOImpl implements NodeDAO, NodeBackupDAO, InitializingBean {
 		queryResults.setTotalNumberOfResults((int)getCount());
 		return queryResults;
 	}
+
+	@Transactional(readOnly = true)
+	@Override
+	public QueryResults<MigratableObjectCount> getMigratableObjectCounts(long offset, long limit, boolean includeDependencies) throws DatastoreException {
+		List<MigratableObjectCount> l = new ArrayList<MigratableObjectCount>();
+		
+		QueryResults<MigratableObjectCount> qRes = new QueryResults<MigratableObjectCount>();
+		qRes.setResults(l);
+		qRes.setTotalNumberOfResults(0);
+		return qRes;
+	}
+
+
 }
