@@ -1,5 +1,6 @@
 package org.sagebionetworks.repo.manager;
 
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
@@ -486,6 +487,27 @@ public class NodeManagerImpl implements NodeManager, InitializingBean {
 	@Override
 	public boolean doesNodeHaveChildren(String nodeId) {
 		return nodeDao.doesNodeHaveChildren(nodeId);
+	}
+	
+	@Override
+	public Node changeNodeType(UserInfo userInfo, String nodeId, EntityType newEntityType)  throws UnauthorizedException, DatastoreException, NotFoundException {
+		// Q: If done in entityManager, no need for this here...
+		UserInfo.validateUserInfo(userInfo);
+		String userName = userInfo.getUser().getUserId();
+		if (!authorizationManager.canAccess(userInfo, nodeId, ACCESS_TYPE.UPDATE)) {
+			throw new UnauthorizedException(userName + " lacks UPDATE access to the requested object");
+		}
+		
+		List<String> excludedKeys = Arrays.asList("name");
+		Node n = nodeDao.getNode(nodeId);
+		// Get named annotations
+		NamedAnnotations annots = nodeDao.getAnnotations(nodeId);
+		Annotations primaryAnnots = annots.getPrimaryAnnotations();
+		Annotations additionalAnnots = annots.getAdditionalAnnotations();
+		// Move annotations from primary to additional
+		// Change node type
+		// Update node
+		return n;
 	}
 
 }

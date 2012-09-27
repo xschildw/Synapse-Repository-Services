@@ -596,5 +596,5 @@ public class NodeTranslationUtils {
 	public static boolean isPrimaryFieldName(EntityType type, String toTest) {
 		return primaryFieldsCache.get(type).contains(toTest);
 	}
-
+	
 }

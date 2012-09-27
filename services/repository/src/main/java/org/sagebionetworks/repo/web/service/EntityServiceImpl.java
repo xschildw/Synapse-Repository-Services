@@ -673,5 +673,16 @@ public class EntityServiceImpl implements EntityService {
 		if(userId == null) throw new IllegalArgumentException("UserId cannot be null");
 		UserInfo userInfo = userManager.getUserInfo(userId);
 		return entityManager.doesEntityHaveChildren(userInfo, entityId);
-	}	
+	}
+	
+	@Override
+	public void changeEntityType(String userId, String entityId, String newTypeName)
+			throws NotFoundException, UnauthorizedException {
+		if (entityId == null) throw new IllegalArgumentException("EntityId cannot be null");
+		if (userId == null) throw new IllegalArgumentException("UserId cannot be null");
+		if (newTypeName == null) throw new IllegalArgumentException("NewTypeName cannot be null");
+		
+		UserInfo userInfo = userManager.getUserInfo(userId);
+		entityManager.changeEntityType(userInfo, entityId, newTypeName);
+	}
 }

@@ -830,7 +830,7 @@ public class EntityController extends BaseController{
 	@RequestMapping(value = { UrlHelpers.ENTITY_ATTACHMENT_URL }, method = RequestMethod.POST)
 	public @ResponseBody
 	PresignedUrl getAttachmentUrl(
-			@PathVariable String id, 
+			@PathVariable String id,
 			@RequestParam(value = AuthorizationConstants.USER_ID_PARAM, required = false) String userId,
 			@RequestBody PresignedUrl url,
 			HttpServletRequest request) throws NotFoundException,
@@ -839,4 +839,32 @@ public class EntityController extends BaseController{
 		// Pass it along.
 		return serviceProvider.getEntityService().getAttachmentUrl(userId, id, url.getTokenID());
 	}
+	
+    /**
+     * Change the type for an existing entity with a PUT.
+     * 
+     * @param userId
+     * @param id
+     * @param request
+     * @return 
+     * @throws NotFoundException
+     * @throws DatastoreException
+     * @throws UnauthorizedException
+     */
+    @ResponseStatus(HttpStatus.OK)
+    @RequestMapping(value = { UrlHelpers.ENTITY_CHANGE_TYPE}, method = RequestMethod.PUT)
+    public @ResponseBody
+    void changeEntityType(
+    				@PathVariable String id,
+    				@PathVariable String newEntityTypeName,
+                    @RequestParam(value = AuthorizationConstants.USER_ID_PARAM, required = false) String userId,
+                    @RequestParam(value = ServiceConstants.BATCH_PARAM, required = true) String batch,
+                    HttpServletRequest request)
+                    		throws NotFoundException,
+                    			DatastoreException, UnauthorizedException {
+    		
+    		serviceProvider.getEntityService().changeEntityType(userId, id, newEntityTypeName);
+            return;
+    }
+	
 }

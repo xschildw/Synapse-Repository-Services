@@ -533,5 +533,13 @@ public class EntityManagerImpl implements EntityManager {
 		validateReadAccess(userInfo, entityId);
 		return nodeManager.doesNodeHaveChildren(entityId);
 	}
+	
+	@Override
+	public void changeEntityType(UserInfo userInfo, String entityId, String entityTypeName)  throws DatastoreException, UnauthorizedException, NotFoundException{
+		validateUpdateAccess(userInfo, entityId);
+		// Q: Should this have been done higher in the chain?
+		EntityType newEntityType = EntityType.valueOf(entityTypeName);
+		nodeManager.changeNodeType(userInfo, entityId, newEntityType);
+	}
 
 }

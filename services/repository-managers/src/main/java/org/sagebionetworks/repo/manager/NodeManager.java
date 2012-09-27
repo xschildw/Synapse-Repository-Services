@@ -234,4 +234,9 @@ public interface NodeManager {
 	 */
 	public boolean doesNodeHaveChildren(String entityId);
 	
+	/*
+	 *
+	 */
+	public Node changeNodeType(UserInfo userInfo, String nodeId, EntityType newEntityType) throws UnauthorizedException, NotFoundException;
+	
 }

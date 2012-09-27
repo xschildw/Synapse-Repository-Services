@@ -302,4 +302,14 @@ public interface EntityManager {
 	 */
 	public boolean doesEntityHaveChildren(UserInfo userInfo, String entityId) throws DatastoreException, UnauthorizedException, NotFoundException;
 
+	/**
+	 * 
+	 * @param userInfo
+	 * @param entityId
+	 * @param entityTypeName
+	 * @throws DatastoreException
+	 * @throws UnauthorizedException
+	 * @throws NotFoundException
+	 */
+	public void changeEntityType(UserInfo userInfo, String entityId, String entityTypeName)  throws DatastoreException, UnauthorizedException, NotFoundException;
 }

@@ -61,6 +61,8 @@ public class UrlHelpers {
 	public static final String PARENT_ID 		= "/{parentId}";
 	public static final String VERSION_NUMBER 	= "/{versionNumber}";
 	public static final String PARENT_TYPE_ID 	= PARENT_TYPE+PARENT_ID;
+	public static final String ENTITY_TYPE_NAME	= "/{entityTypeName}";
+	
 	
 //	public static final String TOKEN_ID = "{tokenId}/{filename}.{mimeType}";
 	
@@ -206,6 +208,11 @@ public class UrlHelpers {
 	 * Get the bundle for a specific version of an entity
 	 */
 	public static final String ENTITY_VERSION_NUMBER_BUNDLE = ENTITY_VERSION_NUMBER+BUNDLE;
+	
+	/**
+	 * Change the type of an entity
+	 */
+	public static final String ENTITY_CHANGE_TYPE = ENTITY_ID + TYPE + ENTITY_TYPE_NAME;
 
 	/**
 	 * URL path for query controller

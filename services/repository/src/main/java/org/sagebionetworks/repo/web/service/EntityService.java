@@ -584,4 +584,16 @@ public interface EntityService {
 	public boolean doesEntityHaveChildren(String userId, String entityId,
 			HttpServletRequest request) throws DatastoreException,
 			ParseException, NotFoundException, UnauthorizedException;
+	
+	/**
+	 * 
+	 * @param userId
+	 * @param entityId
+	 * @param newTypeName
+	 * @throws NotFoundException
+	 * @throws UnauthorizedException
+	 */
+	public void changeEntityType(String userId, String entityId, String newTypeName)
+		throws NotFoundException, UnauthorizedException;
+	
 }
