@@ -858,7 +858,6 @@ public class EntityController extends BaseController{
     				@PathVariable String id,
     				@PathVariable String newEntityTypeName,
                     @RequestParam(value = AuthorizationConstants.USER_ID_PARAM, required = false) String userId,
-                    @RequestParam(value = ServiceConstants.BATCH_PARAM, required = true) String batch,
                     HttpServletRequest request)
                     		throws NotFoundException,
                     			DatastoreException, UnauthorizedException {

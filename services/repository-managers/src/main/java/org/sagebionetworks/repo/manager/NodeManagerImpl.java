@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.logging.Log;
@@ -489,6 +490,7 @@ public class NodeManagerImpl implements NodeManager, InitializingBean {
 		return nodeDao.doesNodeHaveChildren(nodeId);
 	}
 	
+	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
 	@Override
 	public Node changeNodeType(UserInfo userInfo, String nodeId, EntityType newEntityType)  throws UnauthorizedException, DatastoreException, NotFoundException {
 		// Q: If done in entityManager, no need for this here...
@@ -505,9 +507,28 @@ public class NodeManagerImpl implements NodeManager, InitializingBean {
 		Annotations primaryAnnots = annots.getPrimaryAnnotations();
 		Annotations additionalAnnots = annots.getAdditionalAnnotations();
 		// Move annotations from primary to additional
+		Map<String, List<Date>> srcDateAnnots = primaryAnnots.getDateAnnotations();
+		Map<String, List<Date>> destDateAnnots = additionalAnnots.getDateAnnotations();
+		moveFields(srcDateAnnots, destDateAnnots);
 		// Change node type
+		n.setNodeType(newEntityType.name());
 		// Update node
-		return n;
+		Node updatedNode = update(userInfo, n, annots, false);
+
+		return updatedNode;
+	}
+	
+	private <T extends Object> void moveFields(Map<String, List<T>> l1, Map<String, List<T>> l2) {
+		for (String key: l1.keySet()) {
+			List<T> value = l1.get(key);
+			if (! l2.containsKey(key)) {
+				l2.put(key, value);
+			} else {
+				List<T> targetValue = l2.get(key);
+				targetValue.addAll(value);
+				l2.put(key, targetValue);
+			}
+		}
 	}
 
 }
