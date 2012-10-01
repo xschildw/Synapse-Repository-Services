@@ -856,12 +856,16 @@ public class EntityController extends BaseController{
     public @ResponseBody
     void changeEntityType(
     				@PathVariable String id,
-    				@PathVariable String newEntityTypeName,
                     @RequestParam(value = AuthorizationConstants.USER_ID_PARAM, required = false) String userId,
+        			@RequestHeader HttpHeaders header,
+        			@RequestHeader(ServiceConstants.ETAG_HEADER) String etag,
                     HttpServletRequest request)
                     		throws NotFoundException,
                     			DatastoreException, UnauthorizedException {
+    		// Get new type out of typeChangeRequest
+    		String newEntityTypeName;
     		
+    		// Change type of entity
     		serviceProvider.getEntityService().changeEntityType(userId, id, newEntityTypeName);
             return;
     }

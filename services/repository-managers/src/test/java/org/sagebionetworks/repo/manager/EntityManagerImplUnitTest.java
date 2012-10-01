@@ -1,15 +1,27 @@
 package org.sagebionetworks.repo.manager;
 
 import static org.junit.Assert.*;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.when;
+
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.Ignore;
 import org.mockito.Mockito;
 import org.sagebionetworks.ids.IdGenerator;
 import org.sagebionetworks.repo.model.ACCESS_TYPE;
+import org.sagebionetworks.repo.model.Annotations;
 import org.sagebionetworks.repo.model.DatastoreException;
+import org.sagebionetworks.repo.model.EntityType;
+import org.sagebionetworks.repo.model.GenomicData;
 import org.sagebionetworks.repo.model.InvalidModelException;
+import org.sagebionetworks.repo.model.NamedAnnotations;
+import org.sagebionetworks.repo.model.Node;
 import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.User;
 import org.sagebionetworks.repo.model.UserInfo;
@@ -114,4 +126,80 @@ public class EntityManagerImplUnitTest {
 		assertEquals(expectePreSigneUrl, endToken.getPresignedUrl());
 	}
 
+	@Test (expected=UnauthorizedException.class)
+	public void testChangeEntityInvalid1() throws Exception {
+		String userId = "userA";
+		String entityId = "syn01";
+		String targetTypeName = "genomicdata";
+		
+		when(mockUserManager.getUserInfo(userId)).thenReturn(mockUser);
+		when(mockPermissionsManager.hasAccess(entityId, ACCESS_TYPE.READ, mockUser)).thenReturn(false);
+		when(mockPermissionsManager.hasAccess(entityId, ACCESS_TYPE.UPDATE, mockUser)).thenReturn(false);
+		
+		entityManager.changeEntityType(mockUser, entityId, targetTypeName);
+	}
+	
+	@Test (expected=IllegalArgumentException.class)
+	public void testChangeEntityInvalid2() throws Exception {
+		String userId = "userA";
+		String entityId = "syn01";
+		String targetTypeName = "invalidtype";
+		
+		when(mockUserManager.getUserInfo(userId)).thenReturn(mockUser);
+		when(mockPermissionsManager.hasAccess(entityId, ACCESS_TYPE.READ, mockUser)).thenReturn(true);
+		when(mockPermissionsManager.hasAccess(entityId, ACCESS_TYPE.UPDATE, mockUser)).thenReturn(true);
+		
+		entityManager.changeEntityType(mockUser, entityId, targetTypeName);
+	}
+	
+	
+	@Ignore
+	@Test
+	public void testChangeEntityType() throws Exception {
+		String userId = "userA";
+		String entityId = "syn01";
+		String srcType = "data";
+		String targetType = "genomicdata";
+		
+		Node expectedBeforeNode = new Node();
+		expectedBeforeNode.setId(entityId);
+		expectedBeforeNode.setName("node");
+		expectedBeforeNode.setNodeType(srcType);
+		
+		Node expectedAfterNode = new Node();
+		expectedAfterNode.setId(entityId);
+		expectedAfterNode.setName("node");
+		expectedAfterNode.setNodeType(srcType);
+				
+		NamedAnnotations expectedBeforeNamedAnnots = new NamedAnnotations();
+		Annotations expectedBeforePrimaryAnnots = expectedBeforeNamedAnnots.getPrimaryAnnotations();
+		Annotations expectedBeforeAdditionalAnnots = expectedBeforeNamedAnnots.getAdditionalAnnotations();
+		// All these should become additional
+		// TODO: Add cases where names overlap
+		expectedBeforePrimaryAnnots.addAnnotation("datePrimaryKey1", new Date("01/01/2000"));
+		expectedBeforePrimaryAnnots.addAnnotation("datePrimaryKey2", new Date("01/02/2000"));
+		expectedBeforePrimaryAnnots.addAnnotation("doublePrimaryKey1", 1.0);
+		expectedBeforePrimaryAnnots.addAnnotation("longPrimaryKey1", 1L);
+		expectedBeforePrimaryAnnots.addAnnotation("stringPrimaryKey1", "string1");
+		expectedBeforePrimaryAnnots.addAnnotation("stringPrimaryKey2", "string2");
+		// All these should stay additional
+		expectedBeforeAdditionalAnnots.addAnnotation("dateAdditionalKey1", new Date("01/03/2000"));
+		expectedBeforeAdditionalAnnots.addAnnotation("doubleAdditionalKey1", 2.0);
+		expectedBeforeAdditionalAnnots.addAnnotation("longAdditionalKey1", 2L);
+		expectedBeforeAdditionalAnnots.addAnnotation("stringAdditionalKey1", "string2");
+		
+		when(mockUserManager.getUserInfo(userId)).thenReturn(mockUser);
+		when(mockPermissionsManager.hasAccess(entityId, ACCESS_TYPE.READ, mockUser)).thenReturn(true);
+		when(mockPermissionsManager.hasAccess(entityId, ACCESS_TYPE.UPDATE, mockUser)).thenReturn(true);
+		when(mockNodeManager.get(mockUser, entityId)).thenReturn(expectedBeforeNode);
+		when(mockNodeManager.getAnnotations(mockUser, entityId)).thenReturn(expectedBeforeNamedAnnots);
+		expectedBeforeNode.setNodeType(srcType);
+		when(mockNodeManager.update(mockUser, expectedBeforeNode)).thenReturn(expectedAfterNode);
+		
+		entityManager.changeEntityType(mockUser, entityId, targetType);
+		
+		when(mockNodeManager.get(mockUser, entityId)).thenReturn(expectedAfterNode);
+		EntityWithAnnotations<GenomicData> e = entityManager.getEntityWithAnnotations(mockUser, entityId, GenomicData.class);
+		
+	}
 }

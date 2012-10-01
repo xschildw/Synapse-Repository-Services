@@ -2,8 +2,10 @@ package org.sagebionetworks.repo.manager;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.sagebionetworks.repo.model.ACCESS_TYPE;
@@ -534,12 +536,59 @@ public class EntityManagerImpl implements EntityManager {
 		return nodeManager.doesNodeHaveChildren(entityId);
 	}
 	
+	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
 	@Override
 	public void changeEntityType(UserInfo userInfo, String entityId, String entityTypeName)  throws DatastoreException, UnauthorizedException, NotFoundException{
+		validateReadAccess(userInfo, entityId);
 		validateUpdateAccess(userInfo, entityId);
-		// Q: Should this have been done higher in the chain?
+		// TODO: Add checks so that we can't move to a type such
+		// that children of this entity would be of incompatible type
 		EntityType newEntityType = EntityType.valueOf(entityTypeName);
-		nodeManager.changeNodeType(userInfo, entityId, newEntityType);
+
+		Node node = nodeManager.get(userInfo, entityId);
+		NamedAnnotations annots = nodeManager.getAnnotations(userInfo, entityId);
+		
+		Annotations primaryAnnots = annots.getPrimaryAnnotations();
+		Annotations additionalAnnots = annots.getAdditionalAnnotations();
+		// Move annotations from primary to additional
+		// TODO: There's got to be a better way of handling each type of list
+		// List<Map <String, List<? extends Object>>> srcAnnots;
+		
+		Map<String, List<byte[]>> srcBlobAnnots = primaryAnnots.getBlobAnnotations();
+		Map<String, List<byte[]>> destBlobAnnots = additionalAnnots.getBlobAnnotations();
+		moveFields(srcBlobAnnots, destBlobAnnots);
+		Map<String, List<Date>> srcDateAnnots = primaryAnnots.getDateAnnotations();
+		Map<String, List<Date>> destDateAnnots = additionalAnnots.getDateAnnotations();
+		moveFields(srcDateAnnots, destDateAnnots);
+		Map<String, List<Double>> srcDoubleAnnots = primaryAnnots.getDoubleAnnotations();
+		Map<String, List<Double>> destDoubleAnnots = additionalAnnots.getDoubleAnnotations();
+		moveFields(srcDoubleAnnots, destDoubleAnnots);
+		Map<String, List<Long>> srcLongAnnots = primaryAnnots.getLongAnnotations();
+		Map<String, List<Long>> destLongAnnots = additionalAnnots.getLongAnnotations();
+		moveFields(srcLongAnnots, destLongAnnots);
+		Map<String, List<String>> srcStringAnnots = primaryAnnots.getStringAnnotations();
+		Map<String, List<String>> destStringAnnots = additionalAnnots.getStringAnnotations();
+		moveFields(srcStringAnnots, destStringAnnots);
+
+		// Change node type
+		node.setNodeType(newEntityType.name());
+		// Update node and annotations
+		Node updatedNode = nodeManager.update(userInfo, node, annots, false);
 	}
+	
+	private <T extends Object> void moveFields(Map<String, List<T>> l1, Map<String, List<T>> l2) {
+		for (String key: l1.keySet()) {
+			List<T> value = l1.get(key);
+			if (! l2.containsKey(key)) {
+				l2.put(key, value);
+			} else {
+				List<T> targetValue = l2.get(key);
+				targetValue.addAll(value);
+				l2.put(key, targetValue);
+			}
+		}
+	}
+
+
 
 }

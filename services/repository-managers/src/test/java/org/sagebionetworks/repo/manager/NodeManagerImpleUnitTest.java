@@ -209,38 +209,5 @@ public class NodeManagerImpleUnitTest {
 		when(mockReferenceDao.getReferrers(id, null, userInfo, null, null)).thenReturn(expected);
 		EntityHeaderQueryResults actual = nodeManager.getEntityReferences(userInfo, ""+id, null, null, null);
 	}
-	
-	@Test
-	public void testChangeNodeType() throws Exception {
-		
-		Node dataNode = new Node();
-		dataNode.setName("data");
-		dataNode.setId("syn02");
-		dataNode.setNodeType("genericdata");
-		dataNode.setParentId("syn01");
-		dataNode.setETag("eTag");
-		
-		NamedAnnotations namedAnnots = new NamedAnnotations();
-		namedAnnots.setEtag("eTag");
-		Annotations primaryAnnots = namedAnnots.getPrimaryAnnotations();
-		Annotations additionalAnnots = namedAnnots.getAdditionalAnnotations();
-		// Following annots should become additional
-		primaryAnnots.addAnnotation("someDateKey1", new Date());
-		primaryAnnots.addAnnotation("someDateKey2", new Date());
-		primaryAnnots.addAnnotation("someStringKey1", "someStringValue1");
-		// Following annots should be conserved
-		additionalAnnots.addAnnotation("someDateKey3", new Date());
-		additionalAnnots.addAnnotation("someStringKey2", "someStringValue2");
-		
-		Map<String, List<Date>> dateAnnots = new HashMap<String, List<Date>>();
-		
-		when(mockNodeDao.getNode(eq(dataNode.getId()))).thenReturn(dataNode);
-		when(mockNodeDao.getAnnotations(eq(dataNode.getId()))).thenReturn(namedAnnots);
-		when(mockNodeDao.getParentId(eq(dataNode.getId()))).thenReturn("syn01");
-		when(mockAuthDao.canAccess(eq(mockUserInfo), eq(dataNode.getId()), eq(ACCESS_TYPE.READ))).thenReturn(true);
-		when(mockAuthDao.canAccess(eq(mockUserInfo), eq(dataNode.getId()), eq(ACCESS_TYPE.UPDATE))).thenReturn(true);
-		
-		Node updatedNode = nodeManager.changeNodeType(mockUserInfo, "syn02", EntityType.valueOf("genomicdata"));
-		assertEquals("genomicdata", updatedNode.getNodeType());	
-	}
+
 }
