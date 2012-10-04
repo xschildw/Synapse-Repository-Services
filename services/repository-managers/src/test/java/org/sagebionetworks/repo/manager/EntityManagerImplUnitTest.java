@@ -3,6 +3,7 @@ package org.sagebionetworks.repo.manager;
 import static org.junit.Assert.*;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 import java.util.Date;
 import java.util.HashMap;
@@ -151,9 +152,7 @@ public class EntityManagerImplUnitTest {
 		
 		entityManager.changeEntityType(mockUser, entityId, targetTypeName);
 	}
-	
-	
-	@Ignore
+
 	@Test
 	public void testChangeEntityType() throws Exception {
 		String userId = "userA";
@@ -169,7 +168,7 @@ public class EntityManagerImplUnitTest {
 		Node expectedAfterNode = new Node();
 		expectedAfterNode.setId(entityId);
 		expectedAfterNode.setName("node");
-		expectedAfterNode.setNodeType(srcType);
+		expectedAfterNode.setNodeType(targetType);
 				
 		NamedAnnotations expectedBeforeNamedAnnots = new NamedAnnotations();
 		Annotations expectedBeforePrimaryAnnots = expectedBeforeNamedAnnots.getPrimaryAnnotations();
@@ -188,18 +187,34 @@ public class EntityManagerImplUnitTest {
 		expectedBeforeAdditionalAnnots.addAnnotation("longAdditionalKey1", 2L);
 		expectedBeforeAdditionalAnnots.addAnnotation("stringAdditionalKey1", "string2");
 		
+		NamedAnnotations expectedAfterAnnots = new NamedAnnotations();
+		Annotations expectedAfterPrimaryAnnots = expectedAfterAnnots.getPrimaryAnnotations();
+		Annotations expectedAfterAdditionalAnnots = expectedAfterAnnots.getAdditionalAnnotations();
+		// All primary annotations have become additional before calling NodeManager.update()
+		expectedAfterAdditionalAnnots.addAnnotation("dateAdditionalKey1", new Date("01/03/2000"));
+		expectedAfterAdditionalAnnots.addAnnotation("doubleAdditionalKey1", 2.0);
+		expectedAfterAdditionalAnnots.addAnnotation("longAdditionalKey1", 2L);
+		expectedAfterAdditionalAnnots.addAnnotation("stringAdditionalKey1", "string2");
+		expectedAfterAdditionalAnnots.addAnnotation("datePrimaryKey1", new Date("01/01/2000"));
+		expectedAfterAdditionalAnnots.addAnnotation("datePrimaryKey2", new Date("01/02/2000"));
+		expectedAfterAdditionalAnnots.addAnnotation("doublePrimaryKey1", 1.0);
+		expectedAfterAdditionalAnnots.addAnnotation("longPrimaryKey1", 1L);
+		expectedAfterAdditionalAnnots.addAnnotation("stringPrimaryKey1", "string1");
+		expectedAfterAdditionalAnnots.addAnnotation("stringPrimaryKey2", "string2");		
+		
 		when(mockUserManager.getUserInfo(userId)).thenReturn(mockUser);
 		when(mockPermissionsManager.hasAccess(entityId, ACCESS_TYPE.READ, mockUser)).thenReturn(true);
 		when(mockPermissionsManager.hasAccess(entityId, ACCESS_TYPE.UPDATE, mockUser)).thenReturn(true);
 		when(mockNodeManager.get(mockUser, entityId)).thenReturn(expectedBeforeNode);
 		when(mockNodeManager.getAnnotations(mockUser, entityId)).thenReturn(expectedBeforeNamedAnnots);
-		expectedBeforeNode.setNodeType(srcType);
-		when(mockNodeManager.update(mockUser, expectedBeforeNode)).thenReturn(expectedAfterNode);
-		
+//		expectedBeforeNode.setNodeType(srcType);
+//		when(mockNodeManager.update(mockUser, expectedBeforeNode)).thenReturn(expectedAfterNode);
+				
 		entityManager.changeEntityType(mockUser, entityId, targetType);
+		verify(mockNodeManager).update(mockUser, expectedAfterNode, expectedAfterAnnots, false);
 		
-		when(mockNodeManager.get(mockUser, entityId)).thenReturn(expectedAfterNode);
-		EntityWithAnnotations<GenomicData> e = entityManager.getEntityWithAnnotations(mockUser, entityId, GenomicData.class);
+//		when(mockNodeManager.get(mockUser, entityId)).thenReturn(expectedAfterNode);
+//		EntityWithAnnotations<GenomicData> e = entityManager.getEntityWithAnnotations(mockUser, entityId, GenomicData.class);
 		
 	}
 }

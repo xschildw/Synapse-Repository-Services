@@ -577,15 +577,18 @@ public class EntityManagerImpl implements EntityManager {
 	}
 	
 	private <T extends Object> void moveFields(Map<String, List<T>> l1, Map<String, List<T>> l2) {
-		for (String key: l1.keySet()) {
-			List<T> value = l1.get(key);
-			if (! l2.containsKey(key)) {
-				l2.put(key, value);
+		Iterator<Map.Entry<String, List<T>>> iter = l1.entrySet().iterator();
+		while (iter.hasNext()) {
+			Map.Entry<String, List<T>> entry = iter.next();
+			List<T> value = entry.getValue();
+			if (! l2.containsKey(entry.getKey())) {
+				l2.put(entry.getKey(), value);
 			} else {
-				List<T> targetValue = l2.get(key);
+				List<T> targetValue = l2.get(entry.getKey());
 				targetValue.addAll(value);
-				l2.put(key, targetValue);
+				l2.put(entry.getKey(), targetValue);
 			}
+			iter.remove();
 		}
 	}
 
