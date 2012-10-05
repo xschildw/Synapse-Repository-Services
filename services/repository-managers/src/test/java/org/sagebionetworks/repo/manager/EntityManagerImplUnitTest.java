@@ -153,18 +153,32 @@ public class EntityManagerImplUnitTest {
 		entityManager.changeEntityType(mockUser, entityId, targetTypeName);
 	}
 
-	@Ignore
 	@Test
-	public void testHasRestrictions() {
+	public void testIsValidTypeChange() throws ClassNotFoundException {
+		// TODO: Expand to cover all combos?
 		boolean v;
 		String s;
-		s = "Project";
-		v = EntityManagerImpl.hasRestrictions(s);
+		// Should not be able to go to project
+		// Note: Might work but not for the right reason...
+		s = "project";
+		v = EntityManagerImpl.isValidTypeChange("folder", s);
 		assertFalse(v);
-		s = "";
-		v = EntityManagerImpl.hasRestrictions(s);
+		// Should be able to go from dataset/study to folder
+		s = "folder";
+		v = EntityManagerImpl.isValidTypeChange("dataset", s);
 		assertTrue(v);
-		
+		// Should be able to go from phenotypedata to data
+		s = "layer";
+		v = EntityManagerImpl.isValidTypeChange("phenotypedata", s);
+		assertTrue(v);
+		// Should be able to go from data to genomicdata
+		s = "genomicdata";
+		v = EntityManagerImpl.isValidTypeChange("layer", s);
+		assertTrue(v);
+//		// Should not be able to go from Locationable to non-Locationable
+//		s = "folder";
+//		v = EntityManagerImpl.isValidTypeChange("layer", s);
+//		assertFalse(v);
 	}
 	
 	@Test
@@ -195,7 +209,10 @@ public class EntityManagerImplUnitTest {
 		expectedBeforePrimaryAnnots.addAnnotation("longPrimaryKey1", 1L);
 		expectedBeforePrimaryAnnots.addAnnotation("stringPrimaryKey1", "string1");
 		expectedBeforePrimaryAnnots.addAnnotation("stringPrimaryKey2", "string2");
-		// All these should stay additional
+		// Should stay primary
+		expectedBeforePrimaryAnnots.addAnnotation("name", "someName");
+		expectedBeforePrimaryAnnots.addAnnotation("description", "someDescription");
+		// Should stay additional
 		expectedBeforeAdditionalAnnots.addAnnotation("dateAdditionalKey1", new Date("01/03/2000"));
 		expectedBeforeAdditionalAnnots.addAnnotation("doubleAdditionalKey1", 2.0);
 		expectedBeforeAdditionalAnnots.addAnnotation("longAdditionalKey1", 2L);
@@ -214,7 +231,10 @@ public class EntityManagerImplUnitTest {
 		expectedAfterAdditionalAnnots.addAnnotation("doublePrimaryKey1", 1.0);
 		expectedAfterAdditionalAnnots.addAnnotation("longPrimaryKey1", 1L);
 		expectedAfterAdditionalAnnots.addAnnotation("stringPrimaryKey1", "string1");
-		expectedAfterAdditionalAnnots.addAnnotation("stringPrimaryKey2", "string2");		
+		expectedAfterAdditionalAnnots.addAnnotation("stringPrimaryKey2", "string2");
+		// Except these that should stay primary
+		expectedAfterPrimaryAnnots.addAnnotation("name", "someName");
+		expectedAfterPrimaryAnnots.addAnnotation("description", "someDescription");
 		
 		when(mockUserManager.getUserInfo(userId)).thenReturn(mockUser);
 		when(mockPermissionsManager.hasAccess(entityId, ACCESS_TYPE.READ, mockUser)).thenReturn(true);

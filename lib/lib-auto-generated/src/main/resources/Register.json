@@ -38,7 +38,11 @@
         {
             "validParentTypes":[
            		"org.sagebionetworks.repo.model.Folder",
-                "org.sagebionetworks.repo.model.Data"
+                "org.sagebionetworks.repo.model.Data",
+                "org.sagebionetworks.repo.model.PhenotypeData",
+                "org.sagebionetworks.repo.model.GenotypeData",
+                "org.sagebionetworks.repo.model.ExpressionData",
+                "org.sagebionetworks.repo.model.GenomicData"
             ],
             "name":"preview",
             "entityType":"org.sagebionetworks.repo.model.Preview",
@@ -68,8 +72,7 @@
         {
             "validParentTypes":[
                 "org.sagebionetworks.repo.model.Folder",
-                "org.sagebionetworks.repo.model.Analysis",
-                "DEFAULT"
+                "org.sagebionetworks.repo.model.Analysis"
             ],
             "name":"step",
             "entityType":"org.sagebionetworks.repo.model.Step",
@@ -90,9 +93,12 @@
                 "org.sagebionetworks.repo.model.Folder",
                 "org.sagebionetworks.repo.model.Study",
                 "org.sagebionetworks.repo.model.Data",
+                "org.sagebionetworks.repo.model.PhenotypeData",
+                "org.sagebionetworks.repo.model.GenotypeData",
+                "org.sagebionetworks.repo.model.ExpressionData",
+                "org.sagebionetworks.repo.model.GenomicData",
                 "org.sagebionetworks.repo.model.Step",
-                "org.sagebionetworks.repo.model.Analysis",
-                "DEFAULT"
+                "org.sagebionetworks.repo.model.Analysis"
             ],
             "name":"link",
             "entityType":"org.sagebionetworks.repo.model.Link",

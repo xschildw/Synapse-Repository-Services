@@ -23,6 +23,7 @@ import org.sagebionetworks.repo.model.NamedAnnotations;
 import org.sagebionetworks.repo.model.Node;
 import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UserInfo;
+import org.sagebionetworks.repo.model.Versionable;
 import org.sagebionetworks.repo.model.attachment.PresignedUrl;
 import org.sagebionetworks.repo.model.attachment.S3AttachmentToken;
 import org.sagebionetworks.repo.model.registry.EntityTypeMetadata;
@@ -545,11 +546,15 @@ public class EntityManagerImpl implements EntityManager {
 		validateReadAccess(userInfo, entityId);
 		validateUpdateAccess(userInfo, entityId);
 //		if (hasRestrictions(entityTypeName)) {
-//			throw new IllegalArgumentException("Target type " + entityTypeName + " has restrctions on its parent or children types");
+//			throw new IllegalArgumentException("Target type " + entityTypeName + " has restrictions on its parent or children types");
 //		}
 		EntityType newEntityType = EntityType.valueOf(entityTypeName);
 		
-		List<String> excludedAnnots = new ArrayList<String>();
+		List<String> excludedAnnots = Arrays.asList(
+				"name", "description", "parentId", "attachments",	// Entity
+				"locations", "md5", "contentType", "s3Token",		// Locationable
+				"versionLabel", "versionComment"					// Versionable
+				);
 
 		Node node = nodeManager.get(userInfo, entityId);
 		NamedAnnotations annots = nodeManager.getAnnotations(userInfo, entityId);
@@ -586,38 +591,75 @@ public class EntityManagerImpl implements EntityManager {
 		Iterator<Map.Entry<String, List<T>>> iter = l1.entrySet().iterator();
 		while (iter.hasNext()) {
 			Map.Entry<String, List<T>> entry = iter.next();
-			List<T> value = entry.getValue();
-			if (! l2.containsKey(entry.getKey())) {
-				l2.put(entry.getKey(), value);
-			} else {
-				List<T> targetValue = l2.get(entry.getKey());
-				targetValue.addAll(value);
-				l2.put(entry.getKey(), targetValue);
+			if (! excludedKeys.contains(entry.getKey())) {
+				List<T> value = entry.getValue();
+				if (! l2.containsKey(entry.getKey())) {
+					l2.put(entry.getKey(), value);
+				} else {
+					List<T> targetValue = l2.get(entry.getKey());
+					targetValue.addAll(value);
+					l2.put(entry.getKey(), targetValue);
+				}
+				iter.remove();
 			}
-			iter.remove();
 		}
 	}
 
-	public static boolean hasRestrictions(String entityTypeName) {
+//	public static boolean hasRestrictions(String entityTypeName) {
+//
+//		EntityType type = EntityType.valueOf(entityTypeName);
+//		EntityTypeMetadata metadata = type.getMetadata();
+//		// Does this type have any restriction on its parent?
+//		if (metadata.getValidParentTypes().size() != 1) { // if == 1 then it's DEFAULT
+//			return true;
+//		}
+//		// Does this type have any restriction on its children?
+//		// i.e. is there any type that does not have this type as valid parent?
+//		boolean v = true;
+//		for (EntityType t: EntityType.values()) {
+//			List<String> validParents = t.getMetadata().getValidParentTypes();
+//			if (! validParents.contains(entityTypeName)) {
+//				v = false;
+//				break;
+//			}
+//		}
+//		return v;
+//	}
 
-		EntityType type = EntityType.valueOf(entityTypeName);
-		EntityTypeMetadata metadata = type.getMetadata();
-		// Does this type have any restriction on its parent?
-		if (metadata.getValidParentTypes().size() != 1) { // if == 1 then it's DEFAULT
-			return true;
-		}
-		// Does this type have any restriction on its children?
-		// i.e. is there any type that is restricted to this type as parent?
-		boolean v = false;
-		for (EntityType t: EntityType.values()) {
-			List<String> validParents = t.getMetadata().getValidParentTypes();
-			if (validParents.contains(entityTypeName)) {
-				v = true;
+	public static boolean isValidTypeChange(String srcTypeName, String destTypeName) throws ClassNotFoundException {
+		boolean v = true;
+		EntityType srcType = EntityType.valueOf(srcTypeName);
+		EntityType destType = EntityType.valueOf(destTypeName);
+		EntityTypeMetadata srcTypeMetadata = srcType.getMetadata();
+		EntityTypeMetadata destTypeMetadata = destType.getMetadata();
+		String srcClassName = srcTypeMetadata.getEntityType();
+		String destClassName = destTypeMetadata.getEntityType();
+//		// Both src and dest must implement same interfaces
+//		// TODO: Re-implement in better way
+//		if ((Locationable.class).isAssignableFrom(Class.forName(srcClassName))) {
+//			if (! Locationable.class.isAssignableFrom(Class.forName(destClassName))) {
+//				return false;
+//			}
+//		}
+//		// Is this for Versionable?
+		// src valid parent types should be included in dest valid parent types
+		for (String vpSrc: srcTypeMetadata.getValidParentTypes()) {
+			if (! destTypeMetadata.getValidParentTypes().contains(vpSrc)) {
+				v = false;
 				break;
 			}
 		}
+		// every type that has src as valid parent should also have dest as valid parent type
+		if (v) {
+			for (EntityType t: EntityType.values()) {
+				List<String> l = t.getMetadata().getValidParentTypes();
+				if ((l.contains(srcClassName)) && (! l.contains(destClassName))) {
+					v = false;
+					break;
+				}
+			}			
+		}
 		return v;
 	}
-
 
 }

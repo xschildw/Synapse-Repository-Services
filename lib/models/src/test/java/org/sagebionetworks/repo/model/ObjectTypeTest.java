@@ -49,7 +49,13 @@ public class ObjectTypeTest {
 	
 	@Test
 	public void testPreviewValidParent(){
-		EntityType[] expectedValid = new EntityType[]{ EntityType.layer, EntityType.folder};
+		EntityType[] expectedValid = new EntityType[]{
+				EntityType.layer,
+				EntityType.folder,
+				EntityType.getEntityType("org.sagebionetworks.repo.model.PhenotypeData"),
+				EntityType.getEntityType("org.sagebionetworks.repo.model.GenotypeData"),
+				EntityType.getEntityType("org.sagebionetworks.repo.model.ExpressionData"),
+				EntityType.getEntityType("org.sagebionetworks.repo.model.GenomicData")};
 		testValidParents(expectedValid, EntityType.preview);
 	}
 	
