@@ -2,6 +2,7 @@ package org.sagebionetworks.repo.web;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
@@ -14,6 +15,7 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
@@ -56,6 +58,7 @@ public class EntityServiceImplAutowiredTest {
 	
 	private String userName;
 	private UserInfo userInfo;
+	private UserInfo userInfo2;
 	
 	HttpServletRequest mockRequest;
 
@@ -71,6 +74,8 @@ public class EntityServiceImplAutowiredTest {
 		userName = userInfo.getUser().getUserId();
 		mockRequest = Mockito.mock(HttpServletRequest.class);
 		when(mockRequest.getServletPath()).thenReturn("/repo/v1");
+		
+		userInfo2 = testUserProvider.getTestUserInfo();
 		
 		toDelete = new ArrayList<String>();
 		// Create a project to hold the datasets
@@ -218,4 +223,17 @@ public class EntityServiceImplAutowiredTest {
 		assertEquals(step.getId(), ehs.getResults().iterator().next().getId());
 	}
 
+	@Test(expected=IllegalArgumentException.class)
+	public void testChangeEntityTypeNullArgs() throws Exception {
+		entityController.changeEntityType(null, null, null);
+	}
+	
+//	@Ignore
+//	@Test
+//	// TODO: Figure how to use Mockito with @autowired
+//	public void testChangeEntityType() throws Exception {
+//		String userId = userInfo2.getUser().getId();
+//		entityController.changeEntityType(userId, "someId", "someType");
+//		verify(mockEntityManager).changeEntityType(userInfo, "someId", "someType");
+//	}
 }

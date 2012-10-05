@@ -311,5 +311,6 @@ public interface EntityManager {
 	 * @throws UnauthorizedException
 	 * @throws NotFoundException
 	 */
-	public void changeEntityType(UserInfo userInfo, String entityId, String entityTypeName)  throws DatastoreException, UnauthorizedException, NotFoundException;
+	public void changeEntityType(UserInfo userInfo, String entityId, String entityTypeName)
+			throws DatastoreException, UnauthorizedException, NotFoundException, IllegalArgumentException;
 }

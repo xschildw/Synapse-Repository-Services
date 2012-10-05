@@ -153,6 +153,20 @@ public class EntityManagerImplUnitTest {
 		entityManager.changeEntityType(mockUser, entityId, targetTypeName);
 	}
 
+	@Ignore
+	@Test
+	public void testHasRestrictions() {
+		boolean v;
+		String s;
+		s = "Project";
+		v = EntityManagerImpl.hasRestrictions(s);
+		assertFalse(v);
+		s = "";
+		v = EntityManagerImpl.hasRestrictions(s);
+		assertTrue(v);
+		
+	}
+	
 	@Test
 	public void testChangeEntityType() throws Exception {
 		String userId = "userA";

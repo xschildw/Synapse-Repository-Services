@@ -5,22 +5,40 @@ import javax.servlet.http.HttpServletRequest;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import org.mockito.Mockito;
+
+import org.sagebionetworks.repo.model.User;
+import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.manager.EntityManager;
+import org.sagebionetworks.repo.manager.UserManager;
 import org.sagebionetworks.repo.web.service.EntityService;
 import org.sagebionetworks.repo.web.service.EntityServiceImpl;
 
 public class EntityServiceImplUnitTest {
 	
 	EntityService controller;
+	UserManager mockUserManager = null;
 	EntityManager mockEntityManager = null;
 	HttpServletRequest mockRequest = null;
+	User u;
+	UserInfo userInfo;
+	String userId;
 	
 	@Before
 	public void before(){
+		mockUserManager = Mockito.mock(UserManager.class);
+		mockUserManager = Mockito.mock(UserManager.class);
 		mockEntityManager = Mockito.mock(EntityManager.class);
 		mockRequest = Mockito.mock(HttpServletRequest.class);
 		controller = new EntityServiceImpl(mockEntityManager);
+		userId = "userId";
+		u = new User();
+		u.setUserId(userId);
+		u.setLname("userLastName");
+		userInfo = new UserInfo(true);
+		userInfo.setUser(u);		
 	}
 	
 	//TODO can this test be deleted or should it be replaced with an equivalent test?

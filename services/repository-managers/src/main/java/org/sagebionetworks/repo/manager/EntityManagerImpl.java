@@ -1,6 +1,7 @@
 package org.sagebionetworks.repo.manager;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Iterator;
@@ -24,6 +25,7 @@ import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.attachment.PresignedUrl;
 import org.sagebionetworks.repo.model.attachment.S3AttachmentToken;
+import org.sagebionetworks.repo.model.registry.EntityTypeMetadata;
 import org.sagebionetworks.repo.web.NotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Propagation;
@@ -538,12 +540,16 @@ public class EntityManagerImpl implements EntityManager {
 	
 	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
 	@Override
-	public void changeEntityType(UserInfo userInfo, String entityId, String entityTypeName)  throws DatastoreException, UnauthorizedException, NotFoundException{
+	public void changeEntityType(UserInfo userInfo, String entityId, String entityTypeName)
+			throws DatastoreException, UnauthorizedException, NotFoundException, IllegalArgumentException {
 		validateReadAccess(userInfo, entityId);
 		validateUpdateAccess(userInfo, entityId);
-		// TODO: Add checks so that we can't move to a type such
-		// that children of this entity would be of incompatible type
+//		if (hasRestrictions(entityTypeName)) {
+//			throw new IllegalArgumentException("Target type " + entityTypeName + " has restrctions on its parent or children types");
+//		}
 		EntityType newEntityType = EntityType.valueOf(entityTypeName);
+		
+		List<String> excludedAnnots = new ArrayList<String>();
 
 		Node node = nodeManager.get(userInfo, entityId);
 		NamedAnnotations annots = nodeManager.getAnnotations(userInfo, entityId);
@@ -556,19 +562,19 @@ public class EntityManagerImpl implements EntityManager {
 		
 		Map<String, List<byte[]>> srcBlobAnnots = primaryAnnots.getBlobAnnotations();
 		Map<String, List<byte[]>> destBlobAnnots = additionalAnnots.getBlobAnnotations();
-		moveFields(srcBlobAnnots, destBlobAnnots);
+		moveFields(srcBlobAnnots, destBlobAnnots, excludedAnnots);
 		Map<String, List<Date>> srcDateAnnots = primaryAnnots.getDateAnnotations();
 		Map<String, List<Date>> destDateAnnots = additionalAnnots.getDateAnnotations();
-		moveFields(srcDateAnnots, destDateAnnots);
+		moveFields(srcDateAnnots, destDateAnnots, excludedAnnots);
 		Map<String, List<Double>> srcDoubleAnnots = primaryAnnots.getDoubleAnnotations();
 		Map<String, List<Double>> destDoubleAnnots = additionalAnnots.getDoubleAnnotations();
-		moveFields(srcDoubleAnnots, destDoubleAnnots);
+		moveFields(srcDoubleAnnots, destDoubleAnnots, excludedAnnots);
 		Map<String, List<Long>> srcLongAnnots = primaryAnnots.getLongAnnotations();
 		Map<String, List<Long>> destLongAnnots = additionalAnnots.getLongAnnotations();
-		moveFields(srcLongAnnots, destLongAnnots);
+		moveFields(srcLongAnnots, destLongAnnots, excludedAnnots);
 		Map<String, List<String>> srcStringAnnots = primaryAnnots.getStringAnnotations();
 		Map<String, List<String>> destStringAnnots = additionalAnnots.getStringAnnotations();
-		moveFields(srcStringAnnots, destStringAnnots);
+		moveFields(srcStringAnnots, destStringAnnots, excludedAnnots);
 
 		// Change node type
 		node.setNodeType(newEntityType.name());
@@ -576,7 +582,7 @@ public class EntityManagerImpl implements EntityManager {
 		Node updatedNode = nodeManager.update(userInfo, node, annots, false);
 	}
 	
-	private <T extends Object> void moveFields(Map<String, List<T>> l1, Map<String, List<T>> l2) {
+	private static <T extends Object> void moveFields(Map<String, List<T>> l1, Map<String, List<T>> l2, List<String> excludedKeys) {
 		Iterator<Map.Entry<String, List<T>>> iter = l1.entrySet().iterator();
 		while (iter.hasNext()) {
 			Map.Entry<String, List<T>> entry = iter.next();
@@ -592,6 +598,26 @@ public class EntityManagerImpl implements EntityManager {
 		}
 	}
 
+	public static boolean hasRestrictions(String entityTypeName) {
+
+		EntityType type = EntityType.valueOf(entityTypeName);
+		EntityTypeMetadata metadata = type.getMetadata();
+		// Does this type have any restriction on its parent?
+		if (metadata.getValidParentTypes().size() != 1) { // if == 1 then it's DEFAULT
+			return true;
+		}
+		// Does this type have any restriction on its children?
+		// i.e. is there any type that is restricted to this type as parent?
+		boolean v = false;
+		for (EntityType t: EntityType.values()) {
+			List<String> validParents = t.getMetadata().getValidParentTypes();
+			if (validParents.contains(entityTypeName)) {
+				v = true;
+				break;
+			}
+		}
+		return v;
+	}
 
 
 }
