@@ -6,16 +6,19 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.Ignore;
+import org.junit.runner.RunWith;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 import javax.servlet.ServletException;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+
 import org.sagebionetworks.repo.manager.TestUserDAO;
 import org.sagebionetworks.repo.model.Annotations;
 import org.sagebionetworks.repo.model.BatchResults;
@@ -260,8 +263,12 @@ public class EntityControllerTest {
 			System.out.println(e.getMessage());
 			assertTrue(e.getMessage().indexOf(Code.class.getName()) > 0);
 			assertTrue(e.getMessage().indexOf(Study.class.getName()) > 0);
-		}
-		
+		}		
 	}
 	
+	@Ignore
+	@Test
+	public void testChangeEntityType() throws Exception {
+		
+	}
 }

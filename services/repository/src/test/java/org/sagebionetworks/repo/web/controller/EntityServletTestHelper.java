@@ -533,4 +533,25 @@ public class EntityServletTestHelper {
 		return EntityFactory.createEntityFromJSONString(response.getContentAsString(), EntityRegistry.class);
 		
 	}
+	
+	public void changeEntityType(
+			HttpServlet dispatchServlet,
+			String entityId,
+			String userId,
+			String newEntityType
+			) throws ServletException, IOException {
+		MockHttpServletRequest req = new MockHttpServletRequest();
+		MockHttpServletResponse resp = new MockHttpServletResponse();
+		req.setMethod("PUT");
+		req.addHeader("Accept", "application/json");
+		req.setRequestURI(UrlHelpers.ENTITY_CHANGE_TYPE);
+		req.setParameter(AuthorizationConstants.USER_ID_PARAM, "userId");
+		
+		dispatchServlet.service(req, resp);
+		
+		if (resp.getStatus() != HttpStatus.OK.value()) {
+			throw new ServletTestHelperException(resp);
+		}
+	}
+
 }

@@ -89,6 +89,11 @@ public class EntityServiceImpl implements EntityService {
 		super();
 		this.entityManager = entityManager;
 	}
+	public EntityServiceImpl(UserManager userManager, EntityManager entityManager) {
+		super();
+		this.entityManager = entityManager;
+		this.userManager = userManager;
+	}
 
 	@Override
 	public <T extends Entity> PaginatedResults<T> getEntities(String userId, PaginatedParameters paging,
