@@ -543,27 +543,52 @@ public class EntityManagerImpl implements EntityManager {
 	@Override
 	public void changeEntityType(UserInfo userInfo, String entityId, String entityTypeName)
 			throws DatastoreException, UnauthorizedException, NotFoundException, IllegalArgumentException {
+		Node node;
+		NamedAnnotations annots;
+		
 		validateReadAccess(userInfo, entityId);
 		validateUpdateAccess(userInfo, entityId);
-//		if (hasRestrictions(entityTypeName)) {
-//			throw new IllegalArgumentException("Target type " + entityTypeName + " has restrictions on its parent or children types");
-//		}
 		EntityType newEntityType = EntityType.valueOf(entityTypeName);
+		List<Long> nodeVersionNums = nodeManager.getAllVersionNumbersForNode(userInfo, entityId);
 		
+		if (nodeVersionNums.size() == 0) {
+			node = nodeManager.get(userInfo, entityId);
+			annots = nodeManager.getAnnotations(userInfo, entityId);
+			changeNodeType(userInfo, node, annots, newEntityType);
+		} else {
+//			// Move the fields for every version of the node
+//			for (Long nodeVersionNum: nodeVersionNums) {
+//				node = nodeManager.getNodeForVersionNumber(userInfo, entityId, nodeVersionNum);
+//				annots = nodeManager.getAnnotationsForVersion(userInfo, entityId, nodeVersionNum);
+//				changeNodeType(userInfo, node, annots, newEntityType);
+//			}		
+		}
+		
+	}
+	
+	private void changeNodeType(UserInfo userInfo, Node node, NamedAnnotations annots, EntityType newEntityType)
+		throws ConflictingUpdateException, DatastoreException, UnauthorizedException, InvalidModelException, NotFoundException {
+		Annotations primaryAnnots = annots.getPrimaryAnnotations();
+		Annotations additionalAnnots = annots.getAdditionalAnnotations();
+		
+		moveFieldsFromPrimaryToAdditionals(primaryAnnots, additionalAnnots);
+
+		// Change node type
+		node.setNodeType(newEntityType.name());
+		// Update node and annotations
+		Node updatedNode = nodeManager.update(userInfo, node, annots, false);
+	}
+	
+	private static void moveFieldsFromPrimaryToAdditionals(Annotations primaryAnnots, Annotations additionalAnnots) {
+		// Move annotations from primary to additional
+		// TODO: There's got to be a better way of handling each type of list
+		// List<Map <String, List<? extends Object>>> srcAnnots;
 		List<String> excludedAnnots = Arrays.asList(
 				"name", "description", "parentId", "attachments",	// Entity
 				"locations", "md5", "contentType", "s3Token",		// Locationable
 				"versionLabel", "versionComment"					// Versionable
 				);
 
-		Node node = nodeManager.get(userInfo, entityId);
-		NamedAnnotations annots = nodeManager.getAnnotations(userInfo, entityId);
-		
-		Annotations primaryAnnots = annots.getPrimaryAnnotations();
-		Annotations additionalAnnots = annots.getAdditionalAnnotations();
-		// Move annotations from primary to additional
-		// TODO: There's got to be a better way of handling each type of list
-		// List<Map <String, List<? extends Object>>> srcAnnots;
 		
 		Map<String, List<byte[]>> srcBlobAnnots = primaryAnnots.getBlobAnnotations();
 		Map<String, List<byte[]>> destBlobAnnots = additionalAnnots.getBlobAnnotations();
@@ -580,11 +605,6 @@ public class EntityManagerImpl implements EntityManager {
 		Map<String, List<String>> srcStringAnnots = primaryAnnots.getStringAnnotations();
 		Map<String, List<String>> destStringAnnots = additionalAnnots.getStringAnnotations();
 		moveFields(srcStringAnnots, destStringAnnots, excludedAnnots);
-
-		// Change node type
-		node.setNodeType(newEntityType.name());
-		// Update node and annotations
-		Node updatedNode = nodeManager.update(userInfo, node, annots, false);
 	}
 	
 	private static <T extends Object> void moveFields(Map<String, List<T>> l1, Map<String, List<T>> l2, List<String> excludedKeys) {
@@ -634,14 +654,21 @@ public class EntityManagerImpl implements EntityManager {
 		EntityTypeMetadata destTypeMetadata = destType.getMetadata();
 		String srcClassName = srcTypeMetadata.getEntityType();
 		String destClassName = destTypeMetadata.getEntityType();
-//		// Both src and dest must implement same interfaces
-//		// TODO: Re-implement in better way
-//		if ((Locationable.class).isAssignableFrom(Class.forName(srcClassName))) {
-//			if (! Locationable.class.isAssignableFrom(Class.forName(destClassName))) {
+		
+//		// Check compatible interfaces
+//		Object srcObj = Class.forName(srcClassName);
+//		Object destObj = Class.forName(destClassName);
+//		if (Locationable.class.isInstance(srcObj)) {
+//			if (! (Locationable.class.isInstance(destObj))) {
 //				return false;
 //			}
 //		}
-//		// Is this for Versionable?
+//		if (Versionable.class.isInstance(srcObj)) {
+//			if (! (Versionable.class.isInstance(destObj))) {
+//				return false;
+//			}
+//		}
+//		
 		// src valid parent types should be included in dest valid parent types
 		for (String vpSrc: srcTypeMetadata.getValidParentTypes()) {
 			if (! destTypeMetadata.getValidParentTypes().contains(vpSrc)) {

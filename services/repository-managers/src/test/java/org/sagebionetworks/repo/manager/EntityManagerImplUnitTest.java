@@ -176,7 +176,7 @@ public class EntityManagerImplUnitTest {
 		v = EntityManagerImpl.isValidTypeChange("layer", s);
 		assertTrue(v);
 //		// Should not be able to go from Locationable to non-Locationable
-//		s = "folder";
+//		s = "genericdata";
 //		v = EntityManagerImpl.isValidTypeChange("layer", s);
 //		assertFalse(v);
 	}

@@ -25,6 +25,7 @@ import org.sagebionetworks.repo.model.EntityPath;
 import org.sagebionetworks.repo.model.NameConflictException;
 import org.sagebionetworks.repo.model.RestResourceList;
 import org.sagebionetworks.repo.model.ServiceConstants;
+import org.sagebionetworks.repo.model.TypeChangeRequest;
 import org.sagebionetworks.repo.model.auth.UserEntityPermissions;
 import org.sagebionetworks.repo.model.registry.EntityRegistry;
 import org.sagebionetworks.repo.web.NotFoundException;
@@ -535,23 +536,33 @@ public class EntityServletTestHelper {
 	}
 	
 	public void changeEntityType(
-			HttpServlet dispatchServlet,
 			String entityId,
+			String entityEtag,
 			String userId,
-			String newEntityType
-			) throws ServletException, IOException {
+			TypeChangeRequest chgReq
+			) throws ServletException, IOException, JSONObjectAdapterException, DatastoreException, NotFoundException {
 		MockHttpServletRequest req = new MockHttpServletRequest();
 		MockHttpServletResponse resp = new MockHttpServletResponse();
 		req.setMethod("PUT");
 		req.addHeader("Accept", "application/json");
-		req.setRequestURI(UrlHelpers.ENTITY_CHANGE_TYPE);
-		req.setParameter(AuthorizationConstants.USER_ID_PARAM, "userId");
-		
-		dispatchServlet.service(req, resp);
-		
+		req.setRequestURI(UrlHelpers.ENTITY+"/"+entityId+UrlHelpers.TYPE);
+		req.setParameter(AuthorizationConstants.USER_ID_PARAM, userId);
+		req.addHeader(ServiceConstants.ETAG_HEADER, entityEtag);
+		req.addHeader("Content-Type", "application/json; charset=UTF-8");
+		StringWriter out = new StringWriter();
+		String body = EntityFactory.createJSONStringForEntity(chgReq);
+		req.setContent(body.getBytes("UTF-8"));
+
+		dispatcherServlet.service(req, resp);
+		log.debug("Results: " + resp.getContentAsString());
+
 		if (resp.getStatus() != HttpStatus.OK.value()) {
-			throw new ServletTestHelperException(resp);
+			handleException(resp.getStatus(), resp.getContentAsString());
 		}
+//		// Read in the value.
+//		StringReader reader = new StringReader(resp.getContentAsString());
+//		return JSONEntityHttpMessageConverter.readEntity(reader);
+		
 	}
 
 }

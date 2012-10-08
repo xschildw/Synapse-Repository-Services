@@ -853,7 +853,7 @@ public class EntityController extends BaseController{
      * @throws UnauthorizedException
      */
     @ResponseStatus(HttpStatus.OK)
-    @RequestMapping(value = { UrlHelpers.ENTITY_CHANGE_TYPE}, method = RequestMethod.PUT)
+    @RequestMapping(value = { UrlHelpers.ENTITY_CHANGE_TYPE+UrlHelpers.TYPE}, method = RequestMethod.PUT)
     public @ResponseBody
     void changeEntityType(
     				@PathVariable String id,

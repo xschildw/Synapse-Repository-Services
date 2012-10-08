@@ -211,7 +211,7 @@ public class UrlHelpers {
 	/**
 	 * Change the type of an entity
 	 */
-	public static final String ENTITY_CHANGE_TYPE = ENTITY_ID + TYPE;
+	public static final String ENTITY_CHANGE_TYPE = ENTITY_ID;
 
 	/**
 	 * URL path for query controller
