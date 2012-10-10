@@ -1243,11 +1243,7 @@ public class NodeDAOImpl implements NodeDAO, NodeBackupDAO, InitializingBean {
 		nrb.setRevisionNumber(versionNumber);
 		//nrb.setXmlVersion("");
 
-		JDORevisionUtils.updateJdoFromDto(nrb, dboRev);
-		// Save the new revision
-		dboBasicDao.update(dboRev);
-		// If this is the current revision then we also need to update all of the annotation tables
-		replaceAnnotationsAndReferencesIfCurrent(owner.getCurrentRevNumber(), dboRev);
+		this.updateRevisionFromBackup(nrb);
 	}
 
 

@@ -267,8 +267,8 @@ public class EntityControllerTest {
 			assertTrue(e.getMessage().indexOf(Study.class.getName()) > 0);
 		}		
 	}
-	
-	
+		
+	@Ignore
 	@Test
 	public void testChangeEntityType() throws Exception {
 		Study s = new Study();

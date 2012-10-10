@@ -1779,11 +1779,79 @@ public class NodeDAOImplTest {
 	
 	@Test
 	public void testUpdateVersionFromNodeAndAnnots() throws Exception {
-		Node node = privateCreateNode("node");
+		// Version 1
+		Node node = privateCreateNew("node");
+		node.setDescription("This is project V1");
 		node.setNodeType(EntityType.project.name());
+		node.setVersionLabel("1.0.0");
+		node.setVersionComment("This is version 1.0.0");
+		node.setETag("etag1");
 		String nodeId = nodeDao.createNew(node);
 		toDelete.add(nodeId);
 		assertNotNull(nodeId);
 		
+		NamedAnnotations namedAnnots = nodeDao.getAnnotations(nodeId);
+		Annotations additionalAnnots = namedAnnots.getAdditionalAnnotations();
+		additionalAnnots.addAnnotation("stringOneV1", "one");
+		additionalAnnots.addAnnotation("doubleKeyV1", new Double(23.5));
+		additionalAnnots.addAnnotation("longKeyV1", new Long(1234));
+		additionalAnnots.addAnnotation("blobKeyV1", "StringToBlob".getBytes("UTF-8"));
+		byte[] bigBlob = new byte[6000];
+		Arrays.fill(bigBlob, (byte)0xa3);
+		additionalAnnots.addAnnotation("bigBlobV1", bigBlob);
+		additionalAnnots.addAnnotation("dateKeyV1", new Date(System.currentTimeMillis()));
+		// update the eTag
+		String newETagString = eTagGenerator.generateETag(null);
+		additionalAnnots.setEtag(newETagString);
+		// Update them
+		nodeDao.updateAnnotations(nodeId, namedAnnots);
+		
+		// Version 2
+		node = nodeDao.getNode(nodeId);
+		namedAnnots = nodeDao.getAnnotations(nodeId);
+		node.setDescription("This is project V2");
+		node.setVersionLabel("2.0.0");
+		node.setVersionComment("This is version 2.0.0");
+		nodeDao.createNewVersion(node);
+		additionalAnnots = namedAnnots.getAdditionalAnnotations();
+		additionalAnnots.addAnnotation("stringTwoV2", "two");
+		additionalAnnots.addAnnotation("longKeyV2", new Long(5678));
+		newETagString = eTagGenerator.generateETag(null);
+		additionalAnnots.setEtag(newETagString);
+		nodeDao.updateAnnotations(nodeId, namedAnnots);
+		
+		// Version 3
+		node = nodeDao.getNode(nodeId);
+		node.setDescription("This is project V3");
+		node.setVersionLabel("3.0.0");
+		node.setVersionComment("This is version 3.0.0");
+		nodeDao.createNewVersion(node);
+		namedAnnots = nodeDao.getAnnotations(nodeId);
+		additionalAnnots = namedAnnots.getAdditionalAnnotations();
+		additionalAnnots.addAnnotation("stringThreeV3", "three");
+		additionalAnnots.addAnnotation("longKeyV3", new Long(9));
+		newETagString = eTagGenerator.generateETag(null);
+		additionalAnnots.setEtag(newETagString);
+		nodeDao.updateAnnotations(nodeId, namedAnnots);
+		
+		// Change version 2
+		node = nodeDao.getNodeForVersion(nodeId, 2L);
+		namedAnnots = nodeDao.getAnnotationsForVersion(nodeId, 2L);
+		additionalAnnots = namedAnnots.getAdditionalAnnotations();
+		assertEquals("2.0.0", node.getVersionLabel());
+		assertEquals("two", additionalAnnots.getSingleValue("stringTwoV2"));
+		
+		node.setDescription("This is project V2 modified");
+		additionalAnnots.addAnnotation("stringTwodV2mod", "twoMod");
+		
+		nodeDao.updateRevisionFromNodeAndAnnots(node, namedAnnots, 2L);
+		
+		// Check if changes made it
+		node = nodeDao.getNodeForVersion(nodeId, 2L);
+		namedAnnots = nodeDao.getAnnotationsForVersion(nodeId, 2L);
+		additionalAnnots = namedAnnots.getAdditionalAnnotations();
+		assertEquals("2.0.0", node.getVersionLabel());
+		assertEquals("twoMod", additionalAnnots.getSingleValue("stringTwodV2mod"));
+
 	}
 }

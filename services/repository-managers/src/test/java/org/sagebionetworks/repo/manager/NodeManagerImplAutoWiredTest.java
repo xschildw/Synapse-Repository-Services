@@ -17,6 +17,7 @@ import java.util.List;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
@@ -98,6 +99,7 @@ public class NodeManagerImplAutoWiredTest {
 		}
 	}
 	
+	@Ignore
 	@Test
 	public void testUpdateNodeVersionNoVersion() throws Exception {
 		// Create version 1 of a node + annotation
