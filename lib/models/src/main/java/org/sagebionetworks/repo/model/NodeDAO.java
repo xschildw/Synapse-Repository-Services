@@ -306,7 +306,7 @@ public interface NodeDAO extends MigratableDAO {
      */
 	public boolean doesNodeHaveChildren(String nodeId);
 
-	void updateRevision(Node node, NamedAnnotations namedAnnotations,
+	void updateRevisionFromNodeAndAnnots(Node node, NamedAnnotations namedAnnotations,
 			Long versionNumber) throws NotFoundException, DatastoreException;
 
 }

@@ -1776,4 +1776,14 @@ public class NodeDAOImplTest {
 		assertTrue(nodeDao.doesNodeHaveChildren(parentId));
 		assertFalse(nodeDao.doesNodeHaveChildren(child1Id));
 	}
+	
+	@Test
+	public void testUpdateVersionFromNodeAndAnnots() throws Exception {
+		Node node = privateCreateNode("node");
+		node.setNodeType(EntityType.project.name());
+		String nodeId = nodeDao.createNew(node);
+		toDelete.add(nodeId);
+		assertNotNull(nodeId);
+		
+	}
 }

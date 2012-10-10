@@ -1226,7 +1226,7 @@ public class NodeDAOImpl implements NodeDAO, NodeBackupDAO, InitializingBean {
 	
 	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
 	@Override
-	public void updateRevision(Node node, NamedAnnotations namedAnnotations, Long versionNumber) throws NotFoundException, DatastoreException {
+	public void updateRevisionFromNodeAndAnnots(Node node, NamedAnnotations namedAnnotations, Long versionNumber) throws NotFoundException, DatastoreException {
 		DBONode owner = getNodeById(KeyFactory.stringToKey(node.getId()));
 		DBORevision dboRev = getNodeRevisionById(KeyFactory.stringToKey(node.getId()), versionNumber);
 
