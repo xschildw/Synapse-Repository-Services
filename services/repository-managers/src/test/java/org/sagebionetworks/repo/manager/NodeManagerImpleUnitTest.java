@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
@@ -208,6 +209,12 @@ public class NodeManagerImpleUnitTest {
 		UserInfo userInfo = anonUserInfo;
 		when(mockReferenceDao.getReferrers(id, null, userInfo, null, null)).thenReturn(expected);
 		EntityHeaderQueryResults actual = nodeManager.getEntityReferences(userInfo, ""+id, null, null, null);
+	}
+	
+	@Ignore
+	@Test
+	public void testUpdateVersion() throws Exception {
+		
 	}
 
 }

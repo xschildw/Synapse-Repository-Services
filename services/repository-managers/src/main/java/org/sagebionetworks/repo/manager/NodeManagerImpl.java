@@ -490,4 +490,25 @@ public class NodeManagerImpl implements NodeManager, InitializingBean {
 		return nodeDao.doesNodeHaveChildren(nodeId);
 	}
 	
+	/**
+	 * Update a version of a node
+	 * @throws NotFoundException 
+	 * @throws DatastoreException 
+	 */
+	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	@Override
+	public void updateVersion(UserInfo userInfo, Node node, NamedAnnotations annots, Long nodeVersionNum) throws DatastoreException, NotFoundException {
+		UserInfo.validateUserInfo(userInfo);
+		if (! authorizationManager.canAccess(userInfo, node.getId(), ACCESS_TYPE.UPDATE)) {
+			throw new UnauthorizedException(userInfo.getUser().getUserId() + " lacks update access to the requested object.");
+		}
+		if (node == null) throw new IllegalArgumentException("Node cannot be null.");
+		if (annots == null) throw new IllegalArgumentException("NamedAnnotations cannot be null.");
+		if (nodeVersionNum == null) throw new IllegalArgumentException("Node version cannot be null.");
+		if (! nodeDao.doesNodeRevisionExist(node.getId(), nodeVersionNum)) throw new IllegalArgumentException("Node does not have version " + nodeVersionNum);
+
+		
+	}
+	
+
 }

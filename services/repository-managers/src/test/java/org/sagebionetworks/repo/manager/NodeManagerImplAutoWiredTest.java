@@ -3,6 +3,7 @@ package org.sagebionetworks.repo.manager;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.anyString;
@@ -95,6 +96,80 @@ public class NodeManagerImplAutoWiredTest {
 				} 				
 			}
 		}
+	}
+	
+	@Test
+	public void testUpdateNodeVersionNoVersion() throws Exception {
+		// Create version 1 of a node + annotation
+		Node node = new Node();
+		node.setName("rootNodeV1");
+		node.setNodeType(EntityType.project.name());
+		node.setVersionComment("This is version 1");
+		node.setVersionLabel("1.0.0");
+		String rootId = nodeManager.createNewNode(node, testUser);
+		nodesToDelete.add(rootId);
+		
+		NamedAnnotations namedAnnots = nodeManager.getAnnotations(testUser, rootId);
+		Annotations additionalAnnots = namedAnnots.getAdditionalAnnotations();
+		additionalAnnots.addAnnotation("v1", "someV1annot");
+		nodeManager.updateAnnotations(testUser, rootId, additionalAnnots, namedAnnots.NAME_SPACE_ADDITIONAL);
+		
+		List<Long> versions = nodeManager.getAllVersionNumbersForNode(testUser, rootId);
+		assertNotNull(versions);
+		assertEquals((Long)1L, versions.get(0));
+				
+		// Update annotations to create version 2 of node + annotations
+		Node n2 = nodeManager.get(testUser, rootId);
+		NamedAnnotations na2 = nodeManager.getAnnotations(testUser, rootId);
+		Annotations aa2 = na2.getAdditionalAnnotations();
+		aa2.addAnnotation("v2", "someV2annot");
+		n2.setVersionLabel("2.0.0");
+		n2.setVersionComment("This is version 2");
+		nodeManager.update(testUser, n2, na2, true);
+		
+		versions = nodeManager.getAllVersionNumbersForNode(testUser, rootId);
+		assertNotNull(versions);
+		assertEquals((Long)2L, versions.get(0));
+		
+		// Update annotations to create version 3 of node + annotations
+		Node n3 = nodeManager.get(testUser, rootId);
+		NamedAnnotations na3 = nodeManager.getAnnotations(testUser, rootId);
+		Annotations aa3 = na3.getAdditionalAnnotations();
+		aa3.addAnnotation("v3", "someV3annot");
+		n3.setVersionLabel("3.0.0");
+		n3.setVersionComment("This is version 3");
+		nodeManager.update(testUser, n3, na3, true);
+		
+		versions = nodeManager.getAllVersionNumbersForNode(testUser, rootId);
+		assertNotNull(versions);
+		assertEquals((Long)3L, versions.get(0));
+		
+		// Use updateVersion() to update version 2 of node + annotations
+		node = nodeManager.getNodeForVersionNumber(testUser, rootId, 2L);
+		namedAnnots = nodeManager.getAnnotationsForVersion(testUser, rootId, 2L);
+		assertEquals("rootNodeV1", node.getName());
+		assertEquals("2.0.0", node.getVersionLabel());
+		namedAnnots.getAdditionalAnnotations().addAnnotation("addedforV2", "someAnnotAddedforV2");
+		nodeManager.updateVersion(testUser, node, namedAnnots, 2L);
+		
+		// Total number of versions and last versions have not changed
+		versions = nodeManager.getAllVersionNumbersForNode(testUser, rootId);
+		assertNotNull(versions);
+		assertEquals((Long)3L, versions.get(0));
+		
+		// Current version is still 3.0.0 and annots have not changed
+		node = nodeManager.get(testUser, rootId);
+		assertEquals("3.0.0", node.getVersionLabel());
+		namedAnnots = nodeManager.getAnnotations(testUser, rootId);
+		assertEquals("someV3annot", namedAnnots.getAdditionalAnnotations().getSingleValue("v3"));
+		
+		// Version 2 has additional annotation
+		node = nodeManager.getNodeForVersionNumber(testUser, rootId, 2L);
+		namedAnnots = nodeManager.getAnnotationsForVersion(testUser, rootId, 2L);
+		assertEquals("rootNodeV1", node.getName());
+		assertEquals("2.0.0", node.getVersionLabel());
+		assertTrue(namedAnnots.getAdditionalAnnotations().keySet().contains("addedforV2"));
+		
 	}
 	
 	@Test
@@ -574,4 +649,5 @@ public class NodeManagerImplAutoWiredTest {
 		verify(mockNodeDao, never()).changeNodeParent(anyString(), anyString());
 		verify(mockNodeInheritanceManager, never()).nodeParentChanged(anyString(), anyString());
 	}
+	
 }

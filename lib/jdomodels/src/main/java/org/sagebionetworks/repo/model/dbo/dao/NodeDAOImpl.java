@@ -1002,6 +1002,7 @@ public class NodeDAOImpl implements NodeDAO, NodeBackupDAO, InitializingBean {
 		replaceAnnotationsAndReferencesIfCurrent(owner.getCurrentRevNumber(), dboRev);
 	}
 
+
 	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
 	@Override
 	public void createNewRevisionFromBackup(NodeRevisionBackup rev) throws NotFoundException, DatastoreException {
@@ -1222,4 +1223,32 @@ public class NodeDAOImpl implements NodeDAO, NodeBackupDAO, InitializingBean {
 	public MigratableObjectType getMigratableObjectType() {
 		return MigratableObjectType.ENTITY;
 	}
+	
+	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	@Override
+	public void updateRevision(Node node, NamedAnnotations namedAnnotations, Long versionNumber) throws NotFoundException, DatastoreException {
+		DBONode owner = getNodeById(KeyFactory.stringToKey(node.getId()));
+		DBORevision dboRev = getNodeRevisionById(KeyFactory.stringToKey(node.getId()), versionNumber);
+
+		// Make a NodeRevisionBackup to use existing code
+		NodeRevisionBackup nrb = new NodeRevisionBackup();
+		nrb.setComment(node.getVersionComment());
+		nrb.setLabel(node.getVersionLabel());
+		nrb.setModifiedBy(node.getModifiedBy());
+		nrb.setModifiedByPrincipalId(node.getModifiedByPrincipalId());
+		nrb.setModifiedOn(node.getModifiedOn());
+ 		nrb.setNamedAnnotations(namedAnnotations);
+		nrb.setNodeId(node.getId());
+		nrb.setReferences(node.getReferences());
+		nrb.setRevisionNumber(versionNumber);
+		//nrb.setXmlVersion("");
+
+		JDORevisionUtils.updateJdoFromDto(nrb, dboRev);
+		// Save the new revision
+		dboBasicDao.update(dboRev);
+		// If this is the current revision then we also need to update all of the annotation tables
+		replaceAnnotationsAndReferencesIfCurrent(owner.getCurrentRevNumber(), dboRev);
+	}
+
+
 }

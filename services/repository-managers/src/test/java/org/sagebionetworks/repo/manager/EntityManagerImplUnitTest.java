@@ -5,6 +5,7 @@ import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -154,7 +155,7 @@ public class EntityManagerImplUnitTest {
 	}
 
 	@Test
-	public void testIsValidTypeChange() throws ClassNotFoundException {
+	public void testIsValidTypeChange() throws Exception {
 		// TODO: Expand to cover all combos?
 		boolean v;
 		String s;
@@ -166,7 +167,7 @@ public class EntityManagerImplUnitTest {
 		// Should be able to go from dataset/study to folder
 		s = "folder";
 		v = EntityManagerImpl.isValidTypeChange("dataset", s);
-		assertTrue(v);
+		assertFalse(v);
 		// Should be able to go from phenotypedata to data
 		s = "layer";
 		v = EntityManagerImpl.isValidTypeChange("phenotypedata", s);
@@ -175,10 +176,10 @@ public class EntityManagerImplUnitTest {
 		s = "genomicdata";
 		v = EntityManagerImpl.isValidTypeChange("layer", s);
 		assertTrue(v);
-//		// Should not be able to go from Locationable to non-Locationable
-//		s = "genericdata";
-//		v = EntityManagerImpl.isValidTypeChange("layer", s);
-//		assertFalse(v);
+		// Should not be able to go from Locationable to non-Locationable
+		s = "folder";
+		v = EntityManagerImpl.isValidTypeChange("layer", s);
+		assertFalse(v);
 	}
 	
 	@Test
@@ -241,14 +242,13 @@ public class EntityManagerImplUnitTest {
 		when(mockPermissionsManager.hasAccess(entityId, ACCESS_TYPE.UPDATE, mockUser)).thenReturn(true);
 		when(mockNodeManager.get(mockUser, entityId)).thenReturn(expectedBeforeNode);
 		when(mockNodeManager.getAnnotations(mockUser, entityId)).thenReturn(expectedBeforeNamedAnnots);
-//		expectedBeforeNode.setNodeType(srcType);
-//		when(mockNodeManager.update(mockUser, expectedBeforeNode)).thenReturn(expectedAfterNode);
-				
-		entityManager.changeEntityType(mockUser, entityId, targetType);
-		verify(mockNodeManager).update(mockUser, expectedAfterNode, expectedAfterAnnots, false);
+		List<Long> revs = Arrays.asList(0L);
+		when(mockNodeManager.getAllVersionNumbersForNode(mockUser, entityId)).thenReturn(revs);
+		when(mockNodeManager.getNodeForVersionNumber(mockUser, entityId, revs.get(0))).thenReturn(expectedBeforeNode);
+		when(mockNodeManager.getAnnotationsForVersion(mockUser, entityId, revs.get(0))).thenReturn(expectedBeforeNamedAnnots);
 		
-//		when(mockNodeManager.get(mockUser, entityId)).thenReturn(expectedAfterNode);
-//		EntityWithAnnotations<GenomicData> e = entityManager.getEntityWithAnnotations(mockUser, entityId, GenomicData.class);
+		entityManager.changeEntityType(mockUser, entityId, targetType);
+		verify(mockNodeManager).updateVersion(mockUser, expectedBeforeNode, expectedBeforeNamedAnnots, revs.get(0));
 		
 	}
 }

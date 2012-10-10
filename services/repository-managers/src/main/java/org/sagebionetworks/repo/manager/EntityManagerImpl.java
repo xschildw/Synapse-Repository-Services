@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.sagebionetworks.repo.manager.backup.NodeBackupManager;
 import org.sagebionetworks.repo.model.ACCESS_TYPE;
 import org.sagebionetworks.repo.model.Annotations;
 import org.sagebionetworks.repo.model.ConflictingUpdateException;
@@ -21,6 +22,7 @@ import org.sagebionetworks.repo.model.InvalidModelException;
 import org.sagebionetworks.repo.model.Locationable;
 import org.sagebionetworks.repo.model.NamedAnnotations;
 import org.sagebionetworks.repo.model.Node;
+import org.sagebionetworks.repo.model.NodeBackup;
 import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.Versionable;
@@ -551,22 +553,15 @@ public class EntityManagerImpl implements EntityManager {
 		EntityType newEntityType = EntityType.valueOf(entityTypeName);
 		List<Long> nodeVersionNums = nodeManager.getAllVersionNumbersForNode(userInfo, entityId);
 		
-		if (nodeVersionNums.size() == 0) {
-			node = nodeManager.get(userInfo, entityId);
-			annots = nodeManager.getAnnotations(userInfo, entityId);
-			changeNodeType(userInfo, node, annots, newEntityType);
-		} else {
-//			// Move the fields for every version of the node
-//			for (Long nodeVersionNum: nodeVersionNums) {
-//				node = nodeManager.getNodeForVersionNumber(userInfo, entityId, nodeVersionNum);
-//				annots = nodeManager.getAnnotationsForVersion(userInfo, entityId, nodeVersionNum);
-//				changeNodeType(userInfo, node, annots, newEntityType);
-//			}		
+		// Move the fields for every version of the node
+		for (Long nodeVersionNum: nodeVersionNums) {
+			node = nodeManager.getNodeForVersionNumber(userInfo, entityId, nodeVersionNum);
+			annots = nodeManager.getAnnotationsForVersion(userInfo, entityId, nodeVersionNum);
+			changeNodeType(userInfo, node, annots, newEntityType, nodeVersionNum);
 		}
-		
 	}
 	
-	private void changeNodeType(UserInfo userInfo, Node node, NamedAnnotations annots, EntityType newEntityType)
+	private void changeNodeType(UserInfo userInfo, Node node, NamedAnnotations annots, EntityType newEntityType, Long nodeVersionNum)
 		throws ConflictingUpdateException, DatastoreException, UnauthorizedException, InvalidModelException, NotFoundException {
 		Annotations primaryAnnots = annots.getPrimaryAnnotations();
 		Annotations additionalAnnots = annots.getAdditionalAnnotations();
@@ -576,7 +571,7 @@ public class EntityManagerImpl implements EntityManager {
 		// Change node type
 		node.setNodeType(newEntityType.name());
 		// Update node and annotations
-		Node updatedNode = nodeManager.update(userInfo, node, annots, false);
+		nodeManager.updateVersion(userInfo, node, annots, nodeVersionNum);
 	}
 	
 	private static void moveFieldsFromPrimaryToAdditionals(Annotations primaryAnnots, Annotations additionalAnnots) {
@@ -625,28 +620,7 @@ public class EntityManagerImpl implements EntityManager {
 		}
 	}
 
-//	public static boolean hasRestrictions(String entityTypeName) {
-//
-//		EntityType type = EntityType.valueOf(entityTypeName);
-//		EntityTypeMetadata metadata = type.getMetadata();
-//		// Does this type have any restriction on its parent?
-//		if (metadata.getValidParentTypes().size() != 1) { // if == 1 then it's DEFAULT
-//			return true;
-//		}
-//		// Does this type have any restriction on its children?
-//		// i.e. is there any type that does not have this type as valid parent?
-//		boolean v = true;
-//		for (EntityType t: EntityType.values()) {
-//			List<String> validParents = t.getMetadata().getValidParentTypes();
-//			if (! validParents.contains(entityTypeName)) {
-//				v = false;
-//				break;
-//			}
-//		}
-//		return v;
-//	}
-
-	public static boolean isValidTypeChange(String srcTypeName, String destTypeName) throws ClassNotFoundException {
+	public static boolean isValidTypeChange(String srcTypeName, String destTypeName) throws ClassNotFoundException, InstantiationException, IllegalAccessException {
 		boolean v = true;
 		EntityType srcType = EntityType.valueOf(srcTypeName);
 		EntityType destType = EntityType.valueOf(destTypeName);
@@ -655,20 +629,20 @@ public class EntityManagerImpl implements EntityManager {
 		String srcClassName = srcTypeMetadata.getEntityType();
 		String destClassName = destTypeMetadata.getEntityType();
 		
-//		// Check compatible interfaces
-//		Object srcObj = Class.forName(srcClassName);
-//		Object destObj = Class.forName(destClassName);
-//		if (Locationable.class.isInstance(srcObj)) {
-//			if (! (Locationable.class.isInstance(destObj))) {
-//				return false;
-//			}
-//		}
-//		if (Versionable.class.isInstance(srcObj)) {
-//			if (! (Versionable.class.isInstance(destObj))) {
-//				return false;
-//			}
-//		}
-//		
+		// Check compatible interfaces
+		Object srcObj = Class.forName(srcClassName).newInstance();
+		Object destObj = Class.forName(destClassName).newInstance();
+		if (srcObj instanceof Locationable) {
+			if (! (Locationable.class.isInstance(destObj))) {
+				return false;
+			}
+		}
+		if (Versionable.class.isInstance(srcObj)) {
+			if (! (Versionable.class.isInstance(destObj))) {
+				return false;
+			}
+		}
+		
 		// src valid parent types should be included in dest valid parent types
 		for (String vpSrc: srcTypeMetadata.getValidParentTypes()) {
 			if (! destTypeMetadata.getValidParentTypes().contains(vpSrc)) {

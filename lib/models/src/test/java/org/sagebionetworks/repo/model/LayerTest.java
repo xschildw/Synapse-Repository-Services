@@ -6,8 +6,11 @@ import java.util.ArrayList;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import org.junit.Test;
 
+import org.sagebionetworks.repo.model.registry.EntityTypeMetadata;
 import org.sagebionetworks.schema.adapter.JSONObjectAdapter;
 import org.sagebionetworks.schema.adapter.org.json.JSONObjectAdapterImpl;
 import org.sagebionetworks.schema.adapter.JSONObjectAdapterException;
@@ -61,6 +64,51 @@ public class LayerTest {
 		
 		assertEquals(l1, l2);
 		return;
+	}
+	
+	@Test
+	public void testIsLocationable1() throws Exception {
+		Data d = new Data();
+		boolean v;
+		
+		v = (Locationable.class.isInstance(d));
+		assertTrue(v);
+		
+		v = (d instanceof Locationable);
+		assertTrue(v);
+		
+		v = (Locationable.class.isAssignableFrom(Data.class));
+		assertTrue(v);
+		
+		Object o = new Data();
+		
+		v = (Locationable.class.isInstance(o));
+		assertTrue(v);
+		
+		v = (o instanceof Locationable);
+		assertTrue(v);
+		
+	}
+	
+	@Test
+	public void testIsLocationable2() throws Exception {
+		boolean v;
+		Object o;
+		
+		EntityType et = EntityType.valueOf("layer");
+		EntityTypeMetadata etm = et.getMetadata();
+		String cn = etm.getEntityType();
+		// o's class is org.sagebionetworks.repo.model.Data
+		o = Class.forName(cn).newInstance();
+		String s = o.getClass().getName();
+		assertEquals("org.sagebionetworks.repo.model.Data", s);
+		
+		v = (Locationable.class.isInstance(o));
+		assertTrue(v);
+		
+		v = (o instanceof Locationable);
+		assertTrue(v);
+		
 	}
 
 }

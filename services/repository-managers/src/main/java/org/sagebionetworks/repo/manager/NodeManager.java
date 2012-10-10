@@ -234,4 +234,9 @@ public interface NodeManager {
 	 */
 	public boolean doesNodeHaveChildren(String entityId);
 	
+	/**
+	 * Update a version of a node
+	 */
+	public void updateVersion(UserInfo userInfo, Node node, NamedAnnotations annots, Long nodeVersionNum) throws DatastoreException, NotFoundException;
+	
 }
