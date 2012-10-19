@@ -82,6 +82,7 @@ public class DBORevisionTest {
 		Long createdById = Long.parseLong(userGroupDAO.findGroup(AuthorizationConstants.BOOTSTRAP_USER_GROUP_NAME, false).getId());
 		rev.setModifiedBy(createdById);
 		rev.setModifiedOn(System.currentTimeMillis());
+		rev.setNodeType(EntityType.project.getId());
 		// Now create it
 		rev = dboBasicDao.createNew(rev);
 		// Make sure we can get it

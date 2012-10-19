@@ -10,6 +10,7 @@ import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.COL_REVISION
 import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.COL_REVISION_REFS_BLOB;
 import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.DDL_FILE_REVISION;
 import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.TABLE_REVISION;
+import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.COL_REVISION_NODE_TYPE;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -18,6 +19,7 @@ import java.util.Arrays;
 import org.sagebionetworks.repo.model.dbo.DatabaseObject;
 import org.sagebionetworks.repo.model.dbo.FieldColumn;
 import org.sagebionetworks.repo.model.dbo.TableMapping;
+import org.sagebionetworks.repo.model.query.jdo.SqlConstants;
 
 /**
  * The DatabaseObject for Revision.
@@ -29,6 +31,7 @@ public class DBORevision implements DatabaseObject<DBORevision> {
 	
 	private static FieldColumn[] FIELDS = new FieldColumn[] {
 		new FieldColumn("owner", COL_REVISION_OWNER_NODE, true),
+		new FieldColumn("nodeType", COL_REVISION_NODE_TYPE, true),
 		new FieldColumn("revisionNumber", COL_REVISION_NUMBER, true),
 		new FieldColumn("label", COL_REVISION_LABEL),
 		new FieldColumn("comment", COL_REVISION_COMMENT),
@@ -90,6 +93,7 @@ public class DBORevision implements DatabaseObject<DBORevision> {
 	private Long modifiedOn;
 	private byte[] annotations;
 	private byte[] references;
+	private Short nodeType;
 
 	public Long getOwner() {
 		return owner;
@@ -139,6 +143,13 @@ public class DBORevision implements DatabaseObject<DBORevision> {
 	public void setReferences(byte[] references) {
 		this.references = references;
 	}
+	public Short getNodeType() {
+		return nodeType;
+	}
+	public void setNodeType(Short nodeType) {
+		this.nodeType = nodeType;
+	}
+	
 	@Override
 	public int hashCode() {
 		final int prime = 31;
@@ -154,6 +165,7 @@ public class DBORevision implements DatabaseObject<DBORevision> {
 		result = prime * result + Arrays.hashCode(references);
 		result = prime * result
 				+ ((revisionNumber == null) ? 0 : revisionNumber.hashCode());
+		result = prime * result + ((nodeType == null) ? 0 : nodeType.hashCode());
 		return result;
 	}
 	@Override
@@ -199,11 +211,16 @@ public class DBORevision implements DatabaseObject<DBORevision> {
 				return false;
 		} else if (!revisionNumber.equals(other.revisionNumber))
 			return false;
+		if (nodeType == null) {
+			if (other.nodeType != null) 
+				return false;
+		} else if (!nodeType.equals(other.nodeType))
+			return false;
 		return true;
 	}
 	@Override
 	public String toString() {
-		return "DBORevision [owner=" + owner + ", revisionNumber="
+		return "DBORevision [owner=" + owner + ", nodeType=" + nodeType + ", revisionNumber="
 				+ revisionNumber + ", label=" + label + ", comment=" + comment
 				+ ", modifiedBy=" + modifiedBy + ", modifiedOn=" + modifiedOn
 				+ ", annotations=" + Arrays.toString(annotations)

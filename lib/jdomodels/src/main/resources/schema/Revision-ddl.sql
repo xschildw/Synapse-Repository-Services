@@ -1,5 +1,6 @@
 CREATE TABLE `JDOREVISION` (
   `OWNER_NODE_ID` bigint(20) NOT NULL,
+  `NODE_TYPE` smallint NOT NULL,
   `NUMBER` bigint(20) NOT NULL,
   `ANNOTATIONS` mediumblob,
   `COMMENT` varchar(256) CHARACTER SET latin1 COLLATE latin1_bin DEFAULT NULL,

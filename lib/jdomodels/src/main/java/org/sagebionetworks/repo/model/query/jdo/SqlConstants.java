@@ -34,6 +34,7 @@ public class SqlConstants {
 	// The Revision table
 	public static final String TABLE_REVISION 			= "JDOREVISION";
 	public static final String COL_REVISION_OWNER_NODE	= "OWNER_NODE_ID";
+	public static final String COL_REVISION_NODE_TYPE   = "NODE_TYPE";
 	public static final String COL_REVISION_NUMBER		= "NUMBER";
 	public static final String COL_REVISION_LABEL		= "LABEL";
 	public static final String COL_REVISION_COMMENT		= "COMMENT";
