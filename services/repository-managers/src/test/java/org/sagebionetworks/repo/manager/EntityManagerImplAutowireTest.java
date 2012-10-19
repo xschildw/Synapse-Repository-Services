@@ -26,8 +26,10 @@ import org.sagebionetworks.repo.model.DatastoreException;
 import org.sagebionetworks.repo.model.Folder;
 import org.sagebionetworks.repo.model.GenotypeData;
 import org.sagebionetworks.repo.model.InvalidModelException;
+import org.sagebionetworks.repo.model.Link;
 import org.sagebionetworks.repo.model.Node;
 import org.sagebionetworks.repo.model.PhenotypeData;
+import org.sagebionetworks.repo.model.Reference;
 import org.sagebionetworks.repo.model.Study;
 import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UserInfo;
@@ -79,6 +81,31 @@ public class EntityManagerImplAutowireTest {
 		}
 	}
 	
+	@Test
+	public void testChangeEntityTypeWithLink() throws Exception {
+		Data d = createLayerForTest(1);
+		String entityId = entityManager.createEntity(userInfo, d);
+		toDelete.add(entityId);
+		d = entityManager.getEntity(userInfo, entityId, Data.class);
+		String beforeETag = d.getEtag();
+		Link l = new Link();
+		Reference r = new Reference();
+		r.setTargetId(entityId);
+		r.setTargetVersionNumber(1L);
+		l.setName("linktoData");
+		l.setLinksTo(r);
+		l.setLinksToClassName(Data.class.getName());
+		String linkId = entityManager.createEntity(userInfo, l);
+		toDelete.add(linkId);
+		Class c = Class.forName(l.getLinksToClassName());
+		Data clone = entityManager.getEntity(userInfo, l.getLinksTo().getTargetId(), c);
+		assertEquals(d, clone);
+		entityManager.changeEntityType(userInfo, entityId, "phenotypedata", beforeETag);
+		PhenotypeData pd = entityManager.getEntity(userInfo, entityId, PhenotypeData.class);
+		assertFalse(beforeETag.equals(pd.getEntityType()));
+		clone = entityManager.getEntity(userInfo, l.getLinksTo().getTargetId(), c);
+		assertEquals(pd, clone);
+	}
 	
 	@Test
 	public void testChangeEntityType1() throws Exception {

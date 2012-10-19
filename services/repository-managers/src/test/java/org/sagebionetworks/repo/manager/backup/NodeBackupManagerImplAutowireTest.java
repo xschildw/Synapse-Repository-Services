@@ -233,7 +233,7 @@ public class NodeBackupManagerImplAutowireTest {
 		// Now delete the user
 
 		// Now restore the node
-		backupManager.createOrUpdateNodeWithRevisions(backup, revisions);
+		backupManager.createOrUpdateNodeWithRevisions(backup, revisions, false);
 		
 		//Now get the backup data again and make sure it matches the originals
 		List<NodeRevisionBackup> cloneRevision = new ArrayList<NodeRevisionBackup>();
@@ -271,7 +271,7 @@ public class NodeBackupManagerImplAutowireTest {
 		}
 
 		// This time the node should still exist.
-		backupManager.createOrUpdateNodeWithRevisions(backup, revisions);
+		backupManager.createOrUpdateNodeWithRevisions(backup, revisions, false);
 		
 		//Now get the backup data again and make sure it matches the originals
 		List<NodeRevisionBackup> cloneRevision = new ArrayList<NodeRevisionBackup>();
@@ -321,10 +321,10 @@ public class NodeBackupManagerImplAutowireTest {
 		nodeManager.delete(nonAdminUser, newNodeId);
 		
 		// Now apply the first restore.
-		backupManager.createOrUpdateNodeWithRevisions(startingBackup, startingRevs);
+		backupManager.createOrUpdateNodeWithRevisions(startingBackup, startingRevs, false);
 		
 		// Now update using the new object
-		backupManager.createOrUpdateNodeWithRevisions(updatedNodeBackup, updatedRevs);
+		backupManager.createOrUpdateNodeWithRevisions(updatedNodeBackup, updatedRevs, false);
 	}
 	
 	@Test
@@ -355,7 +355,7 @@ public class NodeBackupManagerImplAutowireTest {
 		nodeManager.delete(nonAdminUser, newNodeId);
 		
 		// Now apply the first restore.
-		backupManager.createOrUpdateNodeWithRevisions(startingBackup, startingRevs);
+		backupManager.createOrUpdateNodeWithRevisions(startingBackup, startingRevs, false);
 		// Create multiple versions that should get replaced.
 		updatedNode = nodeManager.get(nonAdminUser, newNodeId);
 		// Set a new version label
@@ -371,7 +371,7 @@ public class NodeBackupManagerImplAutowireTest {
 		nodeManager.update(nonAdminUser, updatedNode, null, true);
 		
 		// Now update using the new object
-		backupManager.createOrUpdateNodeWithRevisions(updatedNodeBackup, updatedRevs);
+		backupManager.createOrUpdateNodeWithRevisions(updatedNodeBackup, updatedRevs, false);
 		
 		// The revisions should match the replaced revisions
 		NodeBackup cloneBackup = backupManager.getNode(newNodeId);

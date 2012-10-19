@@ -20,6 +20,7 @@ import org.junit.Test;
 import org.mockito.Mockito;
 import static org.mockito.Mockito.*;
 import org.sagebionetworks.repo.manager.backup.migration.MigrationDriver;
+import org.sagebionetworks.repo.model.ConflictingUpdateException;
 import org.sagebionetworks.repo.model.DatastoreException;
 import org.sagebionetworks.repo.model.NodeBackup;
 import org.sagebionetworks.repo.model.NodeRevisionBackup;
@@ -330,7 +331,7 @@ public class NodeBackupDriverImplTest {
 	}
 	
 	@Test
-	public void testCreateOrUpdateDeadLock() throws InterruptedException{
+	public void testCreateOrUpdateDeadLock() throws InterruptedException, ConflictingUpdateException, DatastoreException, NotFoundException{
 		// Mock the 
 		NodeBackupManager mockManager = Mockito.mock(NodeBackupManager.class);
 		MigrationDriver mockDriver = Mockito.mock(MigrationDriver.class);
@@ -339,7 +340,7 @@ public class NodeBackupDriverImplTest {
 		List<NodeRevisionBackup> revs = new LinkedList<NodeRevisionBackup>();
 		// Now simulate deadlock
 		DeadlockLoserDataAccessException exception = new DeadlockLoserDataAccessException("Deadlock", new BatchUpdateException());
-		doThrow(exception).when(mockManager).createOrUpdateNodeWithRevisions(backup, revs);
+		doThrow(exception).when(mockManager).createOrUpdateNodeWithRevisions(backup, revs, false);
 		try{
 			driver.createOrUpdateNodeWithRevisions(backup, revs);
 			fail("Expected a DeadlockLoserDataAccessException");
@@ -347,6 +348,6 @@ public class NodeBackupDriverImplTest {
 			// expected.
 		}
 		// Verify that we tried twice
-		verify(mockManager, times(2)).createOrUpdateNodeWithRevisions(backup, revs);
+		verify(mockManager, times(2)).createOrUpdateNodeWithRevisions(backup, revs, false);
 	}
 }

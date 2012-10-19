@@ -2,6 +2,7 @@ package org.sagebionetworks.repo.manager.backup;
 
 import java.util.List;
 
+import org.sagebionetworks.repo.model.ConflictingUpdateException;
 import org.sagebionetworks.repo.model.DatastoreException;
 import org.sagebionetworks.repo.model.NodeBackup;
 import org.sagebionetworks.repo.model.NodeRevisionBackup;
@@ -13,8 +14,11 @@ public interface NodeBackupDestination {
 	 * Create or update a node with revisions.	
 	 * @param backup
 	 * @param revisions
+	 * @throws NotFoundException 
+	 * @throws DatastoreException 
+	 * @throws ConflictingUpdateException 
 	 */
-	public void createOrUpdateNodeWithRevisions(NodeBackup backup, List<NodeRevisionBackup> revisions);
+	public void createOrUpdateNodeWithRevisions(NodeBackup backup, List<NodeRevisionBackup> revisions, boolean updateETag) throws ConflictingUpdateException, DatastoreException, NotFoundException;
 	
 	/**
 	 * Clear all data in preparation for the restore.

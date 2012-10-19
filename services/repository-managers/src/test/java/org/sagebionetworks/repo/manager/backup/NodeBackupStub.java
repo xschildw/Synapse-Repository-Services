@@ -255,7 +255,7 @@ public class NodeBackupStub implements NodeBackupManager {
 	}
 
 	@Override
-	public void createOrUpdateNodeWithRevisions(NodeBackup backup,	List<NodeRevisionBackup> revisions) {
+	public void createOrUpdateNodeWithRevisions(NodeBackup backup,	List<NodeRevisionBackup> revisions, boolean updateETag) {
 		if(backup == null) throw new IllegalArgumentException("backup cannot be null");
 		if(revisions == null) throw new IllegalArgumentException("revisions cannot be null");
 		// Make sure we process revision in their natural order

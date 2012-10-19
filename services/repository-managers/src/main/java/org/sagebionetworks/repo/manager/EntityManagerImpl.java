@@ -18,6 +18,7 @@ import org.sagebionetworks.repo.model.Entity;
 import org.sagebionetworks.repo.model.EntityHeader;
 import org.sagebionetworks.repo.model.EntityType;
 import org.sagebionetworks.repo.model.InvalidModelException;
+import org.sagebionetworks.repo.model.Link;
 import org.sagebionetworks.repo.model.Locationable;
 import org.sagebionetworks.repo.model.NamedAnnotations;
 import org.sagebionetworks.repo.model.Node;
@@ -564,6 +565,10 @@ public class EntityManagerImpl implements EntityManager {
 		validateUpdateAccess(userInfo, entityId);
 		EntityType newEntityType = EntityType.valueOf(entityTypeName);
 		
+		EntityType entityType = EntityType.valueOf(entityTypeName);
+		Class entityClass = entityType.getClassForType();
+		String entityClassName = entityClass.getName();
+		
 		NodeBackup nodeBackup = nodeBackupManager.getNode(entityId);
 		Node node = nodeBackup.getNode();
 		
@@ -580,19 +585,30 @@ public class EntityManagerImpl implements EntityManager {
 		// For each node revision, move primary fields as appropriate
 		List<Long> revisionNums = nodeBackup.getRevisions();
 		List<NodeRevisionBackup> nodeRevisionBackups = new ArrayList<NodeRevisionBackup>();
+		List<EntityHeader> linksToUpdatedEntity = new ArrayList<EntityHeader>();
 		for (Long revisionNum: revisionNums) {
 			NodeRevisionBackup nodeRevisionBackup = nodeBackupManager.getNodeRevision(entityId, revisionNum);
 			nodeRevisionBackup = EntityManagerUtils.changeNodeRevisionBackupNodeType(nodeRevisionBackup, newEntityType.name());
 			nodeRevisionBackups.add(nodeRevisionBackup);
+			// Get all the (versions of all the ) links to this version of the entity
+			Integer offset = 0;
+			Integer batchSize = 100;
+			QueryResults<EntityHeader> rsEntityRefs;
+			rsEntityRefs = this.getEntityReferences(userInfo, entityId, Integer.valueOf(revisionNum.intValue()), offset, batchSize);
+			Long numResults = rsEntityRefs.getTotalNumberOfResults();
+			while (offset <= numResults) {
+				rsEntityRefs = this.getEntityReferences(userInfo, entityId, Integer.valueOf(revisionNum.intValue()), offset, batchSize);
+				linksToUpdatedEntity.addAll(rsEntityRefs.getResults());
+				offset += batchSize;
+			}
 		}
 		
-		// Cannot acquire lock if I do this here with the current Propagation.REQUIRES_NEW on createOrUpdate()
-		// One solution is to clone the method with Propagation.REQUIRED or Propagation.NESTED
-//		String eTag = nodeManager.lockNodeAndIncrementEtag(userInfo, entityId, beforeETag);
-//		nodeBackup.getNode().setETag(eTag);
-		// Inverting order here for now...
-		nodeBackupManager.createOrUpdateNodeWithRevisions(nodeBackup, nodeRevisionBackups);
-		nodeManager.lockNodeAndIncrementEtag(userInfo, entityId, beforeETag);
+		nodeBackupManager.createOrUpdateNodeWithRevisions(nodeBackup, nodeRevisionBackups, true);
+		
+		for (EntityHeader eh: linksToUpdatedEntity) {
+			// Need to use nodebackups
+		}
+		
 	}
 	
 }

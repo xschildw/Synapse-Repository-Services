@@ -257,7 +257,7 @@ public class EntityManagerImplUnitTest {
 		when(mockNodeBackupManager.getNodeRevision("syn1000000", 1L)).thenReturn(srcNodeRevisionBackup1);
 		when(mockNodeBackupManager.getNodeRevision("syn1000000", 2L)).thenReturn(srcNodeRevisionBackup2);
 		entityManager.changeEntityType(mockUser, "syn1000000", "layer", "");
-		verify(mockNodeBackupManager).createOrUpdateNodeWithRevisions(expectedNodeBackup, expectedListNodeRevisionBackups);
+		verify(mockNodeBackupManager).createOrUpdateNodeWithRevisions(expectedNodeBackup, expectedListNodeRevisionBackups, true);
 	}
 	
 }

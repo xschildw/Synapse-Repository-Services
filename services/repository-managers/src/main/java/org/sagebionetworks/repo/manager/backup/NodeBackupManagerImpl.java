@@ -202,10 +202,13 @@ public class NodeBackupManagerImpl implements NodeBackupManager {
 
 	/**
 	 * Create or update an entity within a single transaction.
+	 * @throws NotFoundException 
+	 * @throws DatastoreException 
+	 * @throws ConflictingUpdateException 
 	 */
 	@Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW)
 	@Override
-	public void createOrUpdateNodeWithRevisions(NodeBackup backup,	List<NodeRevisionBackup> revisions) {
+	public void createOrUpdateNodeWithRevisions(NodeBackup backup,	List<NodeRevisionBackup> revisions, boolean updateETag) throws ConflictingUpdateException, DatastoreException, NotFoundException {
 		if(backup == null) throw new IllegalArgumentException("backup cannot be null");
 		if(revisions == null) throw new IllegalArgumentException("revisions cannot be null");
 		// Make sure we process revision in their natural order
@@ -215,6 +218,17 @@ public class NodeBackupManagerImpl implements NodeBackupManager {
 				// Sort based on the revision number only.
 				return one.getRevisionNumber().compareTo(two.getRevisionNumber());
 			}} );
+		
+		String nodeId = backup.getNode().getId();
+		String nodeETag = backup.getNode().getETag();
+		String updatedETag = nodeETag;
+		
+		if (updateETag) {
+			updatedETag = nodeDao.lockNodeAndIncrementEtag(nodeId, nodeETag);
+		}
+		
+		backup.getNode().setETag(updatedETag);
+		
 		// First handle the node
 		createOrUpdateNode(backup);
 		// Now process all revisions

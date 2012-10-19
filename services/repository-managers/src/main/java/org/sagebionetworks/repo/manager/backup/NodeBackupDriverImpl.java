@@ -16,6 +16,7 @@ import java.util.zip.ZipOutputStream;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.sagebionetworks.repo.manager.backup.migration.MigrationDriver;
+import org.sagebionetworks.repo.model.ConflictingUpdateException;
 import org.sagebionetworks.repo.model.DatastoreException;
 import org.sagebionetworks.repo.model.EntityType;
 import org.sagebionetworks.repo.model.Node;
@@ -222,9 +223,12 @@ public class NodeBackupDriverImpl implements GenericBackupDriver {
 	/**
 	 * Restore from the backup.
 	 * @throws InterruptedException 
+	 * @throws NotFoundException 
+	 * @throws DatastoreException 
+	 * @throws ConflictingUpdateException 
 	 */
 	@Override
-	public boolean restoreFromBackup(File source, Progress progress) throws IOException, InterruptedException {
+	public boolean restoreFromBackup(File source, Progress progress) throws IOException, InterruptedException, ConflictingUpdateException, DatastoreException, NotFoundException {
 		if(source == null) throw new IllegalArgumentException("Source file cannot be null");
 		if(!source.exists()) throw new IllegalArgumentException("Source file dose not exist: "+source.getAbsolutePath());
 		if(progress == null) throw new IllegalArgumentException("Progress cannot be null");
@@ -367,16 +371,19 @@ public class NodeBackupDriverImpl implements GenericBackupDriver {
 	 * @param backup
 	 * @param revisions
 	 * @throws InterruptedException
+	 * @throws NotFoundException 
+	 * @throws DatastoreException 
+	 * @throws ConflictingUpdateException 
 	 */
-	void createOrUpdateNodeWithRevisions(NodeBackup backup, List<NodeRevisionBackup> revisions) throws InterruptedException{
+	void createOrUpdateNodeWithRevisions(NodeBackup backup, List<NodeRevisionBackup> revisions) throws InterruptedException, ConflictingUpdateException, DatastoreException, NotFoundException{
 		// This can deadlock (see PLFM-1341)
 		try{
-			backupManager.createOrUpdateNodeWithRevisions(backup, revisions);
+			backupManager.createOrUpdateNodeWithRevisions(backup, revisions, false);
 		}catch (DeadlockLoserDataAccessException e){
 			// Try again
 			Thread.sleep(100);
 			//Try once more.  If it fails again then the exception is thrown.
-			backupManager.createOrUpdateNodeWithRevisions(backup, revisions);
+			backupManager.createOrUpdateNodeWithRevisions(backup, revisions, false);
 		}
 	}
 
