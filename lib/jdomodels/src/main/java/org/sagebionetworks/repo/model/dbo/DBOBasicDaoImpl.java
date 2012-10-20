@@ -93,8 +93,8 @@ public class DBOBasicDaoImpl implements DBOBasicDao, InitializingBean {
 		if(toCreate == null) throw new IllegalArgumentException("The object to create cannot be null");
 		// Lookup the insert SQL
 		String insertSQl = getInsertSQL(toCreate.getClass());
-//		System.out.println(insertSQl);
-//		System.out.println(toCreate);
+		System.out.println(insertSQl);
+		System.out.println(toCreate);
 		SqlParameterSource namedParameters = new BeanPropertySqlParameterSource(toCreate);
 		try{
 			int updatedCount = simpleJdbcTemplate.update(insertSQl, namedParameters);

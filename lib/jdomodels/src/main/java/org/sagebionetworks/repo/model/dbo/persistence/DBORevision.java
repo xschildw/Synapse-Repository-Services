@@ -31,7 +31,6 @@ public class DBORevision implements DatabaseObject<DBORevision> {
 	
 	private static FieldColumn[] FIELDS = new FieldColumn[] {
 		new FieldColumn("owner", COL_REVISION_OWNER_NODE, true),
-		new FieldColumn("nodeType", COL_REVISION_NODE_TYPE, true),
 		new FieldColumn("revisionNumber", COL_REVISION_NUMBER, true),
 		new FieldColumn("label", COL_REVISION_LABEL),
 		new FieldColumn("comment", COL_REVISION_COMMENT),
@@ -39,6 +38,7 @@ public class DBORevision implements DatabaseObject<DBORevision> {
 		new FieldColumn("modifiedOn", COL_REVISION_MODIFIED_ON),
 		new FieldColumn("annotations", COL_REVISION_ANNOS_BLOB),
 		new FieldColumn("references", COL_REVISION_REFS_BLOB),
+		new FieldColumn("nodeType", COL_REVISION_NODE_TYPE)
 		};
 
 	@Override
@@ -48,6 +48,7 @@ public class DBORevision implements DatabaseObject<DBORevision> {
 			public DBORevision mapRow(ResultSet rs, int rowNum)	throws SQLException {
 				DBORevision rev = new DBORevision();
 				rev.setOwner(rs.getLong(COL_REVISION_OWNER_NODE));
+				rev.setNodeType(rs.getShort(COL_REVISION_NODE_TYPE));
 				rev.setRevisionNumber(rs.getLong(COL_REVISION_NUMBER));
 				rev.setLabel(rs.getString(COL_REVISION_LABEL));
 				rev.setComment(rs.getString(COL_REVISION_COMMENT));

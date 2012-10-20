@@ -44,7 +44,7 @@ public class NodeUtilsTest {
 		node.setName("myName");
 		node.setDescription("someDescription");
 		node.setId(KeyFactory.keyToString(101L));
-//		node.setNodeType(ObjectType.project.name());
+		node.setNodeType(EntityType.valueOf("project").name());
 		node.setCreatedByPrincipalId(createdById);
 		node.setModifiedByPrincipalId(createdById);
 		node.setETag("1013");

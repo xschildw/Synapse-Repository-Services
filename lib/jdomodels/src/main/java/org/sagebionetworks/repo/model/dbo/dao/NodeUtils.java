@@ -64,6 +64,7 @@ class NodeUtils {
 		if (dto.getModifiedOn()==null) throw new InvalidModelException("modifiedOn may not be null");
 		rev.setModifiedOn(dto.getModifiedOn().getTime());
 		rev.setComment(dto.getVersionComment());
+		rev.setNodeType(EntityType.valueOf(dto.getNodeType()).getId());
 		if(dto.getVersionLabel() != null){
 			rev.setLabel(dto.getVersionLabel());
 		}

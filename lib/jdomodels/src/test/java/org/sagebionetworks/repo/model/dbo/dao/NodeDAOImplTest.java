@@ -1195,7 +1195,7 @@ public class NodeDAOImplTest {
 		newRev.setModifiedByPrincipalId(creatorUserGroupId);
 		newRev.setModifiedOn(new Date());
 		newRev.setReferences(new HashMap<String, Set<Reference>>());
-
+		newRev.setNodeType(EntityType.valueOf("project").getId());
 		// This annotation should not be query-able
 		assertFalse(nodeDao.isStringAnnotationQueryable(id, keyOnNewVersion));
 		// Now create the version

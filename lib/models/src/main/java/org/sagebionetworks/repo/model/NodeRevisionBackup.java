@@ -25,6 +25,7 @@ public class NodeRevisionBackup {
 	private Long modifiedByPrincipalId;
 	private Date modifiedOn;
 	private String xmlVersion;
+	private Short nodeType;
 	/**
 	 * Annotations now belong to a name-space so use namespaceAnnos.
 	 * @deprecated since xml version 1.0
@@ -89,6 +90,12 @@ public class NodeRevisionBackup {
 	}
 	public void setModifiedOn(Date modifiedOn) {
 		this.modifiedOn = modifiedOn;
+	}
+	public Short getNodeType() {
+		return nodeType;
+	}
+	public void setNodeType(Short nodeType) {
+		this.nodeType = nodeType;
 	}
 	
 	/**
@@ -171,6 +178,7 @@ public class NodeRevisionBackup {
 				+ ((revisionNumber == null) ? 0 : revisionNumber.hashCode());
 		result = prime * result
 				+ ((xmlVersion == null) ? 0 : xmlVersion.hashCode());
+		result = prime * result + ((nodeType == null) ? 0 : nodeType.hashCode());
 		return result;
 	}
 
@@ -241,6 +249,11 @@ public class NodeRevisionBackup {
 				return false;
 		} else if (!xmlVersion.equals(other.xmlVersion))
 			return false;
+		if (nodeType == null) {
+			if (other.nodeType != null)
+				return false;
+		} else if (!nodeType.equals(other.nodeType))
+			return false;
 		return true;
 	}
 
@@ -253,7 +266,7 @@ public class NodeRevisionBackup {
 				+ comment + ", label=" + label + ", modifiedBy=" + modifiedBy
 				+ ", modifiedOn=" + modifiedOn + ", namedAnnotations="
 				+ namedAnnotations + ", nodeId=" + nodeId + ", references="
-				+ references + ", revisionNumber=" + revisionNumber
+				+ references + ", revisionNumber=" + revisionNumber + ", nodeType=" + nodeType
 				+ ", xmlVersion=" + xmlVersion + "]";
 	}
 	
