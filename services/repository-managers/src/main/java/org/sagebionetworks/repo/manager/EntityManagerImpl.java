@@ -590,7 +590,7 @@ public class EntityManagerImpl implements EntityManager {
 		node = EntityManagerUtils.cetChangeNodeRevision(node, newEntityTypeName);
 		namedAnnots = EntityManagerUtils.cetChangeNamedAnnotations(namedAnnots, newEntityTypeName);
 
-		nodeManager.update(userInfo, node, namedAnnots, true);
+		nodeManager.update(userInfo, node, namedAnnots, false);
 		
 		// Update all links to this entity
 		Integer offset = 0;

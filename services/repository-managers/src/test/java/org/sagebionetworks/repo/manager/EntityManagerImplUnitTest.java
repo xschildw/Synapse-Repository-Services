@@ -176,7 +176,7 @@ public class EntityManagerImplUnitTest {
 		expectedNode.setName("nodeName");
 		expectedNode.setNodeType("layer");
 		expectedNode.setVersionComment("The type of this entity has changed. All properties that could not be migrated are now annotations.");
-		expectedNode.setVersionLabel("Entity versioned by changeEntityType().");
+		srcNode.setVersionLabel("1.0.0");
 		expectedNode.setVersionNumber(new Long(2));
 		
 		NamedAnnotations srcNamedAnnots = new NamedAnnotations();
@@ -239,113 +239,7 @@ public class EntityManagerImplUnitTest {
 		
 		verify(mockNodeManager).deleteVersion(mockUser, srcNodeId, new Long(1));
 		verify(mockNodeManager).updateAnnotations(mockUser, "syn3000000", updReferrerLinkChildAnnots.getPrimaryAnnotations(), "primary");
-		verify(mockNodeManager).update(mockUser, expectedNode, expectedNamedAnnots, true);
+		verify(mockNodeManager).update(mockUser, expectedNode, expectedNamedAnnots, false);
 	}
-
-//	// TODO: Check md5 issues and re-enable
-//	@Ignore
-//	@Test
-//	public void testChangeEntityType() throws Exception {
-//		
-//		NodeRevisionBackup expectedNodeRevisionBackup1, expectedNodeRevisionBackup2, srcNodeRevisionBackup1, srcNodeRevisionBackup2;
-//		List<Long> expectedRevisionNums = new ArrayList<Long>();
-//		List<Long> srcRevisionNums = new ArrayList<Long>();
-//		List<NodeRevisionBackup> expectedListNodeRevisionBackups = new ArrayList<NodeRevisionBackup>();
-//		List<NodeRevisionBackup> srcListNodeRevisionBackups = new ArrayList<NodeRevisionBackup>();
-//		NamedAnnotations namedAnnots;
-//		Annotations annots;
-//		
-//		Node srcNode = new Node();
-//		srcNode.setDescription("Node description");
-//		srcNode.setETag("1");
-//		srcNode.setId("syn1000000");
-//		srcNode.setName("nodeName");
-//		srcNode.setNodeType("phenotypedata");
-//		srcNode.setVersionComment("This is version 1");
-//		srcNode.setVersionLabel("1.0.0");
-//		
-//		// TODO: Implement clone() function for node
-//		Node expectedNode = new Node();
-//		expectedNode.setDescription("Node description");
-//		expectedNode.setETag("1");
-//		expectedNode.setId("syn1000000");
-//		expectedNode.setName("nodeName");
-//		expectedNode.setNodeType("layer");
-//		expectedNode.setVersionComment("This is version 1");
-//		expectedNode.setVersionLabel("1.0.0");
-//		
-//		// TODO: Implement clone() function for node revision
-//		srcNodeRevisionBackup1 = new NodeRevisionBackup();
-//		srcNodeRevisionBackup1.setNodeId("syn1000000");
-//		srcNodeRevisionBackup1.setRevisionNumber(new Long(1));
-//		namedAnnots = new NamedAnnotations();
-//		srcNodeRevisionBackup1.setNamedAnnotations(namedAnnots);
-//		// These should stay in primary
-//		srcNodeRevisionBackup1.getNamedAnnotations().getPrimaryAnnotations().addAnnotation("md5", "m55String");
-//		// These should stay in additional
-//		srcNodeRevisionBackup1.getNamedAnnotations().getAdditionalAnnotations().addAnnotation("v1AStringKey", "v1AStringValue");
-//		// These should move to additional
-//		srcNodeRevisionBackup1.getNamedAnnotations().getPrimaryAnnotations().addAnnotation("v1StringKey", "v1StringValue");
-//		srcNodeRevisionBackup1.getNamedAnnotations().getPrimaryAnnotations().addAnnotation("v1LongKey", new Long(123));
-//		srcListNodeRevisionBackups.add(srcNodeRevisionBackup1);
-//		srcRevisionNums.add(new Long(1));
-//		
-//		srcNodeRevisionBackup2 = new NodeRevisionBackup();
-//		srcNodeRevisionBackup2.setNodeId("syn1000000");
-//		srcNodeRevisionBackup2.setRevisionNumber(new Long(2));	
-//		namedAnnots = new NamedAnnotations();
-//		srcNodeRevisionBackup2.setNamedAnnotations(namedAnnots);
-//		// These should stay in additional
-//		srcNodeRevisionBackup2.getNamedAnnotations().getAdditionalAnnotations().addAnnotation("v1ADoubleKey", new Double(3.1416));
-//		// These should move to additional
-//		srcNodeRevisionBackup2.getNamedAnnotations().getPrimaryAnnotations().addAnnotation("v2StringKey", "v2StringValue");
-//		srcNodeRevisionBackup2.getNamedAnnotations().getPrimaryAnnotations().addAnnotation("v2LongKey", new Long(456));
-//		srcListNodeRevisionBackups.add(srcNodeRevisionBackup2);
-//		srcRevisionNums.add(new Long(2));
-//		
-//		expectedNodeRevisionBackup1 = new NodeRevisionBackup();
-//		expectedNodeRevisionBackup1.setNodeId("syn1000000");
-//		expectedNodeRevisionBackup1.setRevisionNumber(new Long(1));		
-//		namedAnnots = new NamedAnnotations();
-//		expectedNodeRevisionBackup1.setNamedAnnotations(namedAnnots);
-//		// These should stay in primary
-//		expectedNodeRevisionBackup1.getNamedAnnotations().getPrimaryAnnotations().addAnnotation("md5", "m55String");
-//		// These should stay in additional
-//		expectedNodeRevisionBackup1.getNamedAnnotations().getAdditionalAnnotations().addAnnotation("v1AStringKey", "v1AStringValue");
-//		// These should move to additional
-//		expectedNodeRevisionBackup1.getNamedAnnotations().getAdditionalAnnotations().addAnnotation("v1StringKey", "v1StringValue");
-//		expectedNodeRevisionBackup1.getNamedAnnotations().getAdditionalAnnotations().addAnnotation("v1LongKey", new Long(123));
-//		expectedListNodeRevisionBackups.add(expectedNodeRevisionBackup1);
-//		expectedRevisionNums.add(new Long(1));
-//		
-//		expectedNodeRevisionBackup2 = new NodeRevisionBackup();
-//		expectedNodeRevisionBackup2.setNodeId("syn1000000");
-//		expectedNodeRevisionBackup2.setRevisionNumber(new Long(2));		
-//		namedAnnots = new NamedAnnotations();
-//		expectedNodeRevisionBackup2.setNamedAnnotations(namedAnnots);
-//		// These should stay in additional
-//		expectedNodeRevisionBackup2.getNamedAnnotations().getAdditionalAnnotations().addAnnotation("v1ADoubleKey", new Double(3.1416));
-//		expectedNodeRevisionBackup2.setNamedAnnotations(namedAnnots);
-//		expectedNodeRevisionBackup2.getNamedAnnotations().getAdditionalAnnotations().addAnnotation("v2StringKey", "v2StringValue");
-//		expectedNodeRevisionBackup2.getNamedAnnotations().getAdditionalAnnotations().addAnnotation("v2LongKey", new Long(456));
-//		expectedListNodeRevisionBackups.add(expectedNodeRevisionBackup2);
-//		expectedRevisionNums.add(new Long(2));
-//		
-//		NodeBackup srcNodeBackup = new NodeBackup();
-//		srcNodeBackup.setNode(srcNode);
-//		srcNodeBackup.setRevisions(srcRevisionNums);
-//		
-//		NodeBackup expectedNodeBackup = new NodeBackup();
-//		expectedNodeBackup.setNode(expectedNode);
-//		expectedNodeBackup.setRevisions(expectedRevisionNums);
-//				
-//		when(mockPermissionsManager.hasAccess("syn1000000", ACCESS_TYPE.READ, mockUser)).thenReturn(true);
-//		when(mockPermissionsManager.hasAccess("syn1000000", ACCESS_TYPE.UPDATE, mockUser)).thenReturn(true);
-//		when(mockNodeBackupManager.getNode("syn1000000")).thenReturn(srcNodeBackup);
-//		when(mockNodeBackupManager.getNodeRevision("syn1000000", 1L)).thenReturn(srcNodeRevisionBackup1);
-//		when(mockNodeBackupManager.getNodeRevision("syn1000000", 2L)).thenReturn(srcNodeRevisionBackup2);
-//		entityManager.changeEntityType(mockUser, "syn1000000", "layer", "");
-//		verify(mockNodeBackupManager).createOrUpdateNodeWithRevisions(expectedNodeBackup, expectedListNodeRevisionBackups);
-//	}
 	
 }

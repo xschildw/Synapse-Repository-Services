@@ -91,6 +91,21 @@ public class EntityManagerUtils {
 		String srcClassName = srcTypeMetadata.getEntityType();
 		String destClassName = destTypeMetadata.getEntityType();
 		
+		// Special cases
+		if (srcTypeName.equals(destTypeName)) return true;						// Should not happen
+		if ((srcTypeName.equals("project"))) return false;
+		if (srcTypeName.equals("dataset")) return false;						// The only target could be Folder if folders were Locationable
+		if (srcTypeName.equals("preview")) return false;						// Can't do anything with previews
+		if (destTypeName.equals("preview")) return false;
+		if (srcTypeName.equals("link")) return false;
+		if (destTypeName.equals("link")) return false;
+		if (srcTypeName.equals("analysis")) return false;
+		if (destTypeName.equals("analysis")) return false;
+		if (srcTypeName.equals("step")) return false;
+		if (destTypeName.equals("step")) return false;
+		if (srcTypeName.equals("summary")) return false;
+		if (destTypeName.equals("summary")) return false;
+		
 		// Check compatible interfaces
 		Object srcObj = Class.forName(srcClassName).newInstance();
 		Object destObj = Class.forName(destClassName).newInstance();
