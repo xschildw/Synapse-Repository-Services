@@ -5,6 +5,7 @@ import static org.sagebionetworks.repo.model.AuthorizationConstants.ACCEPTS_TERM
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URLEncoder;
 import java.security.Security;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -166,17 +167,18 @@ public class CrowdAuthUtil {
 	 */
 	public static Session authenticate(User creds, boolean validatePassword) throws AuthenticationException, IOException, XPathExpressionException {
 		byte[] sessionXML = null;
+		String requestContent = msg1+creds.getEmail()+msg2+creds.getPassword()+msg3+msg4+msg5+"\n";
 		{
 			sessionXML = executeRequest(urlPrefix()+"/session?validate-password="+validatePassword, 
 					"POST", 
-					msg1+creds.getEmail()+msg2+creds.getPassword()+msg3+msg4+msg5+"\n",
+					requestContent,
 					HttpStatus.CREATED, 
 					"Unable to authenticate");
 		}
 
 		String token = getFromXML("/session/token", sessionXML);
 		{
-			sessionXML = executeRequest(urlPrefix()+"/user?username="+creds.getEmail(), 
+			sessionXML = executeRequest(urlPrefix()+"/user?username="+URLEncoder.encode(creds.getEmail(), "UTF-8"),
 					"GET", 
 					"",
 					HttpStatus.OK, 
@@ -242,7 +244,7 @@ public class CrowdAuthUtil {
 	public static User getUser(String userId) throws IOException {
 		byte[] sessionXML = null;
 		try {
-			sessionXML = executeRequest(urlPrefix()+"/user?username="+userId, "GET", "", HttpStatus.OK, "Unable to get "+userId+".");
+			sessionXML = executeRequest(urlPrefix()+"/user?username="+URLEncoder.encode(userId, "UTF-8"), "GET", "", HttpStatus.OK, "Unable to get "+userId+".");
 		} catch (AuthenticationException e) {
 			throw new RuntimeException(e.getRespStatus()+" "+e.getMessage());
 		}
@@ -260,7 +262,7 @@ public class CrowdAuthUtil {
 	}
 	
 	public static void deleteUser(String userEmail) throws AuthenticationException, IOException {
-		executeRequestNoResponseBody(urlPrefix()+"/user?username="+userEmail, "DELETE", "", HttpStatus.NO_CONTENT, "Unable to delete "+userEmail);
+		executeRequestNoResponseBody(urlPrefix()+"/user?username="+URLEncoder.encode(userEmail, "UTF-8"), "DELETE", "", HttpStatus.NO_CONTENT, "Unable to delete "+userEmail);
 	}
 
 	/**
@@ -269,7 +271,7 @@ public class CrowdAuthUtil {
 	public static void updateUser(User user) throws AuthenticationException, IOException {
 					
 			// Atlassian documentation says it will return 200 (OK) but it actually returns 204 (NO CONTENT)
-			executeRequestNoResponseBody(urlPrefix()+"/user?username="+user.getEmail(), 
+			executeRequestNoResponseBody(urlPrefix()+"/user?username="+URLEncoder.encode(user.getEmail(), "UTF-8"), 
 					"PUT", 
 					userXML(user)+"\n", 
 					HttpStatus.NO_CONTENT, 
@@ -280,13 +282,13 @@ public class CrowdAuthUtil {
 	 * Update password
 	 */
 	public static void updatePassword(User user) throws AuthenticationException, IOException {
-			executeRequestNoResponseBody(urlPrefix()+"/user/password?username="+user.getEmail(),
+			executeRequestNoResponseBody(urlPrefix()+"/user/password?username="+URLEncoder.encode(user.getEmail(), "UTF-8"),
 					"PUT", userPasswordXML(user)+"\n", HttpStatus.NO_CONTENT, "Unable to update user password.");
 	}
 	
 	public static void sendResetPWEmail(User user) throws AuthenticationException, IOException {
 		// POST /user/mail/password?username=USERNAME
-		executeRequestNoResponseBody(urlPrefix()+"/user/mail/password?username="+user.getEmail(),
+		executeRequestNoResponseBody(urlPrefix()+"/user/mail/password?username="+URLEncoder.encode(user.getEmail(), "UTF-8"),
 				"POST",
 				"",
 				HttpStatus.NO_CONTENT, "Unable to send reset-password message.");
@@ -295,7 +297,7 @@ public class CrowdAuthUtil {
 	// Note, this seems to be 'idempotent', i.e. you CAN add a user to a group which the user is already in
 	public static void addUserToGroup(String group, String userId) throws AuthenticationException, IOException {
 		executeRequest(urlPrefix()+"/group/user/direct?groupname="+group, "POST", 
-				"<?xml version=\"1.0\" encoding=\"UTF-8\"?> <user name=\""+userId+"\"/>\n",
+				"<?xml version=\"1.0\" encoding=\"UTF-8\"?> <user name=\""+URLEncoder.encode(userId, "UTF-8")+"\"/>\n",
 				HttpStatus.CREATED, "Unable to add user "+userId+" to group "+group+".");
 	}
 	
@@ -318,7 +320,7 @@ public class CrowdAuthUtil {
 	public static Map<String,Collection<String>> getUserAttributes(String userId/*, Collection<String> attributes*/) throws IOException, NotFoundException {
 		byte[] sessionXML =	null;
 		try {
-			sessionXML = executeRequest(urlPrefix()+"/user?expand=attributes&username="+userId, 
+			sessionXML = executeRequest(urlPrefix()+"/user?expand=attributes&username="+URLEncoder.encode(userId, "UTF-8"), 
 					"GET", "",
 					HttpStatus.OK, "Unable to get attributes for "+userId+".");
 		} catch (AuthenticationException e) {
@@ -363,7 +365,7 @@ public class CrowdAuthUtil {
 	 */
 	public static void setUserAttributes(String userId, Map<String,Collection<String>> attributes) throws IOException {
 		try {
-			executeRequestNoResponseBody(urlPrefix()+"/user/attribute?username="+userId, 
+			executeRequestNoResponseBody(urlPrefix()+"/user/attribute?username="+URLEncoder.encode(userId, "UTF-8"),
 					"POST", 
 					"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"+encodeAttributesAsXML(attributes)+"\n",
 					HttpStatus.NO_CONTENT, "Unable to set attributes for "+userId+".");
@@ -375,7 +377,7 @@ public class CrowdAuthUtil {
 	
 	public static void deleteUserAttribute(String userId, String attribute) throws IOException {
 		try {
-			executeRequestNoResponseBody(urlPrefix()+"/user/attribute?username="+userId+"&attributename="+attribute, 
+			executeRequestNoResponseBody(urlPrefix()+"/user/attribute?username="+URLEncoder.encode(userId, "UTF-8")+"&attributename="+attribute, 
 					"DELETE", 
 					"",
 					HttpStatus.NO_CONTENT, "Unable to delete attribute "+attribute+" for "+userId+".");
@@ -390,7 +392,7 @@ public class CrowdAuthUtil {
 	public static Collection<String> getUsersGroups(String userId) throws IOException, NotFoundException {
 		byte[] sessionXML = null;
 		try {
-			sessionXML = executeRequest(urlPrefix()+"/user/group/direct?username="+userId,
+			sessionXML = executeRequest(urlPrefix()+"/user/group/direct?username="+URLEncoder.encode(userId, "UTF-8"),
 					"GET", "",
 					HttpStatus.OK, "Unable to get groups for "+userId+".");
 		} catch (AuthenticationException e) {

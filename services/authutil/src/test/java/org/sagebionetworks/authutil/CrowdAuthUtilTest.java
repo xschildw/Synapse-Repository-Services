@@ -138,7 +138,7 @@ public class CrowdAuthUtilTest {
 	public void testMultipleLogins(int n) throws Exception {
 //		long start = System.currentTimeMillis();
 		Map<Integer, MutableLong> times = new HashMap<Integer, MutableLong>();
-		for (int i=0; i<n; i++) {
+		for (int i=0; i<1; i++) {
 			final int fi = i;
 			final MutableLong L = new MutableLong();
 			times.put(i, L);
