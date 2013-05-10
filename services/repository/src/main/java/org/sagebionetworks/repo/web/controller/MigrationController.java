@@ -99,7 +99,7 @@ public class MigrationController extends BaseController {
 	 * @throws NotFoundException
 	 */
 	@ResponseStatus(HttpStatus.OK)
-	@RequestMapping(value = UrlHelpers.MIGRATION_DELTA, method = RequestMethod.GET)
+	@RequestMapping(value = UrlHelpers.MIGRATION_DELTA, method = RequestMethod.POST)
 	public @ResponseBody
 	RowMetadataResult getRowMetadataDelta(
 			@RequestParam(value = AuthorizationConstants.USER_ID_PARAM, required = true) String userId,

@@ -50,6 +50,7 @@ public class MigatableTableDAOImpl implements MigatableTableDAO {
 	
 	private Map<MigrationType, String> deleteSqlMap = new HashMap<MigrationType, String>();
 	private Map<MigrationType, String> countSqlMap = new HashMap<MigrationType, String>();
+	private Map<MigrationType, String> deltaCountSqlMap = new HashMap<MigrationType, String>();
 	private Map<MigrationType, String> listSqlMap = new HashMap<MigrationType, String>();
 	private Map<MigrationType, String> deltaListSqlMap = new HashMap<MigrationType, String>();
 	private Map<MigrationType, String> backupSqlMap = new HashMap<MigrationType, String>();
@@ -94,6 +95,8 @@ public class MigatableTableDAOImpl implements MigatableTableDAO {
 		deleteSqlMap.put(type, delete);
 		String count = DMLUtils.createGetCountStatement(mapping);
 		countSqlMap.put(type, count);
+		String deltaCount = DMLUtils.deltaCountRowMetadata(mapping);
+		deltaCountSqlMap.put(type, deltaCount);
 		String listRowMetadataSQL = DMLUtils.listRowMetadata(mapping);
 		listSqlMap.put(type, listRowMetadataSQL);
 		String deltalistRowMetadataSQL = DMLUtils.deltaListRowMetadata(mapping);
@@ -135,6 +138,15 @@ public class MigatableTableDAOImpl implements MigatableTableDAO {
 		if(countSql == null) throw new IllegalArgumentException("Cannot find count SQL for "+type);
 		return simpleJdbcTemplate.queryForLong(countSql);
 	}
+	
+	@Override
+	public long getDeltaCount(MigrationType type, List<String> idList) {
+		if(type == null) throw new IllegalArgumentException("type cannot be null");
+		String countSql = this.deltaCountSqlMap.get(type);
+		SqlParameterSource params = new MapSqlParameterSource(DMLUtils.BIND_VAR_ID_lIST, idList);
+		if(countSql == null) throw new IllegalArgumentException("Cannot find count SQL for "+type);
+		return simpleJdbcTemplate.queryForLong(countSql, params);
+	}
 
 	@Override
 	public RowMetadataResult listRowMetadata(MigrationType type, long limit, long offset) {
@@ -153,13 +165,17 @@ public class MigatableTableDAOImpl implements MigatableTableDAO {
 	}
 	
 	@Override
-	public List<RowMetadata> listDeltaRowMetadata(MigrationType type,	List<String> idList) {
+	public RowMetadataResult listDeltaRowMetadata(MigrationType type,	List<String> idList) {
 		if(type == null) throw new IllegalArgumentException("type cannot be null");
 		String sql = this.getDeltaListSql(type);
 		RowMapper<RowMetadata> mapper = this.getRowMetadataRowMapper(type);
 		SqlParameterSource params = new MapSqlParameterSource(DMLUtils.BIND_VAR_ID_lIST, idList);
 		List<RowMetadata> page = simpleJdbcTemplate.query(sql, mapper, params);
-		return page;
+		long count = this.getDeltaCount(type, idList);
+		RowMetadataResult result = new RowMetadataResult();
+		result.setList(page);
+		result.setTotalCount(count);
+		return result;
 	}
 
 

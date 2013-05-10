@@ -29,6 +29,7 @@ import org.sagebionetworks.repo.model.migration.MigrationType;
 import org.sagebionetworks.repo.model.migration.MigrationTypeCount;
 import org.sagebionetworks.repo.model.migration.MigrationTypeCounts;
 import org.sagebionetworks.repo.model.migration.MigrationTypeList;
+import org.sagebionetworks.repo.model.migration.RowMetadata;
 import org.sagebionetworks.repo.model.migration.RowMetadataResult;
 import org.sagebionetworks.schema.adapter.JSONObjectAdapterException;
 
@@ -121,23 +122,6 @@ public class IT102MigrationTest {
 	
 	@Test
 	public void testRoundTrip() throws Exception {
-		// Primary types
-		System.out.println("Migration types");
-		MigrationTypeList mtList = conn.getPrimaryTypes();
-		List<MigrationType> migrationTypes = mtList.getList();
-		Map<MigrationType, Long> countByMigrationType = new HashMap<MigrationType, Long>();
-		for (MigrationType mt: migrationTypes) {
-			System.out.println(mt.name());
-			countByMigrationType.put(mt, 0L);
-		}
-		// Counts per type
-		System.out.println("Counts by type");
-		MigrationTypeCounts mtCounts = conn.getTypeCounts();
-		List<MigrationTypeCount> mtcs = mtCounts.getList();
-		for (MigrationTypeCount mtc: mtcs) {
-			System.out.println(mtc.getType().name() + ":" + mtc.getCount());
-			countByMigrationType.put(mtc.getType(), mtc.getCount());
-		}
 		// Round trip
 		System.out.println("Backup/restore");
 		IdList idList = new IdList();
@@ -160,4 +144,55 @@ public class IT102MigrationTest {
 		assertEquals(project.getName(), rp.getName());
 	}
 	
+	@Test
+	public void testGetPrimaryTypesCounts() throws Exception {
+		// Primary types
+		System.out.println("Migration types");
+		MigrationTypeList mtList = conn.getPrimaryTypes();
+		List<MigrationType> migrationTypes = mtList.getList();
+		Map<MigrationType, Long> countByMigrationType = new HashMap<MigrationType, Long>();
+		for (MigrationType mt: migrationTypes) {
+			System.out.println(mt.name());
+			countByMigrationType.put(mt, 0L);
+		}
+		// Counts per type
+		System.out.println("Counts by type");
+		MigrationTypeCounts mtCounts = conn.getTypeCounts();
+		List<MigrationTypeCount> mtcs = mtCounts.getList();
+		for (MigrationTypeCount mtc: mtcs) {
+			System.out.println(mtc.getType().name() + ":" + mtc.getCount());
+			countByMigrationType.put(mtc.getType(), mtc.getCount());
+		}
+	}
+	
+	@Test
+	public void testGetRowMetadata() throws Exception {
+		RowMetadataResult rmRes = conn.getRowMetadata(MigrationType.NODE, 1000, 0);
+		assertTrue(rmRes.getTotalCount() > 0);
+		// Should find the project in the results
+		boolean found = false;
+		for (RowMetadata rm: rmRes.getList()) {
+			if (rm.getId().equals(project.getId().substring(3))) {
+				found = true;
+				break;
+			}
+		}
+		assertTrue(found == true);
+	}
+	
+	@Test
+	public void testGetRowMetadataDelta() throws Exception {
+		// Should get the project in delta with same eTag
+		IdList idList = new IdList();
+		List<String> ids = new ArrayList<String>();
+		ids.add(project.getId().substring(3));
+		idList.setList(ids);
+		RowMetadataResult dRes = conn.getRowMetadataDelta(MigrationType.NODE, idList);
+		assertNotNull(dRes);
+		assertFalse(dRes.getTotalCount() == null);
+		assertEquals(1, dRes.getList().size());
+		RowMetadata rm = dRes.getList().get(0);
+		assertEquals(project.getId().substring(3), rm.getId());
+		assertEquals(project.getEtag(), rm.getEtag());
+	}
 }

@@ -1069,7 +1069,7 @@ public class EntityServletTestHelper {
 	public RowMetadataResult getRowMetadataDelta(String userId, MigrationType type, IdList list) throws ServletException, IOException, JSONObjectAdapterException{
 		MockHttpServletRequest request = new MockHttpServletRequest();
 		MockHttpServletResponse response = new MockHttpServletResponse();
-		request.setMethod("GET");
+		request.setMethod("POST");
 		request.addHeader("Accept", "application/json");
 		String uri = "/migration/delta";
 		request.setRequestURI(uri);

@@ -47,9 +47,7 @@ public class MigrationManagerImpl implements MigrationManager {
 		validateUser(user);
 		if(type == null) throw new IllegalArgumentException("Type cannot be null");
 		// Get the list from the DAO and convert to a result
-		List<RowMetadata> list = migratableTableDao.listDeltaRowMetadata(type, idList);
-		RowMetadataResult result = new RowMetadataResult();
-		result.setList(list);
+		RowMetadataResult result = migratableTableDao.listDeltaRowMetadata(type, idList);
 		return result;
 	}
 

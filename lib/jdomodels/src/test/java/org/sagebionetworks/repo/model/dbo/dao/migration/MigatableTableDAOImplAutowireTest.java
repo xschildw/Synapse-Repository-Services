@@ -104,15 +104,17 @@ public class MigatableTableDAOImplAutowireTest {
 		// This should not exist
 		idsToFind.add(""+(Long.MAX_VALUE - 101));
 		// Get the detla
-		List<RowMetadata> delta = migatableTableDAO.listDeltaRowMetadata(MigrationType.FILE_HANDLE, idsToFind);
+		RowMetadataResult delta = migatableTableDAO.listDeltaRowMetadata(MigrationType.FILE_HANDLE, idsToFind);
 		assertNotNull(delta);
-		assertEquals(2, delta.size());
+		assertEquals(2, delta.getList().size());
+		assertNotNull(delta.getTotalCount());
+		assertEquals(new Long(delta.getList().size()), delta.getTotalCount());
 		// The preview should be first
-		row = delta.get(0);
+		row = delta.getList().get(0);
 		assertEquals(preview.getId(), row.getId());
 		assertEquals(preview.getEtag(), row.getEtag());
 		// Followed by the withPreview
-		row = delta.get(1);
+		row = delta.getList().get(1);
 		assertEquals(withPreview.getId(), row.getId());
 		assertEquals(withPreview.getEtag(), row.getEtag());
 		
@@ -147,13 +149,13 @@ public class MigatableTableDAOImplAutowireTest {
 		// Check final counts
 		delta = migatableTableDAO.listDeltaRowMetadata(MigrationType.FILE_HANDLE, idsToFind);
 		assertNotNull(delta);
-		assertEquals(2, delta.size());
+		assertEquals(2, delta.getList().size());
 		// The preview should be first
-		row = delta.get(0);
+		row = delta.getList().get(0);
 		assertEquals(preview.getId(), row.getId());
 		assertEquals(preview.getEtag(), row.getEtag());
 		// Followed by the withPreview
-		row = delta.get(1);
+		row = delta.getList().get(1);
 		assertEquals(withPreview.getId(), row.getId());
 		assertEquals(withPreview.getEtag(), row.getEtag());
 	}

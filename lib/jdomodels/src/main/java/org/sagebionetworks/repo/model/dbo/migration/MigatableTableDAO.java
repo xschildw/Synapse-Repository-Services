@@ -26,6 +26,13 @@ public interface MigatableTableDAO {
 	public long getCount(MigrationType type);
 	
 	/**
+	 * The total number of deltas in the table.
+	 * @return
+	 */
+	public long getDeltaCount(MigrationType type, List<String> idList);
+	
+	
+	/**
 	 * List all row metadata in a paginated format. All rows will be migrated in the order listed by this method.
 	 * This means metadata must be listed in dependency order.  For example, if row 'b' depends on row 'a' 
 	 * then row 'a' must be listed before row 'b'.  For this example, row 'a' would be migrated before row 'b'.
@@ -45,7 +52,7 @@ public interface MigatableTableDAO {
 	 * @param idList
 	 * @return
 	 */
-	public List<RowMetadata> listDeltaRowMetadata(MigrationType type, List<String> idList);
+	public RowMetadataResult listDeltaRowMetadata(MigrationType type, List<String> idList);
 	
 	/**
 	 * Get a batch of objects to backup.

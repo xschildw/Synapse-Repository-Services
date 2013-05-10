@@ -329,6 +329,23 @@ public class DMLUtils {
 	}
 	
 	/**
+	 * Get count of deltas
+	 * @param mapping
+	 * @return
+	 */
+	public static String deltaCountRowMetadata(TableMapping mapping) {
+		validateMigratableTableMapping(mapping);
+		StringBuilder builder = new StringBuilder();
+		builder.append("SELECT COUNT(`ID`)");
+		builder.append(" FROM ");
+		builder.append(mapping.getTableName());
+		builder.append(" WHERE ");
+		addBackupIdInList(builder, mapping);
+		return builder.toString();
+	}
+	
+	
+	/**
 	 * List all of the row data.
 	 * @param mapping
 	 * @return

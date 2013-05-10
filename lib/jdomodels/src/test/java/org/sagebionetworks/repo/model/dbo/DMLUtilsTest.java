@@ -193,6 +193,14 @@ public class DMLUtilsTest {
 	}
 	
 	@Test
+	public void testDeltaCount() {
+		String sql = DMLUtils.deltaCountRowMetadata(migrateableMappingSelfForeignKey);
+		assertNotNull(sql);
+		System.out.println(sql);
+		assertEquals("SELECT COUNT(`ID`) FROM SOME_TABLE WHERE `ID` IN ( :BVIDLIST )", sql);
+	}
+	
+	@Test
 	public void testGetBatchWithSelfForeignKey(){
 		String batchDelete = DMLUtils.getBackupBatch(migrateableMappingSelfForeignKey);
 		assertNotNull(batchDelete);

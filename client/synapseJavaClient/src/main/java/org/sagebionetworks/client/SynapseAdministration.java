@@ -248,7 +248,7 @@ public class SynapseAdministration extends Synapse {
 	public RowMetadataResult getRowMetadataDelta(MigrationType migrationType, IdList ids) throws JSONObjectAdapterException, SynapseException {
 		String uri = MIGRATION_DELTA + "?type=" + migrationType.name();
 		String jsonStr = EntityFactory.createJSONStringForEntity(ids);
-		JSONObject jsonObj = signAndDispatchSynapseRequest(repoEndpoint, uri, "GET", jsonStr, defaultGETDELETEHeaders);
+		JSONObject jsonObj = signAndDispatchSynapseRequest(repoEndpoint, uri, "POST", jsonStr, defaultPOSTPUTHeaders);
 		JSONObjectAdapter adapter = new JSONObjectAdapterImpl(jsonObj);
 		RowMetadataResult result = new RowMetadataResult();
 		result.initializeFromJSONObject(adapter);
