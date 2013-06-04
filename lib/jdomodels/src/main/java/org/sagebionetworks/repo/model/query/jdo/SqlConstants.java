@@ -133,6 +133,13 @@ public class SqlConstants {
 	public static final String COL_SENT_MESSAGES_TIME_STAMP			= "TIME_STAMP";
 	public static final String DDL_SENT_MESSAGES					= "schema/SentMessages-ddl.sql";
 	
+	// Sent messages
+	public static final String TABLE_PROCESSED_MESSAGES				= "PROCESSED_MESSAGES";
+	public static final String COL_PROCESSED_MESSAGES_CHANGE_NUM	= "CHANGE_NUM";
+	public static final String COL_PROCESSED_MESSAGES_TIME_STAMP	= "TIME_STAMP";
+	public static final String COL_PROCESSED_MESSAGES_PROCESSED_BY	= "PROCESSED_BY";
+	public static final String DDL_PROCESSED_MESSAGES				= "schema/ProcessedMessages-ddl.sql";
+	
 	// The file metada table
 	public static final String TABLE_FILES							= "FILES";
 	public static final String COL_FILES_ID							= "ID";
