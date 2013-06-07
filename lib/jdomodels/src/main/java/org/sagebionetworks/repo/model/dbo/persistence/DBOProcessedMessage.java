@@ -15,12 +15,12 @@ public class DBOProcessedMessage implements DatabaseObject<DBOProcessedMessage> 
 	private static FieldColumn[] FIELDS = new FieldColumn[]{
 		new FieldColumn("changeNumber", COL_PROCESSED_MESSAGES_CHANGE_NUM, true),
 		new FieldColumn("timeStamp", COL_PROCESSED_MESSAGES_TIME_STAMP),
-		new FieldColumn("processedBy", COL_PROCESSED_MESSAGES_PROCESSED_BY)
+		new FieldColumn("processedBy", COL_PROCESSED_MESSAGES_QUEUE_NAME)
 	};
 	
 	private Long changeNumber;
 	private Timestamp timeStamp;
-	private String processedBy;
+	private String queueName;
 
 
 	@Override
@@ -33,7 +33,7 @@ public class DBOProcessedMessage implements DatabaseObject<DBOProcessedMessage> 
 				DBOProcessedMessage change = new DBOProcessedMessage();
 				change.setChangeNumber(rs.getLong(COL_PROCESSED_MESSAGES_CHANGE_NUM));
 				change.setTimeStamp(rs.getTimestamp(COL_PROCESSED_MESSAGES_TIME_STAMP));
-				change.setProcessedBy(rs.getString(COL_PROCESSED_MESSAGES_PROCESSED_BY));
+				change.setQueueName(rs.getString(COL_PROCESSED_MESSAGES_QUEUE_NAME));
 				return change;
 			}
 
@@ -80,15 +80,15 @@ public class DBOProcessedMessage implements DatabaseObject<DBOProcessedMessage> 
 		this.timeStamp = timeStamp;
 	}
 	
-	public String getProcessedBy() {
-		return processedBy;
+	public String getQueueName() {
+		return queueName;
 	}
 	
-	public void setProcessedBy(String processedBy) {
-		if (processedBy == null) {
+	public void setQueueName(String queueName) {
+		if (queueName == null) {
 			throw new NullPointerException("processedBy cannot be null");
 		}
-		this.processedBy = processedBy;
+		this.queueName = queueName;
 	}
 
 	@Override
@@ -100,7 +100,7 @@ public class DBOProcessedMessage implements DatabaseObject<DBOProcessedMessage> 
 		result = prime * result
 				+ ((timeStamp == null) ? 0 : timeStamp.hashCode());
 		result = prime * result
-		+ ((processedBy == null) ? 0 : processedBy.hashCode());
+		+ ((queueName == null) ? 0 : queueName.hashCode());
 		return result;
 	}
 
@@ -123,10 +123,10 @@ public class DBOProcessedMessage implements DatabaseObject<DBOProcessedMessage> 
 				return false;
 		} else if (!timeStamp.equals(other.timeStamp))
 			return false;
-		if (processedBy == null) {
-			if (other.processedBy != null)
+		if (queueName == null) {
+			if (other.queueName != null)
 				return false;
-		} else if (!processedBy.equals(other.processedBy))
+		} else if (!queueName.equals(other.queueName))
 			return false;
 		return true;
 	}

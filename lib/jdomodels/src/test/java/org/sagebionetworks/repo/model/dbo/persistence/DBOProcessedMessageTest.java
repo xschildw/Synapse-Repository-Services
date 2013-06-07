@@ -13,7 +13,7 @@ public class DBOProcessedMessageTest {
 	@Test(expected=NullPointerException.class)
 	public void testSetProcessedBy() {
 		DBOProcessedMessage pm = new DBOProcessedMessage();
-		pm.setProcessedBy(null);
+		pm.setQueueName(null);
 	}
 
 	@Test(expected=NullPointerException.class)

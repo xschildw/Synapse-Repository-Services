@@ -10,7 +10,7 @@ import org.sagebionetworks.repo.model.message.ObjectType;
  * @author jmhill
  *
  */
-public interface DBOChangeDAO {
+public interface DBOChangeDAO extends DBOProcessedMessageDAO {
 	
 	/**
 	 * If the objectId already exists, then replace it, else add a new row.
@@ -72,5 +72,4 @@ public interface DBOChangeDAO {
 	 * @return
 	 */
 	public List<ChangeMessage> listUnsentMessages(long limit);
-
 }

@@ -351,6 +351,26 @@ public class DBOChangeDAOImplAutowiredTest {
 		assertEquals(0, unSent.size());
 	}
 	
+	@Test
+	public void testRegisterProcessedAndListNotProcessed() {
+		// Create msgs
+		List<ChangeMessage> batch = createList(3, ObjectType.ENTITY);
+		batch = changeDAO.replaceChange(batch);
+		List<ChangeMessage> notProcessed = changeDAO.listNotProcessedMessages("Q", 3);
+		assertEquals(0, notProcessed.size());
+		// Register sent msgs
+		changeDAO.registerMessageSent(batch.get(0).getChangeNumber());
+		changeDAO.registerMessageSent(batch.get(1).getChangeNumber());
+		changeDAO.registerMessageSent(batch.get(2).getChangeNumber());
+		List<ChangeMessage> notSent = changeDAO.listUnsentMessages(3);
+		assertEquals(0, notSent.size());
+		notProcessed = changeDAO.listNotProcessedMessages("Q", 3);
+		assertEquals(3, notProcessed.size());
+		changeDAO.registerMessageProcessed(batch.get(1).getChangeNumber(), "Q");
+		notProcessed = changeDAO.listNotProcessedMessages("Q", 3);
+		assertEquals(2, notProcessed.size());
+	}
+	
 	/**
 	 * Will add a row to start the a test.
 	 * @return
