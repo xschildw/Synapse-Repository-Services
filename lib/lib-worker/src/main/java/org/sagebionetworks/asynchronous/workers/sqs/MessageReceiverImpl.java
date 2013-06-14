@@ -1,5 +1,6 @@
 package org.sagebionetworks.asynchronous.workers.sqs;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -10,6 +11,7 @@ import java.util.concurrent.Future;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.sagebionetworks.repo.model.message.ChangeMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.amazonaws.services.sqs.AmazonSQSClient;
@@ -18,6 +20,8 @@ import com.amazonaws.services.sqs.model.DeleteMessageBatchRequestEntry;
 import com.amazonaws.services.sqs.model.Message;
 import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
 import com.amazonaws.services.sqs.model.ReceiveMessageResult;
+import org.sagebionetworks.repo.model.ProcessedMessageDAO;
+
 
 /**
  * A basic implementation of the MessageReceiver.
@@ -31,6 +35,8 @@ public class MessageReceiverImpl implements MessageReceiver {
 	
 	@Autowired
 	AmazonSQSClient awsSQSClient;
+	
+	ProcessedMessagesHandler processedMessagesHandler;
 	
     /**
      * The maximum number of threads used to process messages.
@@ -70,7 +76,7 @@ public class MessageReceiverImpl implements MessageReceiver {
 	 * @param messageQueue
 	 * @param workerFactory
 	 */
-	public MessageReceiverImpl(AmazonSQSClient awsSQSClient,
+	public MessageReceiverImpl(AmazonSQSClient awsSQSClient, ProcessedMessagesHandler processedMsgsHandler,
 			Integer maxNumberOfWorkerThreads, Integer maxMessagePerWorker, Integer visibilityTimeout,
 			MessageQueue messageQueue, MessageWorkerFactory workerFactory) {
 		super();
@@ -80,6 +86,7 @@ public class MessageReceiverImpl implements MessageReceiver {
 		this.visibilityTimeoutSec = visibilityTimeout;
 		this.messageQueue = messageQueue;
 		this.workerFactory = workerFactory;
+		this.processedMessagesHandler = processedMsgsHandler;
 	}
 	
 	/**
@@ -157,6 +164,13 @@ public class MessageReceiverImpl implements MessageReceiver {
 	public void setWorkerFactory(MessageWorkerFactory workerFactory) {
 		this.workerFactory = workerFactory;
 	}
+	
+	/**
+	 * ProcessedMessagesHandler: registers the processed messages
+	 */
+	public void setProcessedMessagesHandler(ProcessedMessagesHandler handler) {
+		this.processedMessagesHandler = handler;
+	}
 
 	@Override
 	public int triggerFired() throws InterruptedException{
@@ -231,6 +245,7 @@ public class MessageReceiverImpl implements MessageReceiver {
 			List<Future<List<Message>>> toRemove = new LinkedList<Future<List<Message>>>();
 			// Used to keep track of messages that need to be deleted.
 			List<DeleteMessageBatchRequestEntry> messagesToDelete = new LinkedList<DeleteMessageBatchRequestEntry>();
+			List<Message> msgsToRegister = new LinkedList<Message>();
 			for(Future<List<Message>> future: currentWorkers){
 				if(future.isDone()){
 					try {
@@ -238,6 +253,7 @@ public class MessageReceiverImpl implements MessageReceiver {
 						// We processed the message
 						for(Message toDelet: messages){
 							messagesToDelete.add(new DeleteMessageBatchRequestEntry(toDelet.getMessageId(), toDelet.getReceiptHandle()));
+							msgsToRegister.add(toDelet);
 						}
 					} catch (InterruptedException e) {
 						// We cannot remove this message from the queue.
@@ -254,6 +270,11 @@ public class MessageReceiverImpl implements MessageReceiver {
 			if(messagesToDelete.size() > 0){
 				awsSQSClient.deleteMessageBatch(new DeleteMessageBatchRequest(messageQueue.getQueueUrl(), messagesToDelete));
 			}
+			// Register processed messages
+			processedMessagesHandler.setQueueName(messageQueue.getQueueName());
+			processedMessagesHandler.setProcessedMessages(msgsToRegister);
+			processedMessagesHandler.registerProcessedMessages();
+			
 			// remove all that we can
 			currentWorkers.removeAll(toRemove);
 			// Give other threads a chance to work
@@ -277,5 +298,5 @@ public class MessageReceiverImpl implements MessageReceiver {
 			executors = Executors.newFixedThreadPool(maxNumberOfWorkerThreads);
 		}
 	}
-
+	
 }

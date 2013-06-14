@@ -82,6 +82,9 @@
 			<groupId>opensymphony</groupId>
 			<artifactId>quartz-all</artifactId>
 		</dependency>
-
+		<dependency>
+			<groupId>org.sagebionetworks</groupId>
+			<artifactId>lib-jdomodels</artifactId>
+		</dependency>
 	</dependencies>
 </project>

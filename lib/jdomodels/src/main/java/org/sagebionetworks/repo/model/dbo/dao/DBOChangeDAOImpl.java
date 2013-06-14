@@ -15,15 +15,21 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.sagebionetworks.ids.IdGenerator;
 import org.sagebionetworks.ids.IdGenerator.TYPE;
+import org.sagebionetworks.repo.model.DatastoreException;
+import org.sagebionetworks.repo.model.dbo.AutoIncrementDatabaseObject;
 import org.sagebionetworks.repo.model.dbo.DBOBasicDao;
 import org.sagebionetworks.repo.model.dbo.persistence.DBOChange;
+import org.sagebionetworks.repo.model.dbo.persistence.DBOProcessedMessage;
 import org.sagebionetworks.repo.model.dbo.persistence.DBOSentMessage;
 import org.sagebionetworks.repo.model.message.ChangeMessage;
 import org.sagebionetworks.repo.model.message.ChangeMessageUtils;
 import org.sagebionetworks.repo.model.message.ChangeType;
 import org.sagebionetworks.repo.model.message.ObjectType;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -157,7 +163,6 @@ public class DBOChangeDAOImpl implements DBOChangeDAO {
 		simpleJdbcTemplate.update(SQL_INSERT_SENT_ON_DUPLICATE_UPDATE, changeNumber, null, null);
 	}
 
-
 	/**
 	 * List
 	 */
@@ -174,12 +179,35 @@ public class DBOChangeDAOImpl implements DBOChangeDAO {
 		
 	}
 
-
+/*	@Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW)
+	@Override
+	public void registerMessageProcessed(List<Long> changeNumbers, String queueName) {
+		if (changeNumbers == null) throw new IllegalArgumentException("The list of changeNumbers cannot be null");
+		if (queueName == null) throw new IllegalArgumentException("The queueName cannot be null");
+		if (changeNumbers.size() < 1) throw new IllegalArgumentException("There must be at least one item in the batch");
+		
+		// Lookup the insert SQL
+		DBOProcessedMessage processedMsg;
+		String insertSQl = getInsertSQL(processedMsg.getClass());
+		SqlParameterSource[] namedParameters = new BeanPropertySqlParameterSource[changeNumbers.size()];
+		for (int i = 0; i < changeNumbers.size(); i++) {
+			namedParameters[i] = new BeanPropertySqlParameterSource(changeNumbers.get(i));
+		}
+		try {
+			int[] updatedCountArray = simpleJdbcTemplate.batchUpdate(insertSQl, namedParameters);
+			for (int count: updatedCountArray) {
+				if (count != 1) throw new DatastoreException("Failed to insert without error");
+			}
+			return;
+		}catch(DataIntegrityViolationException e){
+			throw new IllegalArgumentException(e);
+		}
+	}
+	
+*/
 	@Override
 	public List<ChangeMessage> listNotProcessedMessages(String queueName, long limit) {
 		List<DBOChange> l = simpleJdbcTemplate.query(SQL_SELECT_CHANGES_NOT_PROCESSED, new DBOChange().getTableMapping(), queueName, limit);
 		return ChangeMessageUtils.createDTOList(l);
 	}
-	
-
 }

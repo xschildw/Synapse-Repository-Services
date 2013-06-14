@@ -2,6 +2,7 @@ package org.sagebionetworks.repo.model.dbo.dao;
 
 import java.util.List;
 
+import org.sagebionetworks.repo.model.ProcessedMessageDAO;
 import org.sagebionetworks.repo.model.message.ChangeMessage;
 import org.sagebionetworks.repo.model.message.ObjectType;
 
@@ -10,7 +11,7 @@ import org.sagebionetworks.repo.model.message.ObjectType;
  * @author jmhill
  *
  */
-public interface DBOChangeDAO extends DBOProcessedMessageDAO {
+public interface DBOChangeDAO extends ProcessedMessageDAO {
 	
 	/**
 	 * If the objectId already exists, then replace it, else add a new row.

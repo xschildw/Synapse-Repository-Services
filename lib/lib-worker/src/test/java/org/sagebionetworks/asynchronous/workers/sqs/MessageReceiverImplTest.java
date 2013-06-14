@@ -9,6 +9,7 @@ import java.util.Stack;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
+import org.sagebionetworks.repo.model.ProcessedMessageDAO;
 
 import com.amazonaws.services.sqs.AmazonSQSClient;
 import com.amazonaws.services.sqs.model.DeleteMessageBatchRequest;
@@ -30,19 +31,23 @@ public class MessageReceiverImplTest {
 	Integer maxMessagePerWorker = 3;
 	Integer visibilityTimeout = 5;
 	String queueUrl = "queueUrl";
+	String queueName = "queueName";
 	MessageQueue mockQueue;
 	MessageWorkerFactory stubFactory;
 	AmazonSQSClient mockSQSClient;
 	List<Message> messageList;
 	ReceiveMessageResult results;
+	ProcessedMessagesHandler mockProcessedMsgsHandler;
 	
 	@Before
 	public void before(){
 		mockSQSClient = Mockito.mock(AmazonSQSClient.class);
 		mockQueue = Mockito.mock(MessageQueue.class);
+		when(mockQueue.getQueueName()).thenReturn(queueName);
 		when(mockQueue.getQueueUrl()).thenReturn(queueUrl);
+		mockProcessedMsgsHandler = Mockito.mock(ProcessedMessagesHandler.class);
 		// Inject all of the dependencies
-		messageReveiver = new MessageReceiverImpl(mockSQSClient, maxNumberOfWorkerThreads, maxMessagePerWorker,visibilityTimeout, mockQueue, stubFactory);
+		messageReveiver = new MessageReceiverImpl(mockSQSClient, mockProcessedMsgsHandler, maxNumberOfWorkerThreads, maxMessagePerWorker,visibilityTimeout, mockQueue, stubFactory);
 		
 		// Setup a list of messages.
 		int maxMessages = maxNumberOfWorkerThreads*maxMessagePerWorker;
@@ -105,6 +110,7 @@ public class MessageReceiverImplTest {
 		DeleteMessageBatchRequest expectedBatch = new DeleteMessageBatchRequest(queueUrl, deleteRequest);
 		// Verify that all were deleted
 		verify(mockSQSClient, times(1)).deleteMessageBatch(expectedBatch);
+		verify(mockProcessedMsgsHandler, times(1)).registerProcessedMessages();
 	}
 	@Test
 	public void testTrigerFiredOneFailureMulitipleSuccess() throws InterruptedException{
