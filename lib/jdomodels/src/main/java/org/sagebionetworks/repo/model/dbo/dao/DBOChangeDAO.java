@@ -11,7 +11,7 @@ import org.sagebionetworks.repo.model.message.ObjectType;
  * @author jmhill
  *
  */
-public interface DBOChangeDAO extends ProcessedMessageDAO {
+public interface DBOChangeDAO {
 	
 	/**
 	 * If the objectId already exists, then replace it, else add a new row.

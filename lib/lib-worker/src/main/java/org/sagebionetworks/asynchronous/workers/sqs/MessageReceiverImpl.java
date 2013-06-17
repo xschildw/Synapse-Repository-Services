@@ -271,9 +271,10 @@ public class MessageReceiverImpl implements MessageReceiver {
 				awsSQSClient.deleteMessageBatch(new DeleteMessageBatchRequest(messageQueue.getQueueUrl(), messagesToDelete));
 			}
 			// Register processed messages
-			processedMessagesHandler.setQueueName(messageQueue.getQueueName());
-			processedMessagesHandler.setProcessedMessages(msgsToRegister);
-			processedMessagesHandler.registerProcessedMessages();
+			List<Long> registeredMsgs = processedMessagesHandler.registerProcessedMessages(msgsToRegister, messageQueue.getQueueName());
+			if (registeredMsgs.size() != msgsToRegister.size()) {
+				log.debug("ProcessedMessagesHandler could not register some messages");
+			}
 			
 			// remove all that we can
 			currentWorkers.removeAll(toRemove);

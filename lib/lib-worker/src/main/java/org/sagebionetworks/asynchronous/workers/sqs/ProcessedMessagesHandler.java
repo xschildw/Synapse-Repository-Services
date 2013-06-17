@@ -1,5 +1,6 @@
 package org.sagebionetworks.asynchronous.workers.sqs;
 
+import java.util.LinkedList;
 import java.util.List;
 
 import org.sagebionetworks.repo.model.ProcessedMessageDAO;
@@ -12,31 +13,32 @@ public class ProcessedMessagesHandler {
 
 	@Autowired
 	ProcessedMessageDAO processedMsgMgr;
-
-	List<Message> processedMessages;
-	String queueName;
 	
-	ProcessedMessagesHandler(List<Message> processedMsgs, String qName) {
-		this.processedMessages = processedMsgs;
-		this.queueName = qName;
+	protected static ProcessedMessagesHandler instance = null;
+	
+	protected ProcessedMessagesHandler() {
+		
 	}
 	
-	public void setProcessedMessages(List<Message> msgs) {
-		this.processedMessages = msgs;
-	}
-	
-	public void setQueueName(String name) {
-		this.queueName = name;
-	}
-	
-	/**
-	 * Register all processed messages
-	 */
-	public int registerProcessedMessages() {
-		for (Message m: processedMessages) {
-			ChangeMessage chgMsg = MessageUtils.extractMessageBody(m);
-			processedMsgMgr.registerMessageProcessed(chgMsg.getChangeNumber(), queueName);
+	public static ProcessedMessagesHandler getInstance() {
+		if (instance == null) {
+			instance = new ProcessedMessagesHandler();
 		}
-		return processedMessages.size();
+		return instance;
+	}
+
+	/**
+	 * Register processed messages
+	 */
+	public List<Long> registerProcessedMessages(List<Message> processedMsgs, String qName) {
+		List<Long> l = new LinkedList<Long>();
+		for (Message m: processedMsgs) {
+			ChangeMessage chgMsg = MessageUtils.extractMessageBody(m);
+			Long cn = processedMsgMgr.registerMessageProcessed(chgMsg.getChangeNumber(), qName);
+			if (cn != null) {
+				l.add(cn);
+			}
+		}
+		return l;
 	}
 }

@@ -110,7 +110,7 @@ public class MessageReceiverImplTest {
 		DeleteMessageBatchRequest expectedBatch = new DeleteMessageBatchRequest(queueUrl, deleteRequest);
 		// Verify that all were deleted
 		verify(mockSQSClient, times(1)).deleteMessageBatch(expectedBatch);
-		verify(mockProcessedMsgsHandler, times(1)).registerProcessedMessages();
+		verify(mockProcessedMsgsHandler, times(1)).registerProcessedMessages(anyListOf(Message.class), any(String.class));
 	}
 	@Test
 	public void testTrigerFiredOneFailureMulitipleSuccess() throws InterruptedException{

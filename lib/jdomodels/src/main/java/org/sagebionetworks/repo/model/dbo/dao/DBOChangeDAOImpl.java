@@ -16,6 +16,7 @@ import org.apache.commons.logging.LogFactory;
 import org.sagebionetworks.ids.IdGenerator;
 import org.sagebionetworks.ids.IdGenerator.TYPE;
 import org.sagebionetworks.repo.model.DatastoreException;
+import org.sagebionetworks.repo.model.ProcessedMessageDAO;
 import org.sagebionetworks.repo.model.dbo.AutoIncrementDatabaseObject;
 import org.sagebionetworks.repo.model.dbo.DBOBasicDao;
 import org.sagebionetworks.repo.model.dbo.persistence.DBOChange;
@@ -29,6 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.springframework.transaction.annotation.Propagation;
@@ -40,7 +42,7 @@ import org.springframework.transaction.annotation.Transactional;
  * @author John
  *
  */
-public class DBOChangeDAOImpl implements DBOChangeDAO {
+public class DBOChangeDAOImpl implements DBOChangeDAO, ProcessedMessageDAO {
 	
 	static private Log log = LogFactory.getLog(DBOChangeDAOImpl.class);
 	
@@ -61,6 +63,8 @@ public class DBOChangeDAOImpl implements DBOChangeDAO {
 	private static final String SQL_INSERT_PROCESSED_ON_DUPLICATE_UPDATE = "INSERT INTO "+TABLE_PROCESSED_MESSAGES+" ( "+COL_PROCESSED_MESSAGES_CHANGE_NUM+", "+COL_PROCESSED_MESSAGES_QUEUE_NAME+", "+COL_PROCESSED_MESSAGES_TIME_STAMP+") VALUES ( ?, ?, ?) ON DUPLICATE KEY UPDATE "+COL_SENT_MESSAGES_TIME_STAMP+" = ?";
 
 	private static final String SQL_SELECT_CHANGES_NOT_PROCESSED = "select c.* from " + TABLE_CHANGES + " c join " + TABLE_SENT_MESSAGES + " s on s." + COL_SENT_MESSAGES_CHANGE_NUM + " = c." + COL_CHANGES_CHANGE_NUM + " left join (select * from " + TABLE_PROCESSED_MESSAGES + " where " + COL_PROCESSED_MESSAGES_QUEUE_NAME + " = ?) p on p." + COL_PROCESSED_MESSAGES_CHANGE_NUM + " = s." + COL_SENT_MESSAGES_CHANGE_NUM + " where p." + COL_PROCESSED_MESSAGES_CHANGE_NUM + " is null limit ?";
+
+	private static final String SQL_SELECT_TIME_STAMP_DIFF_FOR_QUEUE = "select timestampdiff(second, s." + COL_PROCESSED_MESSAGES_TIME_STAMP + ", p." + COL_SENT_MESSAGES_TIME_STAMP + ") as diff from " + TABLE_SENT_MESSAGES + " s join " + TABLE_PROCESSED_MESSAGES + " p on p." + COL_PROCESSED_MESSAGES_CHANGE_NUM + " = s." + COL_SENT_MESSAGES_CHANGE_NUM + " where p." + COL_PROCESSED_MESSAGES_QUEUE_NAME + " = :" + COL_PROCESSED_MESSAGES_QUEUE_NAME;
 
 	@Autowired
 	private DBOBasicDao basicDao;
@@ -173,41 +177,39 @@ public class DBOChangeDAOImpl implements DBOChangeDAO {
 	}
 
 
+	@Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW)
 	@Override
-	public void registerMessageProcessed(long changeNumber, String queueName) {
-		simpleJdbcTemplate.update(SQL_INSERT_PROCESSED_ON_DUPLICATE_UPDATE, changeNumber, queueName, null, null);
-		
+	public Long registerMessageProcessed(long changeNumber, String queueName) {
+		Long l = null;
+		try {
+			simpleJdbcTemplate.update(SQL_INSERT_PROCESSED_ON_DUPLICATE_UPDATE, changeNumber, queueName, null, null);
+			l = changeNumber;
+		} catch (DataIntegrityViolationException e) {
+			log.debug("Data integrity violation on changeNumber " + changeNumber);
+		}
+		return l;
 	}
 
-/*	@Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW)
-	@Override
-	public void registerMessageProcessed(List<Long> changeNumbers, String queueName) {
-		if (changeNumbers == null) throw new IllegalArgumentException("The list of changeNumbers cannot be null");
-		if (queueName == null) throw new IllegalArgumentException("The queueName cannot be null");
-		if (changeNumbers.size() < 1) throw new IllegalArgumentException("There must be at least one item in the batch");
-		
-		// Lookup the insert SQL
-		DBOProcessedMessage processedMsg;
-		String insertSQl = getInsertSQL(processedMsg.getClass());
-		SqlParameterSource[] namedParameters = new BeanPropertySqlParameterSource[changeNumbers.size()];
-		for (int i = 0; i < changeNumbers.size(); i++) {
-			namedParameters[i] = new BeanPropertySqlParameterSource(changeNumbers.get(i));
-		}
-		try {
-			int[] updatedCountArray = simpleJdbcTemplate.batchUpdate(insertSQl, namedParameters);
-			for (int count: updatedCountArray) {
-				if (count != 1) throw new DatastoreException("Failed to insert without error");
-			}
-			return;
-		}catch(DataIntegrityViolationException e){
-			throw new IllegalArgumentException(e);
-		}
-	}
-	
-*/
 	@Override
 	public List<ChangeMessage> listNotProcessedMessages(String queueName, long limit) {
 		List<DBOChange> l = simpleJdbcTemplate.query(SQL_SELECT_CHANGES_NOT_PROCESSED, new DBOChange().getTableMapping(), queueName, limit);
 		return ChangeMessageUtils.createDTOList(l);
+	}
+
+
+	@Override
+	public List<Long> getMessageProcessingTimesForQueue(String queueName) {
+		MapSqlParameterSource param = new MapSqlParameterSource();
+		param.addValue(COL_PROCESSED_MESSAGES_QUEUE_NAME, queueName);
+		String sqlSelectProcessingTimes = SQL_SELECT_TIME_STAMP_DIFF_FOR_QUEUE;
+		List<Long> tsDiffs = simpleJdbcTemplate.query(sqlSelectProcessingTimes,
+			new RowMapper<Long>() {
+				@Override
+				public Long mapRow(ResultSet rs, int rowNum) throws SQLException {
+					// Should never be null as timestamps are not null
+					return rs.getLong(1);
+				}
+			}, param);
+		return tsDiffs;
 	}
 }

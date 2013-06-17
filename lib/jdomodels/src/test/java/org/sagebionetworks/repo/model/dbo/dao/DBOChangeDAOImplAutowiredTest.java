@@ -22,11 +22,13 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.sagebionetworks.repo.model.ProcessedMessageDAO;
 import org.sagebionetworks.repo.model.message.ChangeMessage;
 import org.sagebionetworks.repo.model.message.ChangeMessageUtils;
 import org.sagebionetworks.repo.model.message.ChangeType;
 import org.sagebionetworks.repo.model.message.ObjectType;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DeadlockLoserDataAccessException;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
@@ -37,6 +39,9 @@ public class DBOChangeDAOImplAutowiredTest {
 	
 	@Autowired
 	DBOChangeDAO changeDAO;
+	
+	@Autowired
+	ProcessedMessageDAO processedMessageDAO;
 	
 	@Before
 	public void before(){
@@ -351,26 +356,6 @@ public class DBOChangeDAOImplAutowiredTest {
 		assertEquals(0, unSent.size());
 	}
 	
-	@Test
-	public void testRegisterProcessedAndListNotProcessed() {
-		// Create msgs
-		List<ChangeMessage> batch = createList(3, ObjectType.ENTITY);
-		batch = changeDAO.replaceChange(batch);
-		List<ChangeMessage> notProcessed = changeDAO.listNotProcessedMessages("Q", 3);
-		assertEquals(0, notProcessed.size());
-		// Register sent msgs
-		changeDAO.registerMessageSent(batch.get(0).getChangeNumber());
-		changeDAO.registerMessageSent(batch.get(1).getChangeNumber());
-		changeDAO.registerMessageSent(batch.get(2).getChangeNumber());
-		List<ChangeMessage> notSent = changeDAO.listUnsentMessages(3);
-		assertEquals(0, notSent.size());
-		notProcessed = changeDAO.listNotProcessedMessages("Q", 3);
-		assertEquals(3, notProcessed.size());
-		changeDAO.registerMessageProcessed(batch.get(1).getChangeNumber(), "Q");
-		notProcessed = changeDAO.listNotProcessedMessages("Q", 3);
-		assertEquals(2, notProcessed.size());
-	}
-	
 	/**
 	 * Will add a row to start the a test.
 	 * @return
@@ -449,5 +434,98 @@ public class DBOChangeDAOImplAutowiredTest {
 				return Boolean.FALSE;
 			}
 		}
+	}
+	
+	@Test
+	public void testRegisterProcessedAndListNotProcessed() {
+		// Create msgs
+		List<ChangeMessage> batch = createList(3, ObjectType.ENTITY);
+		batch = changeDAO.replaceChange(batch);
+		List<ChangeMessage> notProcessed = processedMessageDAO.listNotProcessedMessages("Q", 3);
+		assertEquals(0, notProcessed.size());
+		// Register sent msgs
+		changeDAO.registerMessageSent(batch.get(0).getChangeNumber());
+		changeDAO.registerMessageSent(batch.get(1).getChangeNumber());
+		changeDAO.registerMessageSent(batch.get(2).getChangeNumber());
+		List<ChangeMessage> notSent = changeDAO.listUnsentMessages(3);
+		assertEquals(0, notSent.size());
+		notProcessed = processedMessageDAO.listNotProcessedMessages("Q", 3);
+		assertEquals(3, notProcessed.size());
+		processedMessageDAO.registerMessageProcessed(batch.get(1).getChangeNumber(), "Q");
+		notProcessed = processedMessageDAO.listNotProcessedMessages("Q", 3);
+		assertEquals(2, notProcessed.size());
+	}
+	
+	@Test
+	public void testRegisterProcessedMsgMissingChange() {
+		processedMessageDAO.registerMessageProcessed(123454321, "Q");
+	}
+	
+	@Test
+	public void testGetMessageProcessingTimes() {
+		// Create msgs
+		List<ChangeMessage> batch = createList(3, ObjectType.ENTITY);
+		batch = changeDAO.replaceChange(batch);
+		List<ChangeMessage> notProcessed = processedMessageDAO.listNotProcessedMessages("Q", 3);
+		// Register sent msgs
+		changeDAO.registerMessageSent(batch.get(0).getChangeNumber());
+		changeDAO.registerMessageSent(batch.get(1).getChangeNumber());
+		changeDAO.registerMessageSent(batch.get(2).getChangeNumber());
+		// Sleep 1500ms
+		try {
+			Thread.sleep(1500);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		// Get diffs before any processed msg registered
+		List<Long> pTimes = processedMessageDAO.getMessageProcessingTimesForQueue("Q");
+		assertNotNull(pTimes);
+		assertEquals(0, pTimes.size());
+		// Register 1 processed message
+		processedMessageDAO.registerMessageProcessed(batch.get(1).getChangeNumber(), "Q");
+		// Get diffs
+		pTimes = processedMessageDAO.getMessageProcessingTimesForQueue("Q");
+		assertNotNull(pTimes);
+		assertEquals(1, pTimes.size());
+		assertTrue(pTimes.get(0) > 0);
+		// Register another msg for Q
+		processedMessageDAO.registerMessageProcessed(batch.get(0).getChangeNumber(), "Q");
+		// Register last one for another queue Q2
+		processedMessageDAO.registerMessageProcessed(batch.get(2).getChangeNumber(), "Q2");
+		// Get diffs for Q
+		pTimes = processedMessageDAO.getMessageProcessingTimesForQueue("Q");
+		assertNotNull(pTimes);
+		assertEquals(2, pTimes.size());
+		assertTrue(pTimes.get(0) > 0);
+		assertTrue(pTimes.get(1) > 0);
+		// Get diffs for Q2
+		pTimes = processedMessageDAO.getMessageProcessingTimesForQueue("Q2");
+		assertNotNull(pTimes);
+		assertEquals(1, pTimes.size());
+		assertTrue(pTimes.get(0) > 0);
+	}
+	
+	@Test
+	public void testGetMessagesProcessingTimesNonExistentQueue() {
+		// Create msgs
+		List<ChangeMessage> batch = createList(3, ObjectType.ENTITY);
+		batch = changeDAO.replaceChange(batch);
+		List<ChangeMessage> notProcessed = processedMessageDAO.listNotProcessedMessages("Q", 3);
+		// Register sent msgs
+		changeDAO.registerMessageSent(batch.get(0).getChangeNumber());
+		changeDAO.registerMessageSent(batch.get(1).getChangeNumber());
+		changeDAO.registerMessageSent(batch.get(2).getChangeNumber());
+		// Sleep 1500ms
+		try {
+			Thread.sleep(1500);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		// Register 1 processed message
+		processedMessageDAO.registerMessageProcessed(batch.get(1).getChangeNumber(), "Q");
+		// Get diffs
+		List<Long> pTimes = processedMessageDAO.getMessageProcessingTimesForQueue("Q2");
+		assertNotNull(pTimes);
+		assertEquals(0, pTimes.size());
 	}
 }
