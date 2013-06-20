@@ -66,6 +66,7 @@ public class DBOChangeDAOImpl implements DBOChangeDAO, ProcessedMessageDAO {
 
 	private static final String SQL_SELECT_TIME_STAMP_DIFF_FOR_QUEUE = "select timestampdiff(second, s." + COL_PROCESSED_MESSAGES_TIME_STAMP + ", p." + COL_SENT_MESSAGES_TIME_STAMP + ") as diff from " + TABLE_SENT_MESSAGES + " s join " + TABLE_PROCESSED_MESSAGES + " p on p." + COL_PROCESSED_MESSAGES_CHANGE_NUM + " = s." + COL_SENT_MESSAGES_CHANGE_NUM + " where p." + COL_PROCESSED_MESSAGES_QUEUE_NAME + " = :" + COL_PROCESSED_MESSAGES_QUEUE_NAME;
 
+	private static final String SQL_SELECT_TIME_STAMP_DIFF_FOR_QUEUE_CNUM = SQL_SELECT_TIME_STAMP_DIFF_FOR_QUEUE + " and s." + COL_SENT_MESSAGES_CHANGE_NUM + " = :" + COL_SENT_MESSAGES_CHANGE_NUM;
 	@Autowired
 	private DBOBasicDao basicDao;
 
@@ -183,7 +184,7 @@ public class DBOChangeDAOImpl implements DBOChangeDAO, ProcessedMessageDAO {
 		Long l = null;
 		try {
 			simpleJdbcTemplate.update(SQL_INSERT_PROCESSED_ON_DUPLICATE_UPDATE, changeNumber, queueName, null, null);
-			l = changeNumber;
+			l = getMessageProcessingTime(queueName, changeNumber);
 		} catch (DataIntegrityViolationException e) {
 			log.debug("Data integrity violation on changeNumber " + changeNumber);
 		}
@@ -197,12 +198,20 @@ public class DBOChangeDAOImpl implements DBOChangeDAO, ProcessedMessageDAO {
 	}
 
 
-	@Override
-	public List<Long> getMessageProcessingTimesForQueue(String queueName) {
+	/**
+	 * 
+	 * @param qName
+	 * @param cNum
+	 * @return processing time for change cNum in queue qName
+	 * 
+	 */
+	public Long getMessageProcessingTime(String qName, Long cNum) {
 		MapSqlParameterSource param = new MapSqlParameterSource();
-		param.addValue(COL_PROCESSED_MESSAGES_QUEUE_NAME, queueName);
-		String sqlSelectProcessingTimes = SQL_SELECT_TIME_STAMP_DIFF_FOR_QUEUE;
-		List<Long> tsDiffs = simpleJdbcTemplate.query(sqlSelectProcessingTimes,
+		param.addValue(COL_PROCESSED_MESSAGES_QUEUE_NAME, qName);
+		param.addValue(COL_PROCESSED_MESSAGES_CHANGE_NUM, cNum);
+		// TODO: Handle limit
+		String sqlSelectProcessingTimes = SQL_SELECT_TIME_STAMP_DIFF_FOR_QUEUE_CNUM;
+		List<Long> pTimes = simpleJdbcTemplate.query(sqlSelectProcessingTimes,
 			new RowMapper<Long>() {
 				@Override
 				public Long mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -210,6 +219,9 @@ public class DBOChangeDAOImpl implements DBOChangeDAO, ProcessedMessageDAO {
 					return rs.getLong(1);
 				}
 			}, param);
-		return tsDiffs;
+		if (pTimes.size() == 0) {
+			throw new IllegalStateException("Illegal state: could not retrieve processing time for processed message");
+		}
+		return pTimes.get(0);
 	}
 }

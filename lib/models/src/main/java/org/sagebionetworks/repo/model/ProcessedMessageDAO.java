@@ -23,9 +23,4 @@ public interface ProcessedMessageDAO {
 	 */
 	public List<ChangeMessage> listNotProcessedMessages(String queueName, long limit);
 	
-	/**
-	 * Retrieves sent and received times for sent/processed messages in given queue
-	 */
-	public List<Long> getMessageProcessingTimesForQueue(String queueName);
-
 }
