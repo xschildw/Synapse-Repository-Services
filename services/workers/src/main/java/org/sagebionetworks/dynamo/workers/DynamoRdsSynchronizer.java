@@ -18,7 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 /**
  * Synchronizes RDS and DynamoDB on randomly selected nodes.
  */
-public class DynamoRdsSynchronizer {
+public class DynamoRdsSynchronizer implements Runnable {
 
 	/** How many nodes to synchronize in one batch */
 	static final long BATCH_SIZE = 30L;
@@ -52,7 +52,8 @@ public class DynamoRdsSynchronizer {
 		this.random = new SecureRandom();
 	}
 
-	public void triggerFired() {
+	@Override
+	public void run() {
 
 		final long start1 = System.currentTimeMillis();
 
@@ -64,7 +65,7 @@ public class DynamoRdsSynchronizer {
 		final Date date = new Date();
 
 		final long latency1 = System.currentTimeMillis() - start1;
-		addLatency("GetBatchFromRds", latency1);
+		addLatency("GetBatchFromRdsLatency", latency1);
 
 		// Update the count to be used at next trigger
 		// Occasionally count may be out-of-date and out-of-range, in which
@@ -78,7 +79,7 @@ public class DynamoRdsSynchronizer {
 
 		// Now cross check with DynamoDB
 		List<NodeParentRelation> list = results.getResults();
-		addCount("TotalSynced", list.size());
+		addCount("TotalSyncedCount", list.size());
 		for (NodeParentRelation childParent : list) {
 
 			String childInRds = childParent.getId();
@@ -87,7 +88,7 @@ public class DynamoRdsSynchronizer {
 			String parentKeyInDynamo = nodeTreeQueryDao.getParent(childKeyInRds);
 			if (parentKeyInDynamo == null) {
 				// The child does not exist in DynamoDB yet
-				addCount("MissingNode", 1);
+				addCount("MissingNodeCount", 1);
 				nodeTreeUpdateManager.create(childInRds, parentInRds, date);
 				return;
 			}
@@ -95,7 +96,7 @@ public class DynamoRdsSynchronizer {
 			if (parentInRds == null) {
 				// Check against the root
 				if (!nodeTreeQueryDao.isRoot(childKeyInRds)) {
-					addCount("IncorrectRoot", 1);
+					addCount("IncorrectRootCount", 1);
 					nodeTreeUpdateManager.update(childKeyInRds, childKeyInRds, date);
 				}
 				return;
@@ -104,13 +105,13 @@ public class DynamoRdsSynchronizer {
 			String parentKeyInRds = KeyFactory.stringToKey(parentInRds).toString();
 			if (!parentKeyInDynamo.equals(parentKeyInRds)) {
 				// Implies that the child is pointing to the wrong parent
-				addCount("IncorrectParent", 1);;
+				addCount("IncorrectParentCount", 1);;
 				nodeTreeUpdateManager.update(childInRds, parentInRds, date);
 			}
 		}
 
 		final long latency2 = System.currentTimeMillis() - start2;
-		addLatency("SyncBatchWithDynamo", latency2);
+		addLatency("SyncBatchWithDynamoLatency", latency2);
 	}
 
 	private void addLatency(String name, long latency) {

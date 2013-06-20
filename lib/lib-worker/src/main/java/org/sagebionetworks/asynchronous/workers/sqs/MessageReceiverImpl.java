@@ -170,6 +170,14 @@ public class MessageReceiverImpl implements MessageReceiver {
 	 */
 	public void setProcessedMessagesHandler(ProcessedMessagesHandler handler) {
 		this.processedMessagesHandler = handler;
+
+	@Override
+	public void run(){
+		try {
+			triggerFired();
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 	@Override
