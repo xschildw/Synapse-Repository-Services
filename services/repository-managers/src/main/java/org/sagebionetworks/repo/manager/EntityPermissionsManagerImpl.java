@@ -1,18 +1,13 @@
 package org.sagebionetworks.repo.manager;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import org.sagebionetworks.repo.model.ACCESS_TYPE;
 import org.sagebionetworks.repo.model.ACLInheritanceException;
 import org.sagebionetworks.repo.model.AccessControlList;
 import org.sagebionetworks.repo.model.AccessControlListDAO;
-import org.sagebionetworks.repo.model.AuthorizationConstants;
 import org.sagebionetworks.repo.model.ConflictingUpdateException;
 import org.sagebionetworks.repo.model.DatastoreException;
 import org.sagebionetworks.repo.model.InvalidModelException;
@@ -20,7 +15,6 @@ import org.sagebionetworks.repo.model.Node;
 import org.sagebionetworks.repo.model.NodeDAO;
 import org.sagebionetworks.repo.model.ResourceAccess;
 import org.sagebionetworks.repo.model.UnauthorizedException;
-import org.sagebionetworks.repo.model.UserGroup;
 import org.sagebionetworks.repo.model.UserGroupDAO;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.auth.UserEntityPermissions;
@@ -30,9 +24,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-public class PermissionsManagerImpl implements PermissionsManager {
-	
-	
+public class EntityPermissionsManagerImpl implements EntityPermissionsManager {
+
 	@Autowired
 	private AccessControlListDAO aclDAO;	
 	@Autowired
@@ -54,7 +47,7 @@ public class PermissionsManagerImpl implements PermissionsManager {
 		if (!benefactor.equals(nodeId)) {
 			throw new ACLInheritanceException("Cannot access the ACL of a node that inherits it permissions. This node inherits its permissions from: "+benefactor, benefactor);
 		}
-		AccessControlList acl = aclDAO.getForResource(nodeId);
+		AccessControlList acl = aclDAO.get(nodeId, ObjectType.ENTITY);
 		return acl;
 	}
 		
@@ -71,11 +64,8 @@ public class PermissionsManagerImpl implements PermissionsManager {
 		// validate content
 		Long ownerId = nodeDao.getCreatedBy(acl.getId());
 		validateACLContent(acl, userInfo, ownerId);
-		// Before we can update the ACL we must grab the lock on the node.
-		String newETag = nodeDao.lockNodeAndIncrementEtag(acl.getId(), acl.getEtag());
 		aclDAO.update(acl);
-		acl = aclDAO.get(acl.getId());
-		acl.setEtag(newETag);
+		acl = aclDAO.get(acl.getId(), ObjectType.ENTITY);
 		return acl;
 	}
 
@@ -99,9 +89,7 @@ public class PermissionsManagerImpl implements PermissionsManager {
 		nodeInheritanceManager.setNodeToInheritFromItself(rId);
 		// persist acl and return
 		aclDAO.create(acl);
-		acl = aclDAO.get(acl.getId());
-		node = nodeDao.getNode(rId);
-		acl.setEtag(node.getETag());
+		acl = aclDAO.get(acl.getId(), ObjectType.ENTITY);
 		return acl;
 	}
 
@@ -124,13 +112,13 @@ public class PermissionsManagerImpl implements PermissionsManager {
 		nodeInheritanceManager.setNodeToInheritFromNearestParent(rId);
 		
 		// delete access control list
-		AccessControlList acl = aclDAO.getForResource(rId);
+		AccessControlList acl = aclDAO.get(rId, ObjectType.ENTITY);
 		aclDAO.delete(acl.getId());
 		
 		// now find the newly governing ACL
 		benefactor = nodeInheritanceManager.getBenefactor(rId);
 		
-		return aclDAO.getForResource(benefactor);
+		return aclDAO.get(benefactor, ObjectType.ENTITY);
 	}	
 	
 	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
@@ -148,7 +136,7 @@ public class PermissionsManagerImpl implements PermissionsManager {
 		applyInheritanceToChildrenHelper(parentId, userInfo);
 
 		// return governing parent ACL
-		return aclDAO.getForResource(nodeInheritanceManager.getBenefactor(parentId));
+		return aclDAO.get(nodeInheritanceManager.getBenefactor(parentId), ObjectType.ENTITY);
 	}
 	
 	private void applyInheritanceToChildrenHelper(String parentId, UserInfo userInfo) throws NotFoundException, DatastoreException, ConflictingUpdateException {
@@ -168,7 +156,7 @@ public class PermissionsManagerImpl implements PermissionsManager {
 					nodeDao.lockNodeAndIncrementEtag(node.getId(), node.getETag());
 					
 					// delete ACL
-					AccessControlList acl = aclDAO.getForResource(idToChange);
+					AccessControlList acl = aclDAO.get(idToChange, ObjectType.ENTITY);
 					aclDAO.delete(acl.getId());
 				}								
 				// set benefactor ACL
@@ -178,25 +166,6 @@ public class PermissionsManagerImpl implements PermissionsManager {
 				applyInheritanceToChildrenHelper(idToChange, userInfo);
 			}
 		}
-	}
-	
-	@Override
-	public Collection<UserGroup> getGroups(UserInfo userInfo) throws DatastoreException {
-		return getGroups();
-	}
-
-	@Override
-	public Collection<UserGroup> getGroups() throws DatastoreException {
-		List<String> groupsToOmit = new ArrayList<String>();
-		groupsToOmit.add(AuthorizationConstants.BOOTSTRAP_USER_GROUP_NAME);
-		return userGroupDAO.getAllExcept(false, groupsToOmit);
-	}
-
-	@Override
-	public List<UserGroup> getGroupsInRange(UserInfo userInfo, long startIncl, long endExcl, String sort, boolean ascending) throws DatastoreException, UnauthorizedException {
-		List<String> groupsToOmit = new ArrayList<String>();
-		groupsToOmit.add(AuthorizationConstants.BOOTSTRAP_USER_GROUP_NAME);
-		return userGroupDAO.getInRangeExcept(startIncl, endExcl, false, groupsToOmit);
 	}
 
 	/**
@@ -277,5 +246,4 @@ public class PermissionsManagerImpl implements PermissionsManager {
 			throw new InvalidModelException("Caller is trying to revoke their own ACL editing permissions.");
 		}
 	}
-	
 }
