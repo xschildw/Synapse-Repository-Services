@@ -58,6 +58,7 @@ import org.sagebionetworks.evaluation.model.Submission;
 import org.sagebionetworks.evaluation.model.SubmissionBundle;
 import org.sagebionetworks.evaluation.model.SubmissionStatus;
 import org.sagebionetworks.evaluation.model.SubmissionStatusEnum;
+import org.sagebionetworks.evaluation.model.UserEvaluationPermissions;
 import org.sagebionetworks.evaluation.model.UserEvaluationState;
 import org.sagebionetworks.repo.model.ACCESS_TYPE;
 import org.sagebionetworks.repo.model.ACTAccessRequirement;
@@ -182,7 +183,7 @@ public class Synapse implements SynapseInt {
 	protected static final String REDIRECT_PARAMETER = "redirect=";
 	protected static final String AND_REDIRECT_PARAMETER = "&"+REDIRECT_PARAMETER;
 	protected static final String QUERY_REDIRECT_PARAMETER = "?"+REDIRECT_PARAMETER;
-	
+
 	protected static final String EVALUATION_URI_PATH = "/evaluation";
 	protected static final String AVAILABLE_EVALUATION_URI_PATH = "/evaluation/available";
 	protected static final String COUNT = "count";
@@ -197,6 +198,7 @@ public class Synapse implements SynapseInt {
 	protected static final String SUBMISSION_STATUS_ALL = SUBMISSION + STATUS + ALL;
 	protected static final String SUBMISSION_BUNDLE_ALL = SUBMISSION + BUNDLE + ALL;	
 	protected static final String STATUS_SUFFIX = "?status=";
+	private static final String EVALUATION_ACL_URI_PATH = "/evaluation/acl";
 
 	protected static final String USER_PROFILE_PATH = "/userProfile";
 	
@@ -3551,6 +3553,7 @@ public class Synapse implements SynapseInt {
 		}
 	}
 	
+	@Deprecated
 	public PaginatedResults<Evaluation> getEvaluationsPaginated(int offset, int limit) throws SynapseException {
 		String url = EVALUATION_URI_PATH +	"?" + OFFSET + "=" + offset + "&limit=" + limit;
 		JSONObject jsonObj = getEntity(url);
@@ -3565,6 +3568,7 @@ public class Synapse implements SynapseInt {
 		}
 	}
 	
+	@Deprecated
 	public PaginatedResults<Evaluation> getAvailableEvaluationsPaginated(EvaluationStatus status, int offset, int limit) throws SynapseException {
 		String url = null;
 		if (null==status) {
@@ -3584,6 +3588,7 @@ public class Synapse implements SynapseInt {
 		}
 	}
 	
+	@Deprecated
 	public Long getEvaluationCount() throws SynapseException {
 		PaginatedResults<Evaluation> res = getEvaluationsPaginated(0,0);
 		return res.getTotalNumberOfResults();
@@ -3634,21 +3639,16 @@ public class Synapse implements SynapseInt {
 		JSONObject jsonObj = postUri(uri);
 		return initializeFromJSONObject(jsonObj, Participant.class);
 	}
-	
-	/**
-	 * Adds a separate user as a Participant in Evaluation evalId.
-	 */
-	public Participant createParticipantAsAdmin(String evalId, String participantPrincipalId) throws SynapseException {
-		if (evalId == null) throw new IllegalArgumentException("Evaluation id cannot be null");
-		String uri = createEntityUri(EVALUATION_URI_PATH, evalId) + "/" + PARTICIPANT
-				+ "/" + participantPrincipalId;
-		JSONObject jsonObj = postUri(uri);
-		return initializeFromJSONObject(jsonObj, Participant.class);
-	}
-	
+
 	public Participant getParticipant(String evalId, String principalId) throws SynapseException {
 		if (evalId == null) throw new IllegalArgumentException("Evaluation id cannot be null");
 		if (principalId == null) throw new IllegalArgumentException("Principal ID cannot be null");
+		// Make sure we are passing in the ID, not the user name
+		try {
+			Long.parseLong(principalId);
+		} catch (NumberFormatException e) {
+			throw new SynapseException("Please pass in the pricipal ID, not the user name.", e);
+		}
 		String uri = createEntityUri(EVALUATION_URI_PATH, evalId) + "/" + PARTICIPANT
 				+ "/" + principalId;		
 		JSONObject jsonObj = getEntity(uri);
@@ -4142,6 +4142,57 @@ public class Synapse implements SynapseInt {
 			throw new SynapseException(e);
 		}
 	}
-	
-	
+
+	public AccessControlList updateEvaluationAcl(AccessControlList acl) throws SynapseException {
+
+		if (acl == null) {
+			throw new IllegalArgumentException("ACL can not be null.");
+		}
+
+		String url = EVALUATION_ACL_URI_PATH;	
+		JSONObjectAdapter toUpdateAdapter = new JSONObjectAdapterImpl();
+		JSONObject obj;
+		try {
+			obj = new JSONObject(acl.writeToJSONObject(toUpdateAdapter).toJSONString());
+			JSONObject jsonObj = putJSONObject(url, obj, new HashMap<String,String>());
+			JSONObjectAdapter adapter = new JSONObjectAdapterImpl(jsonObj);
+			return new AccessControlList(adapter);
+		} catch (JSONException e) {
+			throw new SynapseException(e);
+		} catch (JSONObjectAdapterException e) {
+			throw new SynapseException(e);
+		}
+	}
+
+	public AccessControlList getEvaluationAcl(String evalId) throws SynapseException {
+
+		if (evalId == null) {
+			throw new IllegalArgumentException("Evaluation ID cannot be null.");
+		}
+
+		String url = EVALUATION_URI_PATH + "/" + evalId + "/acl";		
+		JSONObject jsonObj = getEntity(url);
+		JSONObjectAdapter adapter = new JSONObjectAdapterImpl(jsonObj);
+		try {
+			return new AccessControlList(adapter);
+		} catch (JSONObjectAdapterException e) {
+			throw new SynapseException(e);
+		}
+	}
+
+	public UserEvaluationPermissions getUserEvaluationPermissions(String evalId) throws SynapseException {
+
+		if (evalId == null) {
+			throw new IllegalArgumentException("Evaluation ID cannot be null.");
+		}
+
+		String url = EVALUATION_URI_PATH + "/" + evalId + "/permissions";
+		JSONObject jsonObj = getEntity(url);
+		JSONObjectAdapter adapter = new JSONObjectAdapterImpl(jsonObj);
+		try {
+			return new UserEvaluationPermissions(adapter);
+		} catch (JSONObjectAdapterException e) {
+			throw new SynapseException(e);
+		}
+	}
 }

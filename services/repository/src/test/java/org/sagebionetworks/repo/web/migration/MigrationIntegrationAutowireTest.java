@@ -220,13 +220,18 @@ public class MigrationIntegrationAutowireTest {
 		evaluation.setDescription("description");
 		evaluation.setContentSource(project.getId());
 		evaluation.setStatus(EvaluationStatus.PLANNED);
+		evaluation.setSubmissionInstructionsMessage("instructions");
+		evaluation.setSubmissionReceiptMessage("receipt");
+		evaluation = serviceProvider.getEvaluationService().createEvaluation(userName, evaluation);	
 		evaluation = new Evaluation();
 		evaluation.setName("name2");
 		evaluation.setDescription("description");
 		evaluation.setContentSource(project.getId());
-		evaluation.setStatus(EvaluationStatus.OPEN);
-		evaluation = serviceProvider.getEvaluationService().createEvaluation(userName, evaluation);		
-        
+		evaluation.setStatus(EvaluationStatus.OPEN);		
+		evaluation.setSubmissionInstructionsMessage("instructions");
+		evaluation.setSubmissionReceiptMessage("receipt");
+        evaluation = serviceProvider.getEvaluationService().createEvaluation(userName, evaluation);
+
         // initialize Participants
 		participant = serviceProvider.getEvaluationService().addParticipant(userName, evaluation.getId());
         
@@ -238,7 +243,7 @@ public class MigrationIntegrationAutowireTest {
 		submission.setUserId(userName);
 		submission.setEvaluationId(evaluation.getId());
 		submission = entityServletHelper.createSubmission(submission, userName, fileEntity.getEtag());
-		submissionStatus = serviceProvider.getEvaluationService().getSubmissionStatus(submission.getId());
+		submissionStatus = serviceProvider.getEvaluationService().getSubmissionStatus(userName, submission.getId());
 	}
 
 
@@ -249,7 +254,7 @@ public class MigrationIntegrationAutowireTest {
 	}
 
 
-	public void createAccessRequirement() throws ServletException, IOException {
+	public void createAccessRequirement() throws Exception {
 		// Add an access requirement to this entity
 		accessRequirement = newAccessRequirement();
 		String entityId = project.getId();

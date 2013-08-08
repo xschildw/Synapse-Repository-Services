@@ -49,7 +49,7 @@ public class EvaluationDAOImplTest {
 	
 	private static final String EVALUATION_NAME = "test-evaluation";
 	private static final String EVALUATION_NAME_2 = "test-evaluation-2";
-    private static final Long EVALUATION_OWNER_ID = 0L;
+    private static final Long EVALUATION_OWNER_ID = 1L;
     private static final String EVALUATION_CONTENT_SOURCE = KeyFactory.keyToString(KeyFactory.ROOT_ID);
     
     private static Evaluation newEvaluation(String id, String name, String contentSource, EvaluationStatus status) {

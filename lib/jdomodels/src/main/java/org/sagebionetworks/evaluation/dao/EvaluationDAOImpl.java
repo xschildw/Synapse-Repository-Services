@@ -69,13 +69,6 @@ public class EvaluationDAOImpl implements EvaluationDAO {
 			" LIMIT :"+ LIMIT_PARAM_NAME +
 			" OFFSET :" + OFFSET_PARAM_NAME;
 	
-	private static final String SELECT_ID_ETAG_SQL_PAGINATED = 
-			"SELECT " + COL_EVALUATION_ID + ", " + COL_EVALUATION_ETAG +
-			" FROM "+ TABLE_EVALUATION +
-			" ORDER BY " + COL_EVALUATION_ID +
-			" LIMIT :"+ LIMIT_PARAM_NAME +
-			" OFFSET :" + OFFSET_PARAM_NAME;
-	
 	private static final String SQL_ETAG_WITHOUT_LOCK = "SELECT " + COL_EVALUATION_ETAG + " FROM " +
 														TABLE_EVALUATION +" WHERE ID = ?";
 	
@@ -103,17 +96,19 @@ public class EvaluationDAOImpl implements EvaluationDAO {
 		EvaluationUtils.ensureNotNull(dto.getId(), "Evaluation ID");
 		
 		// convert to DBO
-		EvaluationDBO dbo = new EvaluationDBO();
-		copyDtoToDbo(dto, dbo);
+		EvaluationDBO dbo = new EvaluationDBO();		
 		
 		// set Owner ID
-		dbo.setOwnerId(ownerId);
+		dto.setOwnerId(ownerId.toString());
+		
+		// serialize
+		copyDtoToDbo(dto, dbo);
 		
 		// generate a new eTag, unless restoring from backup
 		if (!fromBackup) {			
 			tagMessenger.generateEtagAndSendMessage(dbo, ChangeType.CREATE);
 		}
-		
+				
 		// ensure DBO has required information
 		verifyEvaluationDBO(dbo);
 		
@@ -263,16 +258,22 @@ public class EvaluationDAOImpl implements EvaluationDAO {
 		dbo.setCreatedOn(dto.getCreatedOn() == null ? null : dto.getCreatedOn().getTime());
 		dbo.setContentSource(KeyFactory.stringToKey(dto.getContentSource()));
 		dbo.setStatusEnum(dto.getStatus());
+		if (dto.getSubmissionInstructionsMessage() != null) {
+			dbo.setSubmissionInstructionsMessage(dto.getSubmissionInstructionsMessage().getBytes());
+		}
+		if (dto.getSubmissionReceiptMessage() != null) {
+			dbo.setSubmissionReceiptMessage(dto.getSubmissionReceiptMessage().getBytes());
+		}
 	}
 	
 	/**
 	 * Copy a Evaluation data transfer object to a EvaluationDBO database object
-	 * 
+	 *
 	 * @param dbo
 	 * @param dto
 	 * @throws DatastoreException
 	 */
-	protected static void copyDboToDto(EvaluationDBO dbo, Evaluation dto) throws DatastoreException {		
+	protected static void copyDboToDto(EvaluationDBO dbo, Evaluation dto) throws DatastoreException {	
 		dto.setId(dbo.getId() == null ? null : dbo.getId().toString());
 		dto.setEtag(dbo.geteTag());
 		dto.setName(dbo.getName());
@@ -289,6 +290,20 @@ public class EvaluationDAOImpl implements EvaluationDAO {
 		dto.setCreatedOn(new Date(dbo.getCreatedOn()));
 		dto.setContentSource(KeyFactory.keyToString(dbo.getContentSource()));
 		dto.setStatus(dbo.getStatusEnum());
+		if (dbo.getSubmissionInstructionsMessage() != null) {
+			try {
+				dto.setSubmissionInstructionsMessage(new String(dbo.getSubmissionInstructionsMessage(), "UTF-8"));
+			} catch (UnsupportedEncodingException e) {
+				throw new DatastoreException(e);
+			}
+		}
+		if (dbo.getSubmissionReceiptMessage() != null) {
+			try {
+				dto.setSubmissionReceiptMessage(new String(dbo.getSubmissionReceiptMessage(), "UTF-8"));
+			} catch (UnsupportedEncodingException e) {
+				throw new DatastoreException(e);
+			}
+		}
 	}
 
 	/**
@@ -311,7 +326,8 @@ public class EvaluationDAOImpl implements EvaluationDAO {
 		String currentTag = lockForUpdate(id);
 		// Check the eTags
 		if(!currentTag.equals(eTag)){
-			throw new ConflictingUpdateException("Evaluation: "+id+" was updated since you last fetched it, retrieve it again and reapply the update");
+			throw new ConflictingUpdateException("Evaluation: " + id + " has been updated since " +
+					"you last fetched it; please retrieve it again and re-apply the update");
 		}
 		// Get a new e-tag
 		EvaluationDBO dbo = getDBO(id);
