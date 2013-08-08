@@ -36,6 +36,7 @@ public class MessageReceiverImpl implements MessageReceiver {
 	@Autowired
 	AmazonSQSClient awsSQSClient;
 	
+	@Autowired
 	ProcessedMessagesHandler processedMessagesHandler;
 	
     /**
@@ -170,6 +171,7 @@ public class MessageReceiverImpl implements MessageReceiver {
 	 */
 	public void setProcessedMessagesHandler(ProcessedMessagesHandler handler) {
 		this.processedMessagesHandler = handler;
+	}
 
 	@Override
 	public void run(){
@@ -283,7 +285,7 @@ public class MessageReceiverImpl implements MessageReceiver {
 			if (registeredMsgsProcessingTimes.size() != msgsToRegister.size()) {
 				log.debug("ProcessedMessagesHandler could not register some messages");
 			}
-			processedMessagesHandler.sendProcessingTimesToCloudWatch(registeredMsgsProcessingTimes, messageQueue.getQueueName());
+			//processedMessagesHandler.sendProcessingTimesToCloudWatch(registeredMsgsProcessingTimes, messageQueue.getQueueName());
 			
 			// remove all that we can
 			currentWorkers.removeAll(toRemove);

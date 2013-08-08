@@ -325,5 +325,13 @@
 	<bean id="jiraClient"
 		class="org.sagebionetworks.repo.util.jrjc.JiraClientImpl"
 		scope="singleton" />
+		
+	<bean
+		id="processedMessagesHandler"
+		class="org.sagebionetworks.repo.manager.worker.ProcessedMessagesManager"
+		scope="singleton"
+	/>
+	
+
 
 </beans>

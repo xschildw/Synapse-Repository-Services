@@ -111,7 +111,7 @@ public class MessageReceiverImplTest {
 		// Verify that all were deleted
 		verify(mockSQSClient, times(1)).deleteMessageBatch(expectedBatch);
 		verify(mockProcessedMsgsHandler, times(1)).registerProcessedMessages(anyListOf(Message.class), any(String.class));
-		verify(mockProcessedMsgsHandler, times(1)).sendProcessingTimesToCloudWatch(anyListOf(Long.class), any(String.class));
+		//verify(mockProcessedMsgsHandler, times(1)).sendProcessingTimesToCloudWatch(anyListOf(Long.class), any(String.class));
 	}
 	@Test
 	public void testTrigerFiredOneFailureMulitipleSuccess() throws InterruptedException{

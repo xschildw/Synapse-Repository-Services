@@ -464,7 +464,7 @@ public class DBOChangeDAOImplAutowiredTest {
 		Long pTime2 = processedMessageDAO.registerMessageProcessed(batch.get(0).getChangeNumber(), "Q1");
 		assertNotNull(pTime2);
 		assertTrue(pTime2 > 0);
-		assertTrue("Expected: " + pTime2 + " > " + pTime1, pTime2 > pTime1);
+		assertTrue("Expected: " + pTime2 + " >= " + pTime1, pTime2 >= pTime1);
 		notProcessed = processedMessageDAO.listNotProcessedMessages("Q1", 3);
 		assertEquals(1, notProcessed.size());
 		notProcessed = processedMessageDAO.listNotProcessedMessages("Q2", 3);
