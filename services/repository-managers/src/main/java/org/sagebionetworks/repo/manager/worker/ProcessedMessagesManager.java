@@ -19,40 +19,16 @@ public class ProcessedMessagesManager implements ProcessedMessagesHandler {
 	@Autowired
 	ProcessedMessageDAO processedMsgMgr;
 	
-//	@Autowired
-//	private Consumer consumer;
-	
 	/**
 	 * Register processed messages
 	 */
-	public List<Long> registerProcessedMessages(List<Message> processedMsgs, String qName) {
+	@Override
+	public void handleProcessedMessages(List<Message> processedMsgs, String qName) {
 		List<Long> l = new LinkedList<Long>();
 		for (Message m: processedMsgs) {
 			ChangeMessage chgMsg = MessageUtils.extractMessageBody(m);
-			Long cn = processedMsgMgr.registerMessageProcessed(chgMsg.getChangeNumber(), qName);
-			if (cn != null) {
-				l.add(cn);
-			}
-		}
-		return l;
-	}
-	
-	/**
-	 * Send processing times to CloudWatch
-	 */
-	public void sendProcessingTimesToCloudWatch(List<Long> processingTimes, String qName) {
-		for (Long t: processingTimes) {
-			addMetric(t, qName);
+			processedMsgMgr.registerMessageProcessed(chgMsg.getChangeNumber(), qName);
 		}
 	}
 	
-	private void addMetric(Long pTime, String qName) {
-//		ProfileData profileData = new ProfileData();
-//		profileData.setNamespace("MessageReceiver");
-//		profileData.setName(qName);
-//		profileData.setLatency(pTime);
-//		profileData.setUnit("second");
-//		profileData.setTimestamp(new Date());
-//		consumer.addProfileData(profileData);
-	}
 }

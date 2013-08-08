@@ -14,7 +14,7 @@ public interface ProcessedMessageDAO {
 */	/**
 	 * Register a message that has been processed by a worker.
 	 */
-	public Long registerMessageProcessed(long changeNumber, String queueName);
+	public void registerMessageProcessed(long changeNumber, String queueName);
 
 	/**
 	 * List messages that have been processed. This is used to detect messages that have been sent

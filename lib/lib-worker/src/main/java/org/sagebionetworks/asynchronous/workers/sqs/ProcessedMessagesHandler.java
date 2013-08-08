@@ -14,14 +14,6 @@ import com.amazonaws.services.sqs.model.Message;
 
 public interface ProcessedMessagesHandler {
 
-	/**
-	 * Register processed messages
-	 */
-	public List<Long> registerProcessedMessages(List<Message> processedMsgs, String qName);
-	
-	/**
-	 * Send processing times to CloudWatch
-	 */
-	public void sendProcessingTimesToCloudWatch(List<Long> processingTimes, String qName);
+	public void handleProcessedMessages(List<Message> processedMessages, String qName);
 
 }

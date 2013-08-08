@@ -180,15 +180,13 @@ public class DBOChangeDAOImpl implements DBOChangeDAO, ProcessedMessageDAO {
 
 	@Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW)
 	@Override
-	public Long registerMessageProcessed(long changeNumber, String queueName) {
+	public void registerMessageProcessed(long changeNumber, String queueName) {
 		Long l = null;
 		try {
 			simpleJdbcTemplate.update(SQL_INSERT_PROCESSED_ON_DUPLICATE_UPDATE, changeNumber, queueName, null, null);
-			l = getMessageProcessingTime(queueName, changeNumber);
 		} catch (DataIntegrityViolationException e) {
 			log.debug("Data integrity violation on changeNumber " + changeNumber);
 		}
-		return l;
 	}
 
 	@Override

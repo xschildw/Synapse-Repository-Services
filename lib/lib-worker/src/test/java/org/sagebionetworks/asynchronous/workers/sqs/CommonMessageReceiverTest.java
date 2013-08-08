@@ -24,9 +24,9 @@ import com.amazonaws.services.sqs.model.ReceiveMessageResult;
  * @author John
  *
  */
-public class MessageReceiverImplTest {
+public class CommonMessageReceiverTest {
 	
-	MessageReceiverImpl messageReveiver;
+	CommonMessageReceiver messageReveiver;
 	Integer maxNumberOfWorkerThreads = 5;
 	Integer maxMessagePerWorker = 3;
 	Integer visibilityTimeout = 5;
@@ -47,7 +47,7 @@ public class MessageReceiverImplTest {
 		when(mockQueue.getQueueUrl()).thenReturn(queueUrl);
 		mockProcessedMsgsHandler = Mockito.mock(ProcessedMessagesHandler.class);
 		// Inject all of the dependencies
-		messageReveiver = new MessageReceiverImpl(mockSQSClient, mockProcessedMsgsHandler, maxNumberOfWorkerThreads, maxMessagePerWorker,visibilityTimeout, mockQueue, stubFactory);
+		messageReveiver = new CommonMessageReceiver(mockSQSClient, mockProcessedMsgsHandler, maxNumberOfWorkerThreads, maxMessagePerWorker,visibilityTimeout, mockQueue, stubFactory);
 		
 		// Setup a list of messages.
 		int maxMessages = maxNumberOfWorkerThreads*maxMessagePerWorker;

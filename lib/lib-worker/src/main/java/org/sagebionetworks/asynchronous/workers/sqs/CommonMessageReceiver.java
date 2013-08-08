@@ -1,6 +1,7 @@
 package org.sagebionetworks.asynchronous.workers.sqs;
 
 import java.util.ArrayList;
+
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -28,16 +29,16 @@ import org.sagebionetworks.repo.model.ProcessedMessageDAO;
  * @author John
  *
  */
-public class MessageReceiverImpl implements MessageReceiver {
+public class CommonMessageReceiver implements MessageReceiver {
 	
 
-	static private Log log = LogFactory.getLog(MessageReceiverImpl.class);
+	static private Log log = LogFactory.getLog(CommonMessageReceiver.class);
 	
 	@Autowired
 	AmazonSQSClient awsSQSClient;
 	
 	@Autowired
-	ProcessedMessagesHandler processedMessagesHandler;
+	ProcessedMessagesHandler processedMessagesRegistrar;
 	
     /**
      * The maximum number of threads used to process messages.
@@ -69,6 +70,8 @@ public class MessageReceiverImpl implements MessageReceiver {
 	 */
 	ExecutorService executors;
 	
+	private List<ProcessedMessagesHandler> processedMessagesHandlers;
+	
 	/**
 	 * Used for unit tests.
 	 * @param awsSQSClient
@@ -77,7 +80,7 @@ public class MessageReceiverImpl implements MessageReceiver {
 	 * @param messageQueue
 	 * @param workerFactory
 	 */
-	public MessageReceiverImpl(AmazonSQSClient awsSQSClient, ProcessedMessagesHandler processedMsgsHandler,
+	public CommonMessageReceiver(AmazonSQSClient awsSQSClient, 
 			Integer maxNumberOfWorkerThreads, Integer maxMessagePerWorker, Integer visibilityTimeout,
 			MessageQueue messageQueue, MessageWorkerFactory workerFactory) {
 		super();
@@ -87,13 +90,12 @@ public class MessageReceiverImpl implements MessageReceiver {
 		this.visibilityTimeoutSec = visibilityTimeout;
 		this.messageQueue = messageQueue;
 		this.workerFactory = workerFactory;
-		this.processedMessagesHandler = processedMsgsHandler;
 	}
 	
 	/**
 	 * Default used by Spring.
 	 */
-	public MessageReceiverImpl(){}
+	public CommonMessageReceiver(){}
 	
 	/**
 	 * Injected by spring or unit tests.
@@ -167,10 +169,10 @@ public class MessageReceiverImpl implements MessageReceiver {
 	}
 	
 	/**
-	 * ProcessedMessagesHandler: registers the processed messages
+	 * ProcessedMessagesHandler: adds a handler for processed messages
 	 */
-	public void setProcessedMessagesHandler(ProcessedMessagesHandler handler) {
-		this.processedMessagesHandler = handler;
+	public void addProcessedMessagesHandler(ProcessedMessagesHandler handler) {
+		this.processedMessagesHandlers.add(handler);
 	}
 
 	@Override
@@ -280,11 +282,8 @@ public class MessageReceiverImpl implements MessageReceiver {
 			if(messagesToDelete.size() > 0){
 				awsSQSClient.deleteMessageBatch(new DeleteMessageBatchRequest(messageQueue.getQueueUrl(), messagesToDelete));
 			}
-			// Register processed messages
-			List<Long> registeredMsgsProcessingTimes = processedMessagesHandler.registerProcessedMessages(msgsToRegister, messageQueue.getQueueName());
-			if (registeredMsgsProcessingTimes.size() != msgsToRegister.size()) {
-				log.debug("ProcessedMessagesHandler could not register some messages");
-			}
+			
+			processedMessagesRegistrar.handleProcessedMessages(msgsToRegister, messageQueue.getQueueName());
 			//processedMessagesHandler.sendProcessingTimesToCloudWatch(registeredMsgsProcessingTimes, messageQueue.getQueueName());
 			
 			// remove all that we can

@@ -455,31 +455,24 @@ public class DBOChangeDAOImplAutowiredTest {
 		notProcessed = processedMessageDAO.listNotProcessedMessages("Q1", 3);
 		assertEquals(3, notProcessed.size());
 		// Register a processed msg for queue Q
-		Long pTime1 = processedMessageDAO.registerMessageProcessed(batch.get(1).getChangeNumber(), "Q1");
-		assertNotNull(pTime1);
-		assertTrue(pTime1 > 0);
+		processedMessageDAO.registerMessageProcessed(batch.get(1).getChangeNumber(), "Q1");
 		notProcessed = processedMessageDAO.listNotProcessedMessages("Q1", 3);
 		assertEquals(2, notProcessed.size());
 		// Register another processed msg for queue Q
-		Long pTime2 = processedMessageDAO.registerMessageProcessed(batch.get(0).getChangeNumber(), "Q1");
-		assertNotNull(pTime2);
-		assertTrue(pTime2 > 0);
-		assertTrue("Expected: " + pTime2 + " >= " + pTime1, pTime2 >= pTime1);
+		processedMessageDAO.registerMessageProcessed(batch.get(0).getChangeNumber(), "Q1");
 		notProcessed = processedMessageDAO.listNotProcessedMessages("Q1", 3);
 		assertEquals(1, notProcessed.size());
 		notProcessed = processedMessageDAO.listNotProcessedMessages("Q2", 3);
 		assertEquals(3, notProcessed.size());
 		// Register same msg as processed for queue Q2
-		pTime2 = processedMessageDAO.registerMessageProcessed(batch.get(0).getChangeNumber(), "Q2");
-		assertNotNull(pTime2);
-		assertTrue(pTime2 > 0);
+		processedMessageDAO.registerMessageProcessed(batch.get(0).getChangeNumber(), "Q2");
 		notProcessed = processedMessageDAO.listNotProcessedMessages("Q2", 3);
 		assertEquals(2, notProcessed.size());
 	}
 	
 	@Test
 	public void testRegisterProcessedMsgMissingChange() {
-		Long t = processedMessageDAO.registerMessageProcessed(123454321, "Q");
+		processedMessageDAO.registerMessageProcessed(123454321, "Q");
 	}
 	
 }
