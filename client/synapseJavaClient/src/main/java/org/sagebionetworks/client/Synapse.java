@@ -92,6 +92,7 @@ import org.sagebionetworks.repo.model.UserProfile;
 import org.sagebionetworks.repo.model.UserSessionData;
 import org.sagebionetworks.repo.model.VariableContentPaginatedResults;
 import org.sagebionetworks.repo.model.VersionInfo;
+import org.sagebionetworks.repo.model.annotation.AnnotationsUtils;
 import org.sagebionetworks.repo.model.attachment.AttachmentData;
 import org.sagebionetworks.repo.model.attachment.PresignedUrl;
 import org.sagebionetworks.repo.model.attachment.S3AttachmentToken;
@@ -113,6 +114,7 @@ import org.sagebionetworks.repo.model.file.State;
 import org.sagebionetworks.repo.model.file.UploadDaemonStatus;
 import org.sagebionetworks.repo.model.message.ObjectType;
 import org.sagebionetworks.repo.model.provenance.Activity;
+import org.sagebionetworks.repo.model.query.QueryTableResults;
 import org.sagebionetworks.repo.model.request.ReferenceList;
 import org.sagebionetworks.repo.model.search.SearchResults;
 import org.sagebionetworks.repo.model.search.query.SearchQuery;
@@ -133,6 +135,10 @@ import org.sagebionetworks.utils.MD5ChecksumHelper;
  * Low-level Java Client API for Synapse REST APIs
  */
 public class Synapse implements SynapseInt {
+
+	public static final String SYNPASE_JAVA_CLIENT = "Synpase-Java-Client/";
+
+	public static final String USER_AGENT = "User-Agent";
 
 	public static final String APPLICATION_OCTET_STREAM = "application/octet-stream";
 
@@ -198,7 +204,8 @@ public class Synapse implements SynapseInt {
 	protected static final String SUBMISSION_STATUS_ALL = SUBMISSION + STATUS + ALL;
 	protected static final String SUBMISSION_BUNDLE_ALL = SUBMISSION + BUNDLE + ALL;	
 	protected static final String STATUS_SUFFIX = "?status=";
-	private static final String EVALUATION_ACL_URI_PATH = "/evaluation/acl";
+	protected static final String EVALUATION_ACL_URI_PATH = "/evaluation/acl";
+	protected static final String EVALUATION_QUERY_URI_PATH = EVALUATION_URI_PATH + "/" + SUBMISSION + QUERY_URI;
 
 	protected static final String USER_PROFILE_PATH = "/userProfile";
 	
@@ -299,6 +306,8 @@ public class Synapse implements SynapseInt {
 		setRepositoryEndpoint(DEFAULT_REPO_ENDPOINT);
 		setAuthEndpoint(DEFAULT_AUTH_ENDPOINT);
 		setFileEndpoint(DEFAULT_FILE_ENDPOINT);
+		
+
 
 		defaultGETDELETEHeaders = new HashMap<String, String>();
 		defaultGETDELETEHeaders.put("Accept", "application/json");
@@ -306,7 +315,11 @@ public class Synapse implements SynapseInt {
 		defaultPOSTPUTHeaders = new HashMap<String, String>();
 		defaultPOSTPUTHeaders.putAll(defaultGETDELETEHeaders);
 		defaultPOSTPUTHeaders.put("Content-Type", "application/json");
-
+		
+		// Setup the user agent
+		String userAgent = SYNPASE_JAVA_CLIENT+ClientVersionInfo.getClientVersionInfo();
+		setUserAgent(userAgent);
+		
 		this.clientProvider = clientProvider;
 		clientProvider.setGlobalConnectionTimeout(ServiceConstants.DEFAULT_CONNECT_TIMEOUT_MSEC);
 		clientProvider.setGlobalSocketTimeout(ServiceConstants.DEFAULT_SOCKET_TIMEOUT_MSEC);
@@ -314,6 +327,36 @@ public class Synapse implements SynapseInt {
 		this.dataUploader = dataUploader;
 		
 		requestProfile = false;
+	}
+	
+	/**
+	 * Each request includes the 'User-Agent' header. This is set to:
+	 * 'User-Agent':'Synpase-Java-Client/<version_number>'
+	 * Addition User-Agent information can be appended to this string by calling this method.
+	 * @param toAppend
+	 */
+	public void appendUserAgent(String toAppend){
+		String currentUserAgent = defaultGETDELETEHeaders.get(USER_AGENT);
+		if(currentUserAgent == null) throw new RuntimeException("User-Agent header is missing");
+		// Only append if it is not already there
+		if(currentUserAgent.indexOf(toAppend) < 0){
+			StringBuilder builder = new StringBuilder();
+			builder.append(currentUserAgent);
+			builder.append("  ");
+			builder.append(toAppend);
+			setUserAgent(builder.toString());
+		}
+	}
+	
+	/**
+	 * Set the User-Agent header. See http://en.wikipedia.org/wiki/List_of_HTTP_header_fields
+	 * This should not be public. The caller can append to User-Agent (see {@link#appendUserAgent(toAppend)})
+	 * but they cannot override it.
+	 * @param userAgent
+	 */
+	private void setUserAgent(String userAgent){
+		defaultGETDELETEHeaders.put(USER_AGENT, userAgent);
+		defaultPOSTPUTHeaders.put(USER_AGENT, userAgent);
 	}
 
 	/**
@@ -1324,7 +1367,9 @@ public class Synapse implements SynapseInt {
 	}
 
 	/**
-	 * Delete a dataset, layer, etc..
+	 * Deletes a dataset, layer, etc.. This only moves the entity
+	 * to the trash can.  To permanently delete the entity, use
+	 * deleteAndPurgeEntity().
 	 * 
 	 * @param <T>
 	 * @param entity
@@ -1345,12 +1390,40 @@ public class Synapse implements SynapseInt {
 	 * @param entity
 	 * @throws SynapseException
 	 */
+	public <T extends Entity> void deleteAndPurgeEntity(T entity)
+			throws SynapseException {
+		deleteEntity(entity);
+		purgeTrashForUser(entity.getId());
+	}
+
+	/**
+	 * Delete a dataset, layer, etc.. This only moves the entity
+	 * to the trash can.  To permanently delete the entity, use
+	 * deleteAndPurgeEntity().
+	 * 
+	 * @param <T>
+	 * @param entity
+	 * @throws SynapseException
+	 */
 	public void deleteEntityById(String entityId)
 			throws SynapseException {
 		if (entityId == null)
 			throw new IllegalArgumentException("entityId cannot be null");
 		String uri = createEntityUri(ENTITY_URI_PATH, entityId);
 		deleteUri(uri);
+	}
+
+	/**
+	 * Delete a dataset, layer, etc..
+	 * 
+	 * @param <T>
+	 * @param entity
+	 * @throws SynapseException
+	 */
+	public void deleteAndPurgeEntityById(String entityId)
+			throws SynapseException {
+		deleteEntityById(entityId);
+		purgeTrashForUser(entityId);
 	}
 
 	public <T extends Entity> void deleteEntityVersion(T entity, Long versionNumber) throws SynapseException {
@@ -3729,7 +3802,12 @@ public class Synapse implements SynapseInt {
 	}
 	
 	public SubmissionStatus updateSubmissionStatus(SubmissionStatus status) throws SynapseException {
-		if (status == null) throw new IllegalArgumentException("SubmissionStatus  cannot be null");
+		if (status == null) {
+			throw new IllegalArgumentException("SubmissionStatus  cannot be null");
+		}
+		if (status.getAnnotations() != null) {
+			AnnotationsUtils.validateAnnotations(status.getAnnotations());
+		}
 		String url = EVALUATION_URI_PATH + "/" + SUBMISSION + "/" + status.getId() + STATUS;			
 		JSONObjectAdapter toUpdateAdapter = new JSONObjectAdapterImpl();
 		JSONObject obj;
@@ -3931,6 +4009,33 @@ public class Synapse implements SynapseInt {
 		return returnState;
 	}
 	
+	/**
+	 * Execute a user query over the Submissions of a specified Evaluation.
+	 * 
+	 * @param query
+	 * @return
+	 * @throws SynapseException
+	 */
+	public QueryTableResults queryEvaluation(String query) throws SynapseException {
+		try {
+			if (null == query) {
+				throw new IllegalArgumentException("must provide a query");
+			}
+			String queryUri;
+			queryUri = EVALUATION_QUERY_URI_PATH + URLEncoder.encode(query, "UTF-8");
+	
+			Map<String, String> requestHeaders = new HashMap<String, String>();
+			requestHeaders.putAll(defaultGETDELETEHeaders);
+	
+			JSONObject jsonObj = signAndDispatchSynapseRequest(repoEndpoint, queryUri, "GET", null,
+					requestHeaders);
+			JSONObjectAdapter joa = new JSONObjectAdapterImpl(jsonObj);
+			return new QueryTableResults(joa);
+		} catch (Exception e) {
+			throw new SynapseException(e);
+		}
+	}
+
 	/**
 	 * Moves an entity and its descendants to the trash can.
 	 *
