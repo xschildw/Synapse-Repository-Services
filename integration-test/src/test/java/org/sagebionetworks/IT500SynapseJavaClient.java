@@ -804,6 +804,22 @@ public class IT500SynapseJavaClient {
 				assertTrue(headers.containsKey(id));
 	}
 	
+	/**
+	 * Backend cache (see UserProfileServiceImpl.getUserGroupHeadersByPrefix) may or may not have integration test user (Spring trigger populates periodically).
+	 * This prefix method is unit tested, so ignoring this integration test.
+	 * @throws Exception
+	 */
+	@Ignore
+	@Test
+	public void testGetUserGroupHeadersByPrefix() throws Exception {
+		UserGroupHeaderResponsePage response = synapse.getUserGroupHeadersByPrefix(StackConfiguration.getIntegrationTestUserOneEmail());
+		assertTrue(response.getChildren().size() > 0);
+		
+		String dummyPrefix = "INVALIDPREFIX12345@INVALID.COM.WRONG";
+		response = synapse.getUserGroupHeadersByPrefix(dummyPrefix);
+		assertTrue(response.getChildren().size()==0);
+	}
+	
 	@Test
 	public void testAccessRequirement() throws Exception {
 		// create a node
