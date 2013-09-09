@@ -43,7 +43,7 @@
 			scope="singleton" />
 
 	<bean id="dynamoQueueMessageRetriever"
-			class="org.sagebionetworks.asynchronous.workers.sqs.MessageReceiverImpl"
+			class="org.sagebionetworks.asynchronous.workers.sqs.CommonMessageReceiver"
 			scope="singleton"
 			depends-on="awsSQSClient">
 		<property name="messageQueue" ref="dynamoMessageQueue" />

@@ -37,9 +37,6 @@ public class CommonMessageReceiver implements MessageReceiver {
 	@Autowired
 	AmazonSQSClient awsSQSClient;
 	
-	@Autowired
-	ProcessedMessagesHandler processedMessagesRegistrar;
-	
     /**
      * The maximum number of threads used to process messages.
      */
@@ -69,8 +66,10 @@ public class CommonMessageReceiver implements MessageReceiver {
 	 * This is our thread pool.
 	 */
 	ExecutorService executors;
-	
-	private List<ProcessedMessagesHandler> processedMessagesHandlers;
+	/**
+	 * 
+	 */
+	ProcessedMessagesHandlerFactory processedMessagesHandlerFactory;
 	
 	/**
 	 * Used for unit tests.
@@ -82,7 +81,9 @@ public class CommonMessageReceiver implements MessageReceiver {
 	 */
 	public CommonMessageReceiver(AmazonSQSClient awsSQSClient, 
 			Integer maxNumberOfWorkerThreads, Integer maxMessagePerWorker, Integer visibilityTimeout,
-			MessageQueue messageQueue, MessageWorkerFactory workerFactory) {
+			MessageQueue messageQueue,
+			MessageWorkerFactory workerFactory,
+			ProcessedMessagesHandlerFactory processedMessagesHandlerFactory) {
 		super();
 		this.awsSQSClient = awsSQSClient;
 		this.maxNumberOfWorkerThreads = maxNumberOfWorkerThreads;
@@ -90,6 +91,8 @@ public class CommonMessageReceiver implements MessageReceiver {
 		this.visibilityTimeoutSec = visibilityTimeout;
 		this.messageQueue = messageQueue;
 		this.workerFactory = workerFactory;
+		this.processedMessagesHandlerFactory = processedMessagesHandlerFactory;
+		
 	}
 	
 	/**
@@ -168,13 +171,6 @@ public class CommonMessageReceiver implements MessageReceiver {
 		this.workerFactory = workerFactory;
 	}
 	
-	/**
-	 * ProcessedMessagesHandler: adds a handler for processed messages
-	 */
-	public void addProcessedMessagesHandler(ProcessedMessagesHandler handler) {
-		this.processedMessagesHandlers.add(handler);
-	}
-
 	@Override
 	public void run(){
 		try {
@@ -283,8 +279,9 @@ public class CommonMessageReceiver implements MessageReceiver {
 				awsSQSClient.deleteMessageBatch(new DeleteMessageBatchRequest(messageQueue.getQueueUrl(), messagesToDelete));
 			}
 			
-			processedMessagesRegistrar.handleProcessedMessages(msgsToRegister, messageQueue.getQueueName());
-			//processedMessagesHandler.sendProcessingTimesToCloudWatch(registeredMsgsProcessingTimes, messageQueue.getQueueName());
+			// Register processed messages
+			ProcessedMessagesHandler processedMessagesHandler = processedMessagesHandlerFactory.createProcessedMessagesHandler();
+			processedMessagesHandler.handleProcessedMessages(msgsToRegister, messageQueue.getQueueName());
 			
 			// remove all that we can
 			currentWorkers.removeAll(toRemove);

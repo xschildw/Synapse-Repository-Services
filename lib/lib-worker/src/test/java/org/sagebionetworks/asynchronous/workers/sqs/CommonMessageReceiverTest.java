@@ -26,7 +26,7 @@ import com.amazonaws.services.sqs.model.ReceiveMessageResult;
  */
 public class CommonMessageReceiverTest {
 	
-	CommonMessageReceiver messageReveiver;
+	CommonMessageReceiver messageReceiver;
 	Integer maxNumberOfWorkerThreads = 5;
 	Integer maxMessagePerWorker = 3;
 	Integer visibilityTimeout = 5;
@@ -37,7 +37,8 @@ public class CommonMessageReceiverTest {
 	AmazonSQSClient mockSQSClient;
 	List<Message> messageList;
 	ReceiveMessageResult results;
-	ProcessedMessagesHandler mockProcessedMsgsHandler;
+	ProcessedMessagesHandler mockProcessedMessagesHandler;
+	ProcessedMessagesHandlerFactory mockProcessedMsgsHandlerFactory;
 	
 	@Before
 	public void before(){
@@ -45,10 +46,12 @@ public class CommonMessageReceiverTest {
 		mockQueue = Mockito.mock(MessageQueue.class);
 		when(mockQueue.getQueueName()).thenReturn(queueName);
 		when(mockQueue.getQueueUrl()).thenReturn(queueUrl);
-		mockProcessedMsgsHandler = Mockito.mock(ProcessedMessagesHandler.class);
+		mockProcessedMessagesHandler = Mockito.mock(ProcessedMessagesHandler.class);
+		mockProcessedMsgsHandlerFactory = Mockito.mock(ProcessedMessagesHandlerFactory.class);
+		when(mockProcessedMsgsHandlerFactory.createProcessedMessagesHandler()).thenReturn(mockProcessedMessagesHandler);
 		// Inject all of the dependencies
-		messageReveiver = new CommonMessageReceiver(mockSQSClient, mockProcessedMsgsHandler, maxNumberOfWorkerThreads, maxMessagePerWorker,visibilityTimeout, mockQueue, stubFactory);
-		
+		messageReceiver = new CommonMessageReceiver(mockSQSClient, maxNumberOfWorkerThreads, maxMessagePerWorker,visibilityTimeout, mockQueue, stubFactory, mockProcessedMsgsHandlerFactory);
+
 		// Setup a list of messages.
 		int maxMessages = maxNumberOfWorkerThreads*maxMessagePerWorker;
 		messageList = new LinkedList<Message>();
@@ -67,26 +70,26 @@ public class CommonMessageReceiverTest {
 	
 	@Test (expected=IllegalStateException.class)
 	public void testNullawsSQSClient() throws InterruptedException{
-		messageReveiver.setAwsSQSClient(null);
-		messageReveiver.triggerFired();
+		messageReceiver.setAwsSQSClient(null);
+		messageReceiver.triggerFired();
 	}
 	
 	@Test (expected=IllegalStateException.class)
 	public void testNullmaxNumberOfWorkerThreads() throws InterruptedException{
-		messageReveiver.setMaxNumberOfWorkerThreads(null);
-		messageReveiver.triggerFired();
+		messageReceiver.setMaxNumberOfWorkerThreads(null);
+		messageReceiver.triggerFired();
 	}
 	
 	@Test (expected=IllegalStateException.class)
 	public void testNullVisibilityTimeout() throws InterruptedException{
-		messageReveiver.setVisibilityTimeoutSec(null);
-		messageReveiver.triggerFired();
+		messageReceiver.setVisibilityTimeoutSec(null);
+		messageReceiver.triggerFired();
 	}
 	
 	@Test (expected=IllegalStateException.class)
 	public void testNullMessageQueue() throws InterruptedException{
-		messageReveiver.setMessageQueue(null);
-		messageReveiver.triggerFired();
+		messageReceiver.setMessageQueue(null);
+		messageReceiver.triggerFired();
 	}
 	
 	@Test
@@ -98,10 +101,10 @@ public class CommonMessageReceiverTest {
 			workerStack.push(new StubWorker(0, null));
 		}
 		StubWorkerFactory factory = new StubWorkerFactory(workerStack);
-		messageReveiver.setWorkerFactory(factory);
+		messageReceiver.setWorkerFactory(factory);
 		
 		// now trigger
-		messageReveiver.triggerFired();
+		messageReceiver.triggerFired();
 		List<DeleteMessageBatchRequestEntry> deleteRequest = new LinkedList<DeleteMessageBatchRequestEntry>();
 		// We all messages should get deleted.
 		for(Message message: messageList){
@@ -110,7 +113,7 @@ public class CommonMessageReceiverTest {
 		DeleteMessageBatchRequest expectedBatch = new DeleteMessageBatchRequest(queueUrl, deleteRequest);
 		// Verify that all were deleted
 		verify(mockSQSClient, times(1)).deleteMessageBatch(expectedBatch);
-		verify(mockProcessedMsgsHandler, times(1)).registerProcessedMessages(anyListOf(Message.class), any(String.class));
+		verify(mockProcessedMessagesHandler, times(1)).handleProcessedMessages(anyListOf(Message.class), any(String.class));
 		//verify(mockProcessedMsgsHandler, times(1)).sendProcessingTimesToCloudWatch(anyListOf(Long.class), any(String.class));
 	}
 	@Test
@@ -124,10 +127,10 @@ public class CommonMessageReceiverTest {
 		// Make the last worker throw an exception
 		workerStack.push(new StubWorker(1000, new Exception("Simulated a failure")));
 		StubWorkerFactory factory = new StubWorkerFactory(workerStack);
-		messageReveiver.setWorkerFactory(factory);
+		messageReceiver.setWorkerFactory(factory);
 		
 		// now trigger
-		messageReveiver.triggerFired();
+		messageReceiver.triggerFired();
 		List<DeleteMessageBatchRequestEntry> deleteRequest = new LinkedList<DeleteMessageBatchRequestEntry>();
 		// We all messages should get deleted.
 		for(Message message: messageList){
@@ -153,10 +156,10 @@ public class CommonMessageReceiverTest {
 		// Make the first worker timeout
 		workerStack.push(new StubWorker(visibilityTimeout*1000+100, null));
 		StubWorkerFactory factory = new StubWorkerFactory(workerStack);
-		messageReveiver.setWorkerFactory(factory);
+		messageReceiver.setWorkerFactory(factory);
 		
 		// now trigger
-		messageReveiver.triggerFired();
+		messageReceiver.triggerFired();
 		List<DeleteMessageBatchRequestEntry> deleteRequest = new LinkedList<DeleteMessageBatchRequestEntry>();
 		// We all messages should get deleted.
 		for(Message message: messageList){
@@ -181,10 +184,10 @@ public class CommonMessageReceiverTest {
 			workerStack.push(new StubWorker(sleepTime+=500, null));
 		}
 		StubWorkerFactory factory = new StubWorkerFactory(workerStack);
-		messageReveiver.setWorkerFactory(factory);
+		messageReceiver.setWorkerFactory(factory);
 		
 		// now trigger
-		messageReveiver.triggerFired();
+		messageReceiver.triggerFired();
 		// Since each worker has a different sleep time, the delete messages should be staggered over 5 calls.
 		verify(mockSQSClient, times(maxNumberOfWorkerThreads)).deleteMessageBatch(any(DeleteMessageBatchRequest.class));
 	}

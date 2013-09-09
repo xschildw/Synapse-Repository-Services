@@ -30,7 +30,7 @@
 			<groupId>org.sagebionetworks</groupId>
 			<artifactId>lib-logging</artifactId>
 		</dependency>
-
+		
 		<dependency>
 			<groupId>com.amazonaws</groupId>
 			<artifactId>aws-java-sdk</artifactId>

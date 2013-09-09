@@ -45,7 +45,7 @@ public class RdsWorkerIntegrationTest {
 	@Autowired
 	private UserProvider userProvider;
 	@Autowired
-	private MessageReceiver rdsQueueMessageReveiver;
+	private MessageReceiver rdsQueueMessageReceiver;
 	
 	String key = "some_annotation_key";
 	String uniqueValue;
@@ -78,7 +78,7 @@ public class RdsWorkerIntegrationTest {
 		long start = System.currentTimeMillis();
 		int count = 0;
 		do{
-			count = rdsQueueMessageReveiver.triggerFired();
+			count = rdsQueueMessageReceiver.triggerFired();
 			System.out.println("Emptying the search message queue, there were at least: "+count+" messages on the queue");
 			Thread.yield();
 			long elapse = System.currentTimeMillis()-start;

@@ -331,11 +331,10 @@
 		scope="singleton" />
 		
 	<bean
-		id="processedMessagesHandler"
+		id="processedMessagesRegistrar"
 		class="org.sagebionetworks.repo.manager.worker.ProcessedMessagesManager"
 		scope="singleton"
 	/>
-	
 
-
+		
 </beans>

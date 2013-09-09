@@ -23,7 +23,7 @@
 		scope="singleton" />
 
 	<bean id="dynamoQueueMessageRemover"
-		class="org.sagebionetworks.asynchronous.workers.sqs.MessageReceiverImpl"
+		class="org.sagebionetworks.asynchronous.workers.sqs.CommonMessageReceiver"
 		scope="singleton" depends-on="awsSQSClient">
 		<property name="messageQueue" ref="dynamoMessageQueue" />
 		<property name="workerFactory" ref="dynamoQueueRemoverFactory" />

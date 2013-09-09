@@ -42,7 +42,7 @@
 	<!-- Pull messages off the search queue, create works, deletes successfully 
 		processed messages -->
 	<bean id="searchQueueMessageReveiver"
-		class="org.sagebionetworks.asynchronous.workers.sqs.MessageReceiverImpl"
+		class="org.sagebionetworks.asynchronous.workers.sqs.CommonMessageReceiver"
 		scope="singleton">
 		<property name="messageQueue" ref="searchMessageQueue" />
 		<property name="workerFactory" ref="searchQueueWorkerFactory" />

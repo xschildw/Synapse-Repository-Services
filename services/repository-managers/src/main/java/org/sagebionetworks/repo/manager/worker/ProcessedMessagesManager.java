@@ -14,7 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.amazonaws.services.sqs.model.Message;
 
-public class ProcessedMessagesManager implements ProcessedMessagesHandler {
+public class ProcessedMessagesManager {
 
 	@Autowired
 	ProcessedMessageDAO processedMsgMgr;
@@ -22,8 +22,7 @@ public class ProcessedMessagesManager implements ProcessedMessagesHandler {
 	/**
 	 * Register processed messages
 	 */
-	@Override
-	public void handleProcessedMessages(List<Message> processedMsgs, String qName) {
+	public void registerProcessedMessages(List<Message> processedMsgs, String qName) {
 		List<Long> l = new LinkedList<Long>();
 		for (Message m: processedMsgs) {
 			ChangeMessage chgMsg = MessageUtils.extractMessageBody(m);

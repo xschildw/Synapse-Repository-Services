@@ -37,14 +37,21 @@
 	<bean id="annotationsQueueWorkerFactory"
 		class="org.sagebionetworks.annotations.worker.AnnotationsWorkerFactory"
 		scope="singleton" />
+		
+	<!--  Processed messages handler -->
+	<bean id="annotationsQueueProcessedMessagesHandlerFactory"
+		class="org.sagebionetworks.asynchronous.workers.sqs.ProcessedMessagesHandlerFactory"
+		scope="singleton"
+	/>
 
 	<!-- Pull messages off the search queue, create works, deletes successfully 
 		processed messages -->
 	<bean id="annotationsQueueMessageReceiver"
-		class="org.sagebionetworks.asynchronous.workers.sqs.MessageReceiverImpl"
+		class="org.sagebionetworks.asynchronous.workers.sqs.CommonMessageReceiver"
 		scope="singleton">
 		<property name="messageQueue" ref="annotationsMessageQueue" />
 		<property name="workerFactory" ref="annotationsQueueWorkerFactory" />
+		<property name="processedMessagesHandlerFactory" ref="annotationsQueueProcessedMessagesHandlerFactory" />
 		<property name="maxNumberOfWorkerThreads" value="2" />
 		<property name="maxMessagePerWorker" value="5" />
 		<property name="visibilityTimeoutSec" value="60" />

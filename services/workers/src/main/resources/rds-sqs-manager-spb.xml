@@ -40,8 +40,8 @@
 
 	<!-- Pull messages off the search queue, create works, deletes successfully 
 		processed messages -->
-	<bean id="rdsQueueMessageReveiver"
-		class="org.sagebionetworks.asynchronous.workers.sqs.MessageReceiverImpl"
+	<bean id="rdsQueueMessageReceiver"
+		class="org.sagebionetworks.asynchronous.workers.sqs.CommonMessageReceiver"
 		scope="singleton">
 		<property name="messageQueue" ref="rdsMessageQueue" />
 		<property name="workerFactory" ref="rdsQueueWorkerFactory" />
@@ -56,7 +56,7 @@
 		<property name="timeoutMS" ref="stackConfiguration.semaphoreGatedLockTimeoutMS" />
 		<property name="maxNumberRunners" ref="stackConfiguration.semaphoreGatedMaxRunnersRds" />
 		<property name="semaphoreKey" value="rdsIndexWorker" />		
-		<property name="runner" ref="rdsQueueMessageReveiver" />
+		<property name="runner" ref="rdsQueueMessageReceiver" />
 	</bean>
 
 	<!-- This trigger is used to process messages from the search queue. -->
