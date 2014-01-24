@@ -133,16 +133,19 @@ public class WikiModelTranslationHelper implements WikiModelTranslator {
 		
 		S3FileHandle markdownHandle = (S3FileHandle) fileMetadataDao.get(from.getMarkdownFileHandleId());
 		File markdownTemp = tempFileProvider.createTempFile(wiki.getId()+ "_markdown", ".tmp");
-		// Retrieve uploaded markdown
-		ObjectMetadata markdownMeta = s3Client.getObject(new GetObjectRequest(markdownHandle.getBucketName(), 
-				markdownHandle.getKey()), markdownTemp);
-		// Read the file as a string
-		String markdownString = FileUtils.readCompressedFileAsString(markdownTemp);
-		wiki.setMarkdown(markdownString);
-		if(markdownTemp != null){
-			markdownTemp.delete();
+		try {
+			// Retrieve uploaded markdown
+			ObjectMetadata markdownMeta = s3Client.getObject(new GetObjectRequest(markdownHandle.getBucketName(), 
+					markdownHandle.getKey()), markdownTemp);
+			// Read the file as a string
+			String markdownString = FileUtils.readCompressedFileAsString(markdownTemp);
+			wiki.setMarkdown(markdownString);
+			return wiki;
+		} finally {
+			if(markdownTemp != null){
+				markdownTemp.delete();
+			}
 		}
-		return wiki;
 	}
 
 

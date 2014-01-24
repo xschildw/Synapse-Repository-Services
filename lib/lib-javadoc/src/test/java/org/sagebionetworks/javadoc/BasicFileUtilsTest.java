@@ -34,7 +34,9 @@ public class BasicFileUtilsTest {
 			String results = BasicFileUtils.pathToRoot(temp.getParentFile(), child);
 			assertEquals("../../", results);
 		}finally{
-			temp.delete();
+			if (temp != null) {
+				temp.delete();
+			}
 		}
 	}
 	

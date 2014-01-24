@@ -63,7 +63,9 @@ public class LogDAOImplTest {
 			try {
 				writer.close();
 			} catch (IOException e) {}
-			temp.delete();
+			if (temp != null) {
+				temp.delete();
+			}
 		}
 		
 		// Now we should be able to find this file when we list the files
