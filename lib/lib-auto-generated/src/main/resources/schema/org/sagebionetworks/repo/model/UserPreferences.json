@@ -1,0 +1,20 @@
+{
+    "title":"User preferences",
+    "description":"A map of UserPreference",
+    "properties":{
+    	"userId": {
+    		"type": "string",
+    		"description": "The userId to which the preferences belong"
+    	},
+        "userPreferences":{
+        	"type": "map",
+        	"description": "Map from column header to row content",
+        	"key":{
+        		"type": "string"
+        	},
+	       	"value":{
+        		"$ref":"org.sagebionetworks.repo.model.UserPreference"
+        	}
+        }
+    }
+}

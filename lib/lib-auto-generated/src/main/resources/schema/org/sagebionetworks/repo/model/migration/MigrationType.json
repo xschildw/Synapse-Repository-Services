@@ -9,6 +9,7 @@
         "SESSION_TOKEN",
     	"PRINCIPAL_ALIAS", 
     	"USER_PROFILE",
+    	"USER_PREFERENCE",
         "FILE_HANDLE",
 		"MESSAGE", 
         "MESSAGE_CONTENT", 

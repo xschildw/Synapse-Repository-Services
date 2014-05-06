@@ -72,6 +72,14 @@ public class SqlConstants {
 	public static final String COL_USER_PROFILE_ETAG			= "ETAG";
 	public static final String COL_USER_PROFILE_PROPS_BLOB		= "PROPERTIES";
 	public static final String DDL_FILE_USER_PROFILE			= "schema/UserProfile-ddl.sql";
+	
+	// The User Preferences table
+	public static final String COL_USERPREF_OWNER_ID			= "OWNER_ID";
+	public static final String COL_USERPREF_ETAG				= "ETAG";
+	public static final String COL_USERPREF_NAME				= "NAME";
+	public static final String COL_USERPREF_TYPE				= "TYPE";
+	public static final String COL_USERPREF_VALUE				= "VALUE";
+	public static final String TABLE_USERPREF					= "USER_PREFERENCE";
 
 	// The ACCESS_REQUIREMENT table
 	public static final String TABLE_ACCESS_REQUIREMENT				= "ACCESS_REQUIREMENT";
