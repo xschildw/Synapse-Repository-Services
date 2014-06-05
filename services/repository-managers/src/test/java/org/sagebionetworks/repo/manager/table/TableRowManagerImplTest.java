@@ -30,11 +30,14 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
+import org.sagebionetworks.StackConfiguration;
 import org.sagebionetworks.repo.manager.AuthorizationManager;
 import org.sagebionetworks.repo.model.ACCESS_TYPE;
 import org.sagebionetworks.repo.model.DatastoreException;
@@ -66,12 +69,20 @@ import org.sagebionetworks.table.cluster.ConnectionFactory;
 import org.sagebionetworks.table.cluster.SqlQuery;
 import org.sagebionetworks.table.cluster.TableIndexDAO;
 import org.sagebionetworks.table.query.ParseException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
+@RunWith(SpringJUnit4ClassRunner.class)
+@ContextConfiguration(locations = { "classpath:test-context.xml" })
 public class TableRowManagerImplTest {
+	
+	@Autowired
+	StackConfiguration config;
 	
 	TableRowTruthDAO mockTruthDao;
 	AuthorizationManager mockAuthManager;
@@ -92,6 +103,9 @@ public class TableRowManagerImplTest {
 	
 	@Before
 	public void before() throws Exception {
+		// Only run this test if the table feature is enabled.
+		Assume.assumeTrue(config.getTableEnabled());
+
 		mockTruthDao = Mockito.mock(TableRowTruthDAO.class);
 		mockAuthManager = Mockito.mock(AuthorizationManager.class);
 		mockTableStatusDAO = Mockito.mock(TableStatusDAO.class);
