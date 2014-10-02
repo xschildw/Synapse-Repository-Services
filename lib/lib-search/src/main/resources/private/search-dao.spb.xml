@@ -24,4 +24,7 @@
 	<!-- The search DAO -->
 	<bean id="searchDao" class="org.sagebionetworks.search.SearchDaoImpl" scope="singleton" />
 	
+	<!-- The HttpClientHelperWrapper -->
+	<bean id="httpClientHelperWrapper" class="org.sagebionetworks.HttpClientHelperWrapperImpl" scope="singleton" />
+	
 </beans>

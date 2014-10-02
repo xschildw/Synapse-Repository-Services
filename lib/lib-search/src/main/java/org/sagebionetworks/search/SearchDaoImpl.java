@@ -35,6 +35,8 @@ import org.sagebionetworks.schema.adapter.org.json.AdapterFactoryImpl;
 import org.sagebionetworks.schema.adapter.org.json.EntityFactory;
 import org.sagebionetworks.utils.HttpClientHelper;
 import org.sagebionetworks.utils.HttpClientHelperException;
+import org.sagebionetworks.utils.HttpClientHelperWrapper;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.amazonaws.services.cloudsearch.AmazonCloudSearchClient;
@@ -45,7 +47,7 @@ import com.amazonaws.services.cloudsearch.AmazonCloudSearchClient;
  * @author jmhill
  * 
  */
-public class SearchDaoImpl implements SearchDao {
+public class SearchDaoImpl implements SearchDao, InitializingBean {
 
 	private static final String QUERY_BY_ID_AND_ETAG = "bq=(and+"+FIELD_ID+":'%1$s'+"+FIELD_ETAG+":'%2$s')";
 	
@@ -55,12 +57,22 @@ public class SearchDaoImpl implements SearchDao {
 	
 	private static final AwesomeSearchFactory searchResultsFactory = new AwesomeSearchFactory(new AdapterFactoryImpl());
 	
-	private static final HttpClient httpClient;
+	private static HttpClient httpClient;
 
-	static {
+	@Autowired
+	AmazonCloudSearchClient awsSearchClient;
+	@Autowired
+	SearchDomainSetup searchDomainSetup;
+	@Autowired
+	HttpClientHelperWrapper httpClientHelperWrapper;
+	
+	private CloudSearchClient cloudHttpClient = null;
+	
+	@Override
+	public void afterPropertiesSet() throws Exception {
 		ThreadSafeClientConnManager connectionManager;
 		try {
-			connectionManager = HttpClientHelper.createClientConnectionManager(true);
+			connectionManager = httpClientHelperWrapper.createClientConnectionManager(true);
 			// ensure that we can have *many* simultaneous connections to
 			// CloudSearch
 			connectionManager.setDefaultMaxPerRoute(StackConfiguration.getHttpClientMaxConnsPerRoute());
@@ -72,13 +84,6 @@ public class SearchDaoImpl implements SearchDao {
 			throw new RuntimeException(e);
 		}
 	}
-
-	@Autowired
-	AmazonCloudSearchClient awsSearchClient;
-	@Autowired
-	SearchDomainSetup searchDomainSetup;
-	
-	private CloudSearchClient cloudHttpClient = null;
 	
 	@Override
 	public boolean postInitialize() throws Exception {
