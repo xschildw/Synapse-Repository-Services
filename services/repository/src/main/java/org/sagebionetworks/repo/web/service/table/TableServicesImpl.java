@@ -1,11 +1,9 @@
 package org.sagebionetworks.repo.web.service.table;
 
 import java.io.IOException;
-import java.net.URL;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.lang.BooleanUtils;
 import org.sagebionetworks.manager.util.Validate;
 import org.sagebionetworks.repo.manager.EntityManager;
 import org.sagebionetworks.repo.manager.UserManager;
@@ -14,14 +12,12 @@ import org.sagebionetworks.repo.manager.table.ColumnModelManager;
 import org.sagebionetworks.repo.manager.table.TableRowManager;
 import org.sagebionetworks.repo.model.DatastoreException;
 import org.sagebionetworks.repo.model.UserInfo;
-import org.sagebionetworks.repo.model.dbo.dao.table.TableModelUtils;
 import org.sagebionetworks.repo.model.file.FileHandle;
 import org.sagebionetworks.repo.model.file.FileHandleResults;
 import org.sagebionetworks.repo.model.table.ColumnModel;
 import org.sagebionetworks.repo.model.table.ColumnType;
 import org.sagebionetworks.repo.model.table.PaginatedColumnModels;
 import org.sagebionetworks.repo.model.table.PartialRowSet;
-import org.sagebionetworks.repo.model.table.Query;
 import org.sagebionetworks.repo.model.table.QueryBundleRequest;
 import org.sagebionetworks.repo.model.table.QueryNextPageToken;
 import org.sagebionetworks.repo.model.table.QueryResult;
@@ -35,12 +31,10 @@ import org.sagebionetworks.repo.model.table.TableFailedException;
 import org.sagebionetworks.repo.model.table.TableFileHandleResults;
 import org.sagebionetworks.repo.model.table.TableUnavilableException;
 import org.sagebionetworks.repo.web.NotFoundException;
-import org.sagebionetworks.table.cluster.SqlQuery;
-import org.sagebionetworks.util.Pair;
+import org.sagebionetworks.table.cluster.utils.TableModelUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.google.common.collect.Lists;
-import com.google.common.primitives.Longs;
 
 /**
  * Basic implementation of the TableServices.
@@ -65,6 +59,12 @@ public class TableServicesImpl implements TableServices {
 	public ColumnModel createColumnModel(Long userId, ColumnModel columnModel) throws DatastoreException, NotFoundException {
 		UserInfo user = userManager.getUserInfo(userId);
 		return columnModelManager.createColumnModel(user, columnModel);
+	}
+
+	@Override
+	public List<ColumnModel> createColumnModels(Long userId, List<ColumnModel> columnModels) throws DatastoreException, NotFoundException {
+		UserInfo user = userManager.getUserInfo(userId);
+		return columnModelManager.createColumnModels(user, columnModels);
 	}
 
 	@Override
@@ -105,13 +105,13 @@ public class TableServicesImpl implements TableServices {
 	}
 
 	@Override
-	public RowReferenceSet appendPartialRows(Long userId, PartialRowSet rowsToAppendOrUpdate) throws NotFoundException, DatastoreException,
-			IOException {
-		Validate.required(rowsToAppendOrUpdate, "rowsToAppendOrUpdate");
-		Validate.required(rowsToAppendOrUpdate.getTableId(), "rowsToAppendOrUpdate.tableId");
+	public RowReferenceSet appendPartialRows(Long userId, PartialRowSet rowsToAppendOrUpdateOrDelete) throws NotFoundException,
+			DatastoreException, IOException {
+		Validate.required(rowsToAppendOrUpdateOrDelete, "rowsToAppendOrUpdateOrDelete");
+		Validate.required(rowsToAppendOrUpdateOrDelete.getTableId(), "rowsToAppendOrUpdateOrDelete.tableId");
 		UserInfo user = userManager.getUserInfo(userId);
-		List<ColumnModel> models = getCurrentColumnsForTable(user, rowsToAppendOrUpdate.getTableId());
-		return tableRowManager.appendPartialRows(user, rowsToAppendOrUpdate.getTableId(), models, rowsToAppendOrUpdate);
+		List<ColumnModel> models = getCurrentColumnsForTable(user, rowsToAppendOrUpdateOrDelete.getTableId());
+		return tableRowManager.appendPartialRows(user, rowsToAppendOrUpdateOrDelete.getTableId(), models, rowsToAppendOrUpdateOrDelete);
 	}
 
 	@Override
@@ -182,7 +182,7 @@ public class TableServicesImpl implements TableServices {
 	}
 
 	@Override
-	public URL getFileRedirectURL(Long userId, String tableId, RowReference rowRef, String columnId) throws IOException, NotFoundException {
+	public String getFileRedirectURL(Long userId, String tableId, RowReference rowRef, String columnId) throws IOException, NotFoundException {
 		Validate.required(columnId, "columnId");
 		Validate.required(userId, "userId");
 
@@ -198,7 +198,7 @@ public class TableServicesImpl implements TableServices {
 	}
 
 	@Override
-	public URL getFilePreviewRedirectURL(Long userId, String tableId, RowReference rowRef, String columnId) throws IOException,
+	public String getFilePreviewRedirectURL(Long userId, String tableId, RowReference rowRef, String columnId) throws IOException,
 			NotFoundException {
 		Validate.required(columnId, "columnId");
 		Validate.required(userId, "userId");

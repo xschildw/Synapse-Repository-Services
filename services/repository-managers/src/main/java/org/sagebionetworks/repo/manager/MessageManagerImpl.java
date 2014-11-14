@@ -3,6 +3,7 @@ package org.sagebionetworks.repo.manager;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -24,6 +25,7 @@ import org.sagebionetworks.repo.model.ACLInheritanceException;
 import org.sagebionetworks.repo.model.AccessControlList;
 import org.sagebionetworks.repo.model.AuthorizationConstants;
 import org.sagebionetworks.repo.model.AuthorizationConstants.BOOTSTRAP_PRINCIPAL;
+import org.sagebionetworks.repo.model.AuthorizationUtils;
 import org.sagebionetworks.repo.model.DatastoreException;
 import org.sagebionetworks.repo.model.DomainType;
 import org.sagebionetworks.repo.model.GroupMembersDAO;
@@ -202,7 +204,7 @@ public class MessageManagerImpl implements MessageManager {
 	}
 	
 	@Override
-	public URL getMessageFileRedirectURL(UserInfo userInfo, String messageId) throws NotFoundException {
+	public String getMessageFileRedirectURL(UserInfo userInfo, String messageId) throws NotFoundException {
 		// If the user can get the message metadata (permission checking by the manager)
 		// then the user can download the file
 		MessageToUser dto = getMessage(userInfo, messageId);
@@ -217,7 +219,7 @@ public class MessageManagerImpl implements MessageManager {
 		
 		if (!userInfo.isAdmin()) {
 			// Can't be anonymous
-			if (userInfo.getId().equals(AuthorizationConstants.BOOTSTRAP_PRINCIPAL.ANONYMOUS_USER.getPrincipalId())) {
+			if (AuthorizationUtils.isUserAnonymous(userInfo)) {
 				throw new UnauthorizedException("Anonymous user may not send messages.");
 			}
 			boolean userIsTrustedMessageSender = userInfo.getGroups().contains(TeamConstants.TRUSTED_MESSAGE_SENDER_TEAM_ID);
@@ -240,7 +242,7 @@ public class MessageManagerImpl implements MessageManager {
 			}
 		}
 		
-		if (!authorizationManager.canAccessRawFileHandleById(userInfo, dto.getFileHandleId())
+		if (!authorizationManager.canAccessRawFileHandleById(userInfo, dto.getFileHandleId()).getAuthorized()
 				&& !messageDAO.canSeeMessagesUsingFileHandle(userInfo.getGroups(), dto.getFileHandleId())) {
 			throw new UnauthorizedException("Invalid file handle given");
 		}
@@ -518,7 +520,7 @@ public class MessageManagerImpl implements MessageManager {
 			// Check permissions to send to non-individuals
 			if (!userIsTrustedMessageSender &&
 					!ug.getIsIndividual() &&
-					!authorizationManager.canAccess(userInfo, principalId, ObjectType.TEAM, ACCESS_TYPE.SEND_MESSAGE)) {
+					!authorizationManager.canAccess(userInfo, principalId, ObjectType.TEAM, ACCESS_TYPE.SEND_MESSAGE).getAuthorized()) {
 				errors.add(userInfo.getId()
 						+ " may not send messages to the group (" + principalId + ")");
 				continue;
@@ -563,7 +565,12 @@ public class MessageManagerImpl implements MessageManager {
 	 * Note:  The file given by the fileHandleId must be stored with UTF-8 encoding
 	 */
 	private String downloadEmailContentToString(String fileHandleId, Charset charset) throws NotFoundException {
-		URL url = fileHandleManager.getRedirectURLForFileHandle(fileHandleId);
+		URL url;
+		try {
+			url = new URL(fileHandleManager.getRedirectURLForFileHandle(fileHandleId));
+		} catch (MalformedURLException e) {
+			throw new IllegalArgumentException(e.getMessage(), e);
+		}
 		
 		// Read the file
 		try {

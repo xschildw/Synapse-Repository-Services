@@ -1,75 +1,63 @@
-package org.sagebionetworks.dynamo.dao.rowcache;
+package org.sagebionetworks.table.cluster;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.anyListOf;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.junit.After;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.sagebionetworks.StackConfiguration;
-import org.sagebionetworks.repo.model.table.CurrentRowCacheStatus;
-import org.sagebionetworks.util.ReflectionStaticTestUtils;
-import org.sagebionetworks.util.TestClock;
+import org.sagebionetworks.repo.model.dao.table.CurrentRowCacheDao;
+import org.sagebionetworks.util.ProgressCallback;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
-import org.springframework.test.util.ReflectionTestUtils;
 
-import com.amazonaws.services.dynamodb.datamodeling.DynamoDBMapper;
-import com.amazonaws.services.dynamodb.model.ConditionalCheckFailedException;
-import com.amazonaws.services.dynamodb.model.ProvisionedThroughputExceededException;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(locations = { "classpath:test-context.xml" })
+@ContextConfiguration(locations = { "classpath:table-cluster-spb.xml" })
 public class CurrentRowCacheDaoAutowireTest {
 
 	@Autowired
+	private ConnectionFactory tableConnectionFactory;
+
 	private CurrentRowCacheDao currentRowCacheDao;
 
-	private Object oldClock;
-	private Object oldMapper;
-
-	private Long tableId = new Random().nextLong();
+	private Long tableId = (long) new Random().nextInt(10000000);
 
 	@BeforeClass
 	public static void beforeClass() {
-		StackConfiguration config = new StackConfiguration();
-		Assume.assumeTrue(config.getDynamoEnabled());
+		Assume.assumeTrue(StackConfiguration.singleton().getTableEnabled());
 	}
 
 	@Before
 	public void setup() throws Exception {
+		// First get a connection for this table
+		currentRowCacheDao = tableConnectionFactory.getCurrentRowCacheConnection(tableId);
+
 		currentRowCacheDao.deleteCurrentTable(tableId);
-		oldClock = ReflectionTestUtils.getField(((CurrentRowCacheDaoImpl) ReflectionStaticTestUtils.getTargetObject(currentRowCacheDao)),
-				"clock");
-		oldMapper = ReflectionTestUtils.getField(((CurrentRowCacheDaoImpl) ReflectionStaticTestUtils.getTargetObject(currentRowCacheDao)),
-				"mapper");
 	}
 
 	@After
 	public void destroy() throws Exception {
-		ReflectionTestUtils
-.setField(((CurrentRowCacheDaoImpl) ReflectionStaticTestUtils.getTargetObject(currentRowCacheDao)), "clock",
-				oldClock);
-		ReflectionTestUtils.setField(((CurrentRowCacheDaoImpl) ReflectionStaticTestUtils.getTargetObject(currentRowCacheDao)), "mapper",
-				oldMapper);
 		currentRowCacheDao.deleteCurrentTable(tableId);
 	}
 
@@ -86,7 +74,7 @@ public class CurrentRowCacheDaoAutowireTest {
 		Map<Long, Long> map = Maps.newHashMap();
 		map.put(14L, 144L);
 		map.put(15L, 155L);
-		currentRowCacheDao.putCurrentVersions(tableId, map);
+		currentRowCacheDao.putCurrentVersions(tableId, map, null);
 
 		Map<Long, Long> result = currentRowCacheDao.getCurrentVersions(tableId, Lists.newArrayList(12L, 13L, 14L, 15L));
 		map.put(12L, 1L);
@@ -99,7 +87,7 @@ public class CurrentRowCacheDaoAutowireTest {
 		map.put(13L, 144L);
 		map.put(14L, 144L);
 		map.put(15L, 155L);
-		currentRowCacheDao.putCurrentVersions(tableId, map);
+		currentRowCacheDao.putCurrentVersions(tableId, map, null);
 
 		// uses range query
 		Map<Long, Long> result = currentRowCacheDao.getCurrentVersions(tableId, Lists.newArrayList(12L, 13L, 14L, 15L, 16L));
@@ -133,7 +121,7 @@ public class CurrentRowCacheDaoAutowireTest {
 		map.put(13L, 144L);
 		map.put(14L, 144L);
 		map.put(15L, 155L);
-		currentRowCacheDao.putCurrentVersions(tableId, map);
+		currentRowCacheDao.putCurrentVersions(tableId, map, null);
 
 		Map<Long, Long> result = currentRowCacheDao.getCurrentVersions(tableId, 0L, 100L);
 		assertEquals(map, result);
@@ -177,7 +165,7 @@ public class CurrentRowCacheDaoAutowireTest {
 		map.put(15L, 155L);
 		map.put(16L, 166L);
 		map.put(17L, 177L);
-		currentRowCacheDao.putCurrentVersions(tableId, map);
+		currentRowCacheDao.putCurrentVersions(tableId, map, null);
 		ArrayList<Long> allRowIdsAndMore = Lists.newArrayList(12L, 13L, 14L, 15L, 16L, 17L, 18L);
 		assertEquals(map, currentRowCacheDao.getCurrentVersions(tableId, allRowIdsAndMore));
 		currentRowCacheDao.deleteCurrentVersion(tableId, 12L);
@@ -198,10 +186,10 @@ public class CurrentRowCacheDaoAutowireTest {
 		Map<Long, Long> map = Maps.newHashMap();
 		map.put(13L, 133L);
 		map.put(14L, 144L);
-		currentRowCacheDao.putCurrentVersions(tableId, map);
-		currentRowCacheDao.putCurrentVersions(tableId + 2, map);
+		currentRowCacheDao.putCurrentVersions(tableId, map, null);
+		currentRowCacheDao.putCurrentVersions(tableId + 2, map, null);
 		map.put(14L, 155L);
-		currentRowCacheDao.putCurrentVersions(tableId, map);
+		currentRowCacheDao.putCurrentVersions(tableId, map, null);
 		ArrayList<Long> allRowIdsAndMore = Lists.newArrayList(12L, 13L, 14L, 15L, 16L, 17L, 18L);
 		assertEquals(2, currentRowCacheDao.getCurrentVersions(tableId, allRowIdsAndMore).size());
 		assertEquals(2, currentRowCacheDao.getCurrentVersions(tableId + 2, allRowIdsAndMore).size());
@@ -210,61 +198,47 @@ public class CurrentRowCacheDaoAutowireTest {
 		assertEquals(0, currentRowCacheDao.getCurrentVersions(tableId + 2, allRowIdsAndMore).size());
 	}
 
+	@Ignore
 	@Test
-	public void testLatestVersion() {
-		CurrentRowCacheStatus status = currentRowCacheDao.getLatestCurrentVersionNumber(tableId);
-		assertNull(status.getLatestCachedVersionNumber());
-		currentRowCacheDao.setLatestCurrentVersionNumber(status, 200L);
-		status = currentRowCacheDao.getLatestCurrentVersionNumber(tableId);
-		assertEquals(200L, status.getLatestCachedVersionNumber().longValue());
-		currentRowCacheDao.setLatestCurrentVersionNumber(status, 300L);
-		status = currentRowCacheDao.getLatestCurrentVersionNumber(tableId);
-		assertEquals(300L, status.getLatestCachedVersionNumber().longValue());
-	}
+	public void loadTest() throws Exception {
+		final int COUNT = 5;
+		final int SIZE = 4000;
+		final int REPEAT = 3;
+		ExecutorService newFixedThreadPool = Executors.newFixedThreadPool(COUNT);
+		List<Future<Long>> tasks = Lists.newArrayList();
+		for(int i = 0; i < COUNT; i++){
+			final int index = i;
+			tasks.add(newFixedThreadPool.submit(new Callable<Long>() {
+				@Override
+				public Long call() throws Exception {
+					Map<Long, Long> map = Maps.newHashMap();
+					for (long i = 0; i < SIZE; i++) {
+						map.put(100000L * index + i, 100000L * index + i + 100000000L);
+					}
+					final AtomicLong maxTime = new AtomicLong(0);
+					for (int i = 0; i < REPEAT; i++) {
+						System.err.println(Thread.currentThread().getId() + " " + i);
+						long start = System.currentTimeMillis();
+						currentRowCacheDao.putCurrentVersions(tableId, map, new ProgressCallback<Long>() {
+							long lastTime = System.currentTimeMillis();
 
-	@Test(expected = ConditionalCheckFailedException.class)
-	public void testLatestVersionFailsOptimisticLock() {
-		CurrentRowCacheStatus status = currentRowCacheDao.getLatestCurrentVersionNumber(tableId);
-		assertNull(status.getLatestCachedVersionNumber());
-		currentRowCacheDao.setLatestCurrentVersionNumber(status, 200L);
-		status = currentRowCacheDao.getLatestCurrentVersionNumber(tableId);
-		assertEquals(200L, status.getLatestCachedVersionNumber().longValue());
-		status = new CurrentRowCacheStatus(tableId, 300L, status.getRecordVersion());
-		currentRowCacheDao.setLatestCurrentVersionNumber(status, 300L);
-		status = new CurrentRowCacheStatus(tableId, 300L, status.getRecordVersion() - 1L);
-		currentRowCacheDao.setLatestCurrentVersionNumber(status, 300L);
-	}
-
-	@Test
-	public void testBatching() throws Exception {
-		DynamoDBMapper mockMapper = mock(DynamoDBMapper.class);
-		ReflectionTestUtils.setField(((CurrentRowCacheDaoImpl) ReflectionStaticTestUtils.getTargetObject(currentRowCacheDao)), "mapper",
-				mockMapper);
-		Map<Long, Long> map = Maps.newHashMap();
-		for (long i = 0; i < 51; i++) {
-			map.put(i, 1000 + i);
+							@Override
+							public void progressMade(Long message) {
+								long diff = System.currentTimeMillis() - lastTime;
+								lastTime = System.currentTimeMillis();
+								maxTime.set(Math.max(maxTime.get(), diff));
+							}
+						});
+						System.out.println("took " + ((System.currentTimeMillis() - start) / 1000) + " seconds");
+					}
+					return maxTime.get();
+				}
+			}));
 		}
-		currentRowCacheDao.putCurrentVersions(tableId, map);
-		verify(mockMapper, times(3)).batchSave(anyListOf(Object.class));
-	}
 
-	@Test
-	public void testBackoff() throws Exception {
-		DynamoDBMapper mockMapper = mock(DynamoDBMapper.class);
-		ReflectionTestUtils.setField(((CurrentRowCacheDaoImpl) ReflectionStaticTestUtils.getTargetObject(currentRowCacheDao)), "mapper",
-				mockMapper);
-		TestClock testClock = new TestClock();
-		long start = testClock.currentTimeMillis();
-		ReflectionTestUtils.setField(((CurrentRowCacheDaoImpl) ReflectionStaticTestUtils.getTargetObject(currentRowCacheDao)), "clock",
-				testClock);
-		doThrow(new ProvisionedThroughputExceededException("dummy")).doThrow(new ProvisionedThroughputExceededException("dummy"))
-				.doThrow(new ProvisionedThroughputExceededException("dummy")).doThrow(new ProvisionedThroughputExceededException("dummy"))
-				.doThrow(new ProvisionedThroughputExceededException("dummy")).doNothing().when(mockMapper).batchSave(anyListOf(Object.class));
-		Map<Long, Long> map = Maps.newHashMap();
-		map.put(13L, 133L);
-		map.put(14L, 144L);
-		currentRowCacheDao.putCurrentVersions(tableId, map);
-		verify(mockMapper, times(6)).batchSave(anyListOf(Object.class));
-		assertTrue(testClock.currentTimeMillis() > start + 15 * 10000);
+		for (Future<Long> task : tasks) {
+			long maxTime = task.get();
+			System.out.println("Maxtime: " + maxTime);
+		}
 	}
 }

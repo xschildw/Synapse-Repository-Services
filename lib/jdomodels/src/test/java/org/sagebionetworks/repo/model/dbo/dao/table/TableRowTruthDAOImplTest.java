@@ -20,14 +20,15 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.sagebionetworks.dynamo.dao.rowcache.CurrentRowCacheDao;
-import org.sagebionetworks.dynamo.dao.rowcache.CurrentRowCacheDaoStub;
 import org.sagebionetworks.repo.model.AuthorizationConstants.BOOTSTRAP_PRINCIPAL;
 import org.sagebionetworks.repo.model.ConflictingUpdateException;
+import org.sagebionetworks.repo.model.dao.table.CurrentRowCacheDao;
 import org.sagebionetworks.repo.model.dao.table.RowAccessor;
 import org.sagebionetworks.repo.model.dao.table.RowSetAccessor;
 import org.sagebionetworks.repo.model.dao.table.TableRowTruthDAO;
+import org.sagebionetworks.repo.model.jdo.KeyFactory;
 import org.sagebionetworks.repo.model.table.ColumnModel;
+import org.sagebionetworks.repo.model.table.ColumnType;
 import org.sagebionetworks.repo.model.table.IdRange;
 import org.sagebionetworks.repo.model.table.Row;
 import org.sagebionetworks.repo.model.table.RowReference;
@@ -35,11 +36,14 @@ import org.sagebionetworks.repo.model.table.RowReferenceSet;
 import org.sagebionetworks.repo.model.table.RowSet;
 import org.sagebionetworks.repo.model.table.TableRowChange;
 import org.sagebionetworks.repo.web.NotFoundException;
+import org.sagebionetworks.table.cluster.ConnectionFactory;
+import org.sagebionetworks.table.cluster.utils.TableModelUtils;
 import org.sagebionetworks.util.ProgressCallback;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -51,7 +55,7 @@ public class TableRowTruthDAOImplTest {
 	private Set<Long> ALL_SET;
 
 	@Autowired
-	CurrentRowCacheDao currentRowCacheDao;
+	ConnectionFactory connectionFactory;
 
 	@Autowired
 	private TableRowTruthDAO tableRowTruthDao;
@@ -120,7 +124,7 @@ public class TableRowTruthDAOImplTest {
 		set.setRows(rows);
 		set.setTableId(tableId);
 		// Append this change set
-		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set, false);
+		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set);
 		assertNotNull(refSet);
 		// Validate each row has an ID
 		assertEquals(set.getHeaders(), refSet.getHeaders());
@@ -151,7 +155,7 @@ public class TableRowTruthDAOImplTest {
 		set.setRows(rows);
 		set.setTableId(tableId);
 		// Append this change set
-		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set, false);
+		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set);
 		set.setEtag(refSet.getEtag());
 		assertEquals(set, tableRowTruthDao.getRowSet(refSet, models));
 	}
@@ -169,11 +173,11 @@ public class TableRowTruthDAOImplTest {
 		set.setRows(rows);
 		set.setTableId(tableId);
 		// Append this change set
-		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set, false);
+		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set);
 		RowSet results =  tableRowTruthDao.getRowSet(refSet, models);
 		assertEquals(5, results.getRows().size());
 		// The first value should be an empty string, the rest of the columns should be null
-		assertEquals(Arrays.asList("", null, null, null, null, null, null), results.getRows().get(0).getValues());
+		assertEquals(Arrays.asList("", null, null, null, null, null, null, ""), results.getRows().get(0).getValues());
 	}
 
 	@Test(expected = IllegalArgumentException.class)
@@ -189,9 +193,40 @@ public class TableRowTruthDAOImplTest {
 		set.setRows(rows);
 		set.setTableId(tableId);
 		// Append this change set
-		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set, false);
+		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set);
 		refSet.getRows().get(0).setVersionNumber(null);
 		tableRowTruthDao.getRowSet(refSet, models);
+	}
+
+	@Test
+	public void testDoubles() throws IOException, NotFoundException {
+		List<ColumnModel> models = Lists.newArrayList(TableModelTestUtils.createColumn(0L, "col1", ColumnType.DOUBLE),
+				TableModelTestUtils.createColumn(1L, "col2", ColumnType.STRING));
+		// create some test rows.
+		String tableId = "syn123";
+		RowSet rowSet = new RowSet();
+		rowSet.setHeaders(TableModelUtils.getHeaders(models));
+		List<Row> rows = Lists.newArrayList();
+		rowSet.setRows(rows);
+		Object[][] testValues = { { 1.0, "1.0" }, { Double.NaN, "NaN" }, { Double.NaN, "nan" }, { Double.NaN, "NAN" },
+				{ Double.NEGATIVE_INFINITY, "-infinity" }, { Double.NEGATIVE_INFINITY, "-inf" }, { Double.NEGATIVE_INFINITY, "-INF" },
+				{ Double.NEGATIVE_INFINITY, "-\u221E" }, { Double.POSITIVE_INFINITY, "+infinity" }, { Double.POSITIVE_INFINITY, "+inf" },
+				{ Double.POSITIVE_INFINITY, "+INF" }, { Double.POSITIVE_INFINITY, "+\u221E" }, { Double.POSITIVE_INFINITY, "infinity" },
+				{ Double.POSITIVE_INFINITY, "inf" }, { Double.POSITIVE_INFINITY, "INF" }, { Double.POSITIVE_INFINITY, "\u221E" } };
+		for (int i = 0; i < testValues.length; i++) {
+			Double value = (Double) testValues[i][0];
+			String string = (String) testValues[i][1];
+			rows.add(TableModelTestUtils.createRow(null, null, string, value.toString()));
+		}
+		rowSet.setTableId(tableId);
+		// Append this change set
+		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, rowSet);
+		assertNotNull(refSet);
+		// Get the rows back
+		RowSet fetched = tableRowTruthDao.getRowSet(tableId, 0l, ALL_SET);
+		for (Row row : fetched.getRows()) {
+			assertEquals(row.getValues().get(0), row.getValues().get(1));
+		}
 	}
 
 	@Test
@@ -209,11 +244,11 @@ public class TableRowTruthDAOImplTest {
 		set.setRows(rows);
 		set.setTableId(tableId);
 		// Append this change set
-		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set, false);
+		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set);
 		assertNotNull(refSet);
 		// Add some more rows
 		set.setRows(TableModelTestUtils.createRows(models, 2));
-		refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set, false);
+		refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set);
 		// There should now be two version of the data
 		results = tableRowTruthDao.listRowSetsKeysForTable(tableId);
 		assertNotNull(results);
@@ -261,7 +296,7 @@ public class TableRowTruthDAOImplTest {
 		set.setRows(rows);
 		set.setTableId(tableId);
 		// Append this change set
-		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set, false);
+		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set);
 		assertNotNull(refSet);
 		// Get the rows back
 		RowSet fetched = tableRowTruthDao.getRowSet(tableId, 0l, ALL_SET);
@@ -325,7 +360,7 @@ public class TableRowTruthDAOImplTest {
 		set.setRows(rows);
 		set.setTableId(tableId);
 		// Append this change set
-		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set, false);
+		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set);
 		assertNotNull(refSet);
 		// Get the rows for this set
 		RowSet back = tableRowTruthDao.getRowSet(refSet, models);
@@ -356,11 +391,11 @@ public class TableRowTruthDAOImplTest {
 		set.setRows(rows);
 		set.setTableId(tableId);
 		// Append this change set
-		tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set, false);
+		tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set);
 
 		// add row
 		set.setRows(TableModelTestUtils.createRows(models, 1));
-		tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set, false);
+		tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set);
 
 		// update row
 		RowSet toUpdateOne = tableRowTruthDao.getRowSet(tableId, 0l, ALL_SET);
@@ -368,7 +403,7 @@ public class TableRowTruthDAOImplTest {
 		TableModelTestUtils.updateRow(models, toUpdate, 100);
 		toUpdateOne.getRows().clear();
 		toUpdateOne.getRows().add(toUpdate);
-		RowReferenceSet refSet3 = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdateOne, false);
+		RowReferenceSet refSet3 = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdateOne);
 
 		// combine
 		RowReferenceSet ref = new RowReferenceSet();
@@ -393,7 +428,7 @@ public class TableRowTruthDAOImplTest {
 		set.setRows(rows);
 		set.setTableId(tableId);
 		// Append this change set
-		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set, false);
+		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set);
 		assertNotNull(refSet);
 		// Get the rows for this set
 		Row back = tableRowTruthDao.getRowOriginal(tableId, refSet.getRows().get(3), Lists.newArrayList(models.get(3), models.get(0)));
@@ -415,7 +450,7 @@ public class TableRowTruthDAOImplTest {
 		set.setRows(rows);
 		set.setTableId(tableId);
 		// Append this change set
-		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set, false);
+		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set);
 		assertNotNull(refSet);
 
 		assertEquals(0L, tableRowTruthDao.getLastTableRowChange(tableId).getRowVersion().longValue());
@@ -436,7 +471,7 @@ public class TableRowTruthDAOImplTest {
 		// Add them to the update
 		toUpdate.getRows().addAll(rows);
 		// Now append the changes.
-		refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdate, false);
+		refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdate);
 		assertNotNull(refSet);
 		// Now get the second version and validate it is what we expect
 		RowSet updated = tableRowTruthDao.getRowSet(tableId, 1l, ALL_SET);
@@ -462,7 +497,7 @@ public class TableRowTruthDAOImplTest {
 		set.setRows(rows);
 		set.setTableId(tableId);
 		// Append this change set
-		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set, false);
+		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set);
 		assertNotNull(refSet);
 		for (RowReference ref : refSet.getRows()) {
 			rowVersions.put(ref.getRowId(), ref.getVersionNumber());
@@ -484,6 +519,7 @@ public class TableRowTruthDAOImplTest {
 				count.incrementAndGet();
 			}
 		});
+		CurrentRowCacheDao currentRowCacheDao = connectionFactory.getCurrentRowCacheConnection(KeyFactory.stringToKey(tableId));
 		if (((CurrentRowCacheDaoStub) currentRowCacheDao).isEnabled) {
 			assertEquals(1, count.get());
 		}
@@ -493,7 +529,7 @@ public class TableRowTruthDAOImplTest {
 		// Add them to the update
 		toUpdate.getRows().addAll(rows);
 		// Now append the changes.
-		refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdate, false);
+		refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdate);
 		assertNotNull(refSet);
 		for (RowReference ref : refSet.getRows()) {
 			rowVersions.put(ref.getRowId(), ref.getVersionNumber());
@@ -515,7 +551,7 @@ public class TableRowTruthDAOImplTest {
 		TableModelTestUtils.updateRow(models, toUpdate.getRows().get(0), 19);
 		TableModelTestUtils.updateRow(models, toUpdate.getRows().get(1), 21);
 		// Now append the changes.
-		refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdate, false);
+		refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdate);
 		assertNotNull(refSet);
 		for (RowReference ref : refSet.getRows()) {
 			rowVersions.put(ref.getRowId(), ref.getVersionNumber());
@@ -527,7 +563,7 @@ public class TableRowTruthDAOImplTest {
 
 		assertEquals(7, rowVersions.size());
 		RowSetAccessor latestVersions = tableRowTruthDao.getLatestVersionsWithRowData(tableId, rowVersions.keySet(), 0L);
-		assertEquals(7, latestVersions.getRows().size());
+		assertEquals(7, Iterables.size(latestVersions.getRows()));
 		for (RowAccessor row : latestVersions.getRows()) {
 			assertEquals(row.getRow().getVersionNumber(), rowVersions.get(row.getRow().getRowId()));
 		}
@@ -549,7 +585,7 @@ public class TableRowTruthDAOImplTest {
 
 		assertEquals(7, rowVersions.size());
 		latestVersions = tableRowTruthDao.getLatestVersionsWithRowData(tableId, rowVersions.keySet(), 0L);
-		assertEquals(7, latestVersions.getRows().size());
+		assertEquals(7, Iterables.size(latestVersions.getRows()));
 		for (RowAccessor row : latestVersions.getRows()) {
 			assertEquals(row.getRow().getVersionNumber(), rowVersions.get(row.getRow().getRowId()));
 		}
@@ -568,7 +604,7 @@ public class TableRowTruthDAOImplTest {
 			set.setHeaders(TableModelUtils.getHeaders(models));
 			set.setRows(TableModelTestUtils.createRows(models, 5));
 			set.setTableId(tableId);
-			RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set, false);
+			RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set);
 			for (RowReference ref : refSet.getRows()) {
 				rowVersions.put(ref.getRowId(), ref.getVersionNumber());
 			}
@@ -591,7 +627,7 @@ public class TableRowTruthDAOImplTest {
 		set.setRows(rows);
 		set.setTableId(tableId);
 		// Append this change set
-		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set, false);
+		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set);
 		assertNotNull(refSet);
 		// Now fetch the rows for an update
 		RowSet toUpdateOne = tableRowTruthDao.getRowSet(tableId, 0l, ALL_SET);
@@ -603,19 +639,19 @@ public class TableRowTruthDAOImplTest {
 		TableModelTestUtils.updateRow(models, toUpdate, 100);
 		toUpdateOne.getRows().clear();
 		toUpdateOne.getRows().add(toUpdate);
-		tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdateOne, false);
+		tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdateOne);
 		// update row two
 		toUpdate = toUpdateTwo.getRows().get(1);
 		TableModelTestUtils.updateRow(models, toUpdate, 101);
 		toUpdateTwo.getRows().clear();
 		toUpdateTwo.getRows().add(toUpdate);
-		tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdateTwo, false);
+		tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdateTwo);
 		// update row three
 		toUpdate = toUpdateThree.getRows().get(2);
 		TableModelTestUtils.updateRow(models, toUpdate, 102);
 		toUpdateThree.getRows().clear();
 		toUpdateThree.getRows().add(toUpdate);
-		tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdateThree, false);
+		tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdateThree);
 	}
 	
 	@Test
@@ -630,7 +666,7 @@ public class TableRowTruthDAOImplTest {
 		set.setRows(rows);
 		set.setTableId(tableId);
 		// Append this change set
-		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set, false);
+		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set);
 		assertNotNull(refSet);
 		tableRowTruthDao.updateLatestVersionCache(tableId, null);
 		// Now fetch the rows for an update
@@ -643,13 +679,13 @@ public class TableRowTruthDAOImplTest {
 		TableModelTestUtils.updateRow(models, toUpdate, 100);
 		toUpdateOne.getRows().clear();
 		toUpdateOne.getRows().add(toUpdate);
-		tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdateOne, false);
+		tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdateOne);
 		// update row two
 		toUpdate = toUpdateTwo.getRows().get(1);
 		TableModelTestUtils.updateRow(models, toUpdate, 101);
 		toUpdateTwo.getRows().clear();
 		toUpdateTwo.getRows().add(toUpdate);
-		tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdateTwo, false);
+		tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdateTwo);
 		// update row one again
 		Row toUpdate1 = toUpdateThree.getRows().get(0);
 		TableModelTestUtils.updateRow(models, toUpdate1, 102);
@@ -660,11 +696,13 @@ public class TableRowTruthDAOImplTest {
 		toUpdateThree.getRows().add(toUpdate2);
 		try{
 			// This should trigger a row level conflict with the first update.
-			tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdateThree, false);
+			tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdateThree);
 			fail("Should have triggered a row level conflict with row zero");
 		}catch(ConflictingUpdateException e){
 			// expected
-			assertEquals("Row id: 0 has been changes since last read.  Please get the latest value for this row and then attempt to update it again.", e.getMessage());
+			assertEquals(
+					"Row id: 0 has been changed since last read.  Please get the latest value for this row and then attempt to update it again.",
+					e.getMessage());
 		}
 
 	}
@@ -681,7 +719,7 @@ public class TableRowTruthDAOImplTest {
 		set.setRows(rows);
 		set.setTableId(tableId);
 		// Append this change set
-		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set, false);
+		RowReferenceSet refSet = tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set);
 		assertNotNull(refSet);
 
 		// Now fetch the rows for an update
@@ -692,7 +730,7 @@ public class TableRowTruthDAOImplTest {
 		TableModelTestUtils.updateRow(models, toUpdate1.getRows().get(2), 300);
 		TableModelTestUtils.updateRow(models, toUpdate1.getRows().get(3), 500);
 		toUpdate1.getRows().remove(1);
-		tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdate1, false);
+		tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdate1);
 
 		// Now fetch the rows for an update
 		RowSet toUpdate2 = tableRowTruthDao.getRowSet(tableId, 0l, ALL_SET);
@@ -701,7 +739,7 @@ public class TableRowTruthDAOImplTest {
 		deletion.setRowId(toUpdate2.getRows().get(1).getRowId());
 		deletion.setVersionNumber(toUpdate2.getRows().get(1).getVersionNumber());
 		toUpdate2.setRows(Lists.newArrayList(deletion));
-		tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdate2, true);
+		tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdate2);
 
 		// Now fetch the rows for an update
 		RowSet toUpdate3 = tableRowTruthDao.getRowSet(tableId, 1l, ALL_SET);
@@ -710,7 +748,7 @@ public class TableRowTruthDAOImplTest {
 		deletion.setRowId(toUpdate3.getRows().get(2).getRowId());
 		deletion.setVersionNumber(toUpdate3.getRows().get(2).getVersionNumber());
 		toUpdate3.setRows(Lists.newArrayList(deletion));
-		tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdate3, true);
+		tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdate3);
 
 		RowSetAccessor rowSetLatest = tableRowTruthDao.getLatestVersionsWithRowData(tableId, Sets.newHashSet(0L, 1L, 2L, 3L), 0L);
 		RowSet rowSetBefore = tableRowTruthDao.getRowSet(tableId, 0L, ALL_SET);
@@ -718,7 +756,7 @@ public class TableRowTruthDAOImplTest {
 		RowSet rowSetAfter2 = tableRowTruthDao.getRowSet(tableId, 2L, ALL_SET);
 		RowSet rowSetAfter3 = tableRowTruthDao.getRowSet(tableId, 3L, ALL_SET);
 
-		assertEquals(2, rowSetLatest.getRows().size());
+		assertEquals(2, Iterables.size(rowSetLatest.getRows()));
 		assertEquals(4, rowSetBefore.getRows().size());
 		assertEquals(3, rowSetAfter.getRows().size());
 		assertEquals(1, rowSetAfter2.getRows().size());
@@ -738,7 +776,7 @@ public class TableRowTruthDAOImplTest {
 		set.setHeaders(TableModelUtils.getHeaders(models));
 		set.setRows(rows);
 		set.setTableId(tableId);
-		tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set, false);
+		tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set);
 		// get the rows back
 		RowSet toUpdateOne = tableRowTruthDao.getRowSet(tableId, 0l, ALL_SET);
 		// Create a row with an ID that is beyond the current max ID for the table
@@ -746,7 +784,7 @@ public class TableRowTruthDAOImplTest {
 		toAdd.setRowId(toUpdateOne.getRows().get(0).getRowId()+1);
 		toUpdateOne.getRows().add(toAdd);
 		try{
-			tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdateOne, false);
+			tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, toUpdateOne);
 			fail("should have failed since one of the row IDs was beyond the current max");
 		}catch(IllegalArgumentException e){
 			assertEquals("Cannot update row: 1 because it does not exist.", e.getMessage());
@@ -765,7 +803,7 @@ public class TableRowTruthDAOImplTest {
 			set.setHeaders(TableModelUtils.getHeaders(models));
 			set.setRows(TableModelTestUtils.createRows(models, 5));
 			set.setTableId(tableId);
-			tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set, false);
+			tableRowTruthDao.appendRowSetToTable(creatorUserGroupId, tableId, models, set);
 		}
 		for (int i = 0; i < COUNT; i++) {
 			tableRowTruthDao.getRowSet(tableId, i, ALL_SET);

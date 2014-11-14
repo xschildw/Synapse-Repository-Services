@@ -18,50 +18,40 @@ import java.util.UUID;
 
 import javax.annotation.PostConstruct;
 
+import org.apache.commons.lang.ObjectUtils;
 import org.joda.time.DateTime;
-import org.sagebionetworks.StackConfiguration;
 import org.sagebionetworks.ids.IdGenerator;
 import org.sagebionetworks.ids.IdGenerator.TYPE;
-import org.sagebionetworks.repo.model.Annotations;
-import org.sagebionetworks.repo.model.ConflictingUpdateException;
-import org.sagebionetworks.repo.model.DatastoreException;
-import org.sagebionetworks.repo.model.EntityHeader;
-import org.sagebionetworks.repo.model.EntityType;
-import org.sagebionetworks.repo.model.InvalidModelException;
-import org.sagebionetworks.repo.model.NameConflictException;
-import org.sagebionetworks.repo.model.NamedAnnotations;
-import org.sagebionetworks.repo.model.Node;
-import org.sagebionetworks.repo.model.NodeConstants;
-import org.sagebionetworks.repo.model.NodeDAO;
-import org.sagebionetworks.repo.model.NodeParentRelation;
-import org.sagebionetworks.repo.model.ObjectType;
-import org.sagebionetworks.repo.model.PaginatedResults;
-import org.sagebionetworks.repo.model.Project;
-import org.sagebionetworks.repo.model.ProjectHeader;
-import org.sagebionetworks.repo.model.QueryResults;
-import org.sagebionetworks.repo.model.Reference;
-import org.sagebionetworks.repo.model.VersionInfo;
+import org.sagebionetworks.repo.model.*;
 import org.sagebionetworks.repo.model.dbo.DBOBasicDao;
 import org.sagebionetworks.repo.model.dbo.persistence.DBONode;
 import org.sagebionetworks.repo.model.dbo.persistence.DBONodeType;
 import org.sagebionetworks.repo.model.dbo.persistence.DBONodeTypeAlias;
 import org.sagebionetworks.repo.model.dbo.persistence.DBORevision;
+import org.sagebionetworks.repo.model.jdo.AuthorizationSqlUtil;
 import org.sagebionetworks.repo.model.jdo.JDORevisionUtils;
 import org.sagebionetworks.repo.model.jdo.JDOSecondaryPropertyUtils;
 import org.sagebionetworks.repo.model.jdo.KeyFactory;
 import org.sagebionetworks.repo.model.message.ChangeType;
 import org.sagebionetworks.repo.model.message.TransactionalMessenger;
+import org.sagebionetworks.repo.model.query.jdo.QueryUtils;
+import org.sagebionetworks.repo.model.query.jdo.SqlConstants;
 import org.sagebionetworks.repo.web.NotFoundException;
+import org.sagebionetworks.util.ValidateArgument;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.BadSqlGrammarException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 /**
  * This is a basic implementation of the NodeDAO.
@@ -71,10 +61,9 @@ import org.springframework.transaction.annotation.Transactional;
  */
 public class NodeDAOImpl implements NodeDAO, InitializingBean {
 
-	private static final String TRASH_FOLDER_ID = StackConfiguration.getTrashFolderEntityIdStatic();
-
 	private static final String USER_ID_PARAM_NAME = "user_id_param";
-	private static final String PROJECT_TYPE_PARAM_NAME = "project_type_param";
+	private static final String IDS_PARAM_NAME = "ids_param";
+	private static final String PROJECT_ID_PARAM_NAME = "project_id_param";
 
 	private static final String SQL_SELECT_REV_FILE_HANDLE_ID = "SELECT "+COL_REVISION_FILE_HANDLE_ID+" FROM "+TABLE_REVISION+" WHERE "+COL_REVISION_OWNER_NODE+" = ? AND "+COL_REVISION_NUMBER+" = ?";
 	private static final String SELECT_REVISIONS_ONLY = "SELECT R."+COL_REVISION_REFS_BLOB+" FROM  "+TABLE_NODE+" N, "+TABLE_REVISION+" R WHERE N."+COL_NODE_ID+" = ? AND R."+COL_REVISION_OWNER_NODE+" = N."+COL_NODE_ID+" AND R."+COL_REVISION_NUMBER+" = N."+COL_CURRENT_REV;
@@ -92,32 +81,29 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 	private static final String NODE_IDS_LIST_PARAM_NAME = "NODE_IDS";
 	private static final String SQL_GET_CURRENT_VERSIONS = "SELECT "+COL_NODE_ID+","+COL_CURRENT_REV+" FROM "+TABLE_NODE+" WHERE "+COL_NODE_ID+" IN ( :"+NODE_IDS_LIST_PARAM_NAME + " )";
 	private static final String OWNER_ID_PARAM_NAME = "OWNER_ID";
-	
 	// selecting and counting the projects a user owns
-	private static final String SELECT_PROJECTS_FIELDS = "n." + COL_NODE_ID + ", n." + COL_NODE_NAME + ", n." + COL_NODE_TYPE;
-	private static final String FROM_PROJECTS_CREATED_BY = TABLE_NODE + " n " + " where n." + COL_NODE_CREATED_BY + " = :"
-			+ USER_ID_PARAM_NAME + " and n." + COL_NODE_TYPE + " = :" + PROJECT_TYPE_PARAM_NAME + " and n." + COL_NODE_PARENT_ID + " <> "
-			+ TRASH_FOLDER_ID;
-	private static final String USER_OR_GROUP_CLAUSE = "ra." + COL_RESOURCE_ACCESS_GROUP_ID + " = :" + USER_ID_PARAM_NAME + " or ra."
-			+ COL_RESOURCE_ACCESS_GROUP_ID + " in (" + "select " + COL_GROUP_MEMBERS_GROUP_ID + " from " + TABLE_GROUP_MEMBERS + " where "
-			+ COL_GROUP_MEMBERS_MEMBER_ID + " = :" + USER_ID_PARAM_NAME + ")";
-	private static final String FROM_PROJECTS_USER_IN_ACL = TABLE_RESOURCE_ACCESS + " ra" + " join " + TABLE_ACCESS_CONTROL_LIST
-			+ " acl on acl.ID = ra." + COL_RESOURCE_ACCESS_OWNER + " join " + TABLE_NODE + " n on acl." + "OWNER_ID" + " = n." + COL_NODE_ID
-			+ " join " + TABLE_RESOURCE_ACCESS_TYPE + " raa on ra." + COL_RESOURCE_ACCESS_OWNER + " = raa." + COL_RESOURCE_ACCESS_TYPE_OWNER
-			+ " where " + USER_OR_GROUP_CLAUSE + " and n." + COL_NODE_TYPE + " = :" + PROJECT_TYPE_PARAM_NAME + " and n."
-			+ COL_NODE_PARENT_ID + " <> " + TRASH_FOLDER_ID;
 
-	private static final String SELECT_PROJECT_HEADERS_SQL = "select " + SELECT_PROJECTS_FIELDS + ",n." + COL_NODE_CREATED_ON + " from "
-			+ FROM_PROJECTS_CREATED_BY + " union distinct select " + SELECT_PROJECTS_FIELDS + ", n." + COL_NODE_CREATED_ON + " from "
-			+ FROM_PROJECTS_USER_IN_ACL;
-	private static final String SELECT_PROJECT_HEADERS_SORTED_SQL = "select " + SELECT_PROJECTS_FIELDS + " from ("
-			+ SELECT_PROJECT_HEADERS_SQL + ") n left join " + TABLE_PROJECT_STAT + " ps on n." + COL_NODE_ID + " = ps."
-			+ COL_PROJECT_STAT_PROJECT_ID + " and ps." + COL_PROJECT_STAT_USER_ID + " = :" + USER_ID_PARAM_NAME + " ORDER BY ps."
-			+ COL_PROJECT_STAT_LAST_ACCESSED + " DESC, n." + COL_NODE_CREATED_ON + " DESC LIMIT :" + LIMIT_PARAM_NAME + " OFFSET :"
-			+ OFFSET_PARAM_NAME;
+	private static final String COUNT_PROJECTS_SQL1 = 
+		"select count(*) from (" + 
+			" select distinct n." + COL_NODE_PROJECT_ID + " from (";
+	private static final String SELECT_PROJECTS_SQL1 =
+		"select n." + COL_NODE_ID + ", n." + COL_NODE_NAME + ", n." + COL_NODE_TYPE + " from (" +
+			" select distinct n." + COL_NODE_PROJECT_ID +
+			" from ( ";
+	private static final String SELECT_PROJECTS_SQL2 =
+			" ) acls" +
+			" join " + TABLE_NODE + " n on n." + COL_NODE_BENEFACTOR_ID + " = acls." + COL_ACL_ID +
+			" where n." + COL_NODE_PROJECT_ID + " is not null" +
+		" ) pids" +
+		" join " + TABLE_NODE + " n on n." + COL_NODE_ID + " = pids." + COL_NODE_PROJECT_ID;
+	private static final String SELECT_PROJECTS_SQL_JOIN_STATS =
+		" left join " + TABLE_PROJECT_STAT + " ps on n." + COL_NODE_ID + " = ps." + COL_PROJECT_STAT_PROJECT_ID + " and ps." + COL_PROJECT_STAT_USER_ID + " = :" + USER_ID_PARAM_NAME;
 
-	private static final String COUNT_PROJECT_HEADERS_SQL = "select count(*) from (select n." + COL_NODE_ID + " from "
-			+ FROM_PROJECTS_CREATED_BY + " union distinct select n." + COL_NODE_ID + " from " + FROM_PROJECTS_USER_IN_ACL + ") a";
+	private static final String SELECT_PROJECTS_ORDER =
+		" order by coalesce(ps." + COL_PROJECT_STAT_LAST_ACCESSED + ", n." + COL_NODE_CREATED_ON + ") DESC ";
+
+	private static final String SELECT_TEAMS_ORDER = 
+			" order by n." + COL_NODE_NAME + " ASC ";
 
 	/**
 	 * To determine if a node has children we fetch the first child ID.
@@ -152,6 +138,9 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 			+ " WHERE R." + COL_REVISION_FILE_HANDLE_ID + " = F." + COL_FILES_ID
 			+ " AND F." + COL_FILES_CONTENT_MD5 + " = :" + COL_FILES_CONTENT_MD5
 			+ " LIMIT " + (NODE_VERSION_LIMIT_BY_FILE_MD5 + 1);
+
+	private static final String UPDATE_PROJECT_IDS = "UPDATE " + TABLE_NODE + " SET " + COL_NODE_PROJECT_ID + " = :" + PROJECT_ID_PARAM_NAME
+			+ " WHERE " + COL_NODE_ID + " IN (:" + IDS_PARAM_NAME + ")";
 
 	// This is better suited for JDBC query.
 	@Autowired
@@ -221,10 +210,11 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 		if(dto.getNodeType() == null) throw new IllegalArgumentException("Node type cannot be null");
 		node.setNodeType(EntityType.valueOf(dto.getNodeType()).getId());
 
+		DBONode parent = null;
 		// Set the parent and benefactor
 		if(dto.getParentId() != null){
 			// Get the parent
-			DBONode parent = getNodeById(KeyFactory.stringToKey(dto.getParentId()));
+			parent = getNodeById(KeyFactory.stringToKey(dto.getParentId()));
 			node.setParentId(parent.getId());
 			// By default a node should inherit from the same 
 			// benefactor as its parent
@@ -232,10 +222,18 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 		}
 		if(node.getBenefactorId() == null){
 			// For nodes that have no parent, they are
-			// their own benefactor. We have to wait until
-			// after the makePersistent() call to set a node to point 
-			// to itself.
+			// their own benefactor.
 			node.setBenefactorId(node.getId());
+		}
+		if (node.getProjectId() == null) {
+			// we need to find the project id for this node if possible
+			if (node.getNodeType().equals(PROJECT_ENTITY_TYPE.getId())) {
+				// we are our own project
+				node.setProjectId(node.getId());
+			} else if (parent != null) {
+				// just copy from parent if we have the parent anyway
+				node.setProjectId(parent.getProjectId());
+			}
 		}
 
 		// Start it with a new e-tag
@@ -324,7 +322,6 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 		MapSqlParameterSource prams = getNodeParameters(longId);
 		// Send a delete message
 		transactionalMessenger.sendMessageAfterCommit(id, ObjectType.ENTITY, ChangeType.DELETE);
-		transactionalMessenger.sendModificationMessageAfterCommit(id, ObjectType.ENTITY);
 		return dboBasicDao.deleteObjectByPrimaryKey(DBONode.class, prams);
 	}
 	
@@ -568,6 +565,7 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 		DBONode node = getNodeById(longId);
 		node.seteTag(UUID.randomUUID().toString());
 		transactionalMessenger.sendMessageAfterCommit(node, changeType);
+		transactionalMessenger.sendModificationMessageAfterCommit(KeyFactory.keyToString(node.getId()), ObjectType.ENTITY);
 		currentTag = node.getEtag();
 		// Update the e-tag
 		int updated = jdbcTemplate.update(UPDATE_ETAG_SQL, currentTag, longId);
@@ -981,7 +979,7 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 	}
 	
 	public static final int BATCH_PATH_DEPTH = 5;
-	
+
 	/**
 	 * A recursive method to build up the full path of of an entity, recursing in batch rather than one 
 	 * node at a time.
@@ -1138,10 +1136,36 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 		DBONode newParentNode = getNodeById(KeyFactory.stringToKey(newParentId));
 		//make the update 
 		node.setParentId(newParentNode.getId());
+		// also update the project, since that might have changed too
+		if (!ObjectUtils.equals(node.getProjectId(), newParentNode.getProjectId())) {
+			node.setProjectId(newParentNode.getProjectId());
+			// this means we need to update all the children also
+			updateProjectForAllChildren(node, newParentNode.getProjectId());
+		}
 		dboBasicDao.update(node);
 		return true;
 	}
 	
+	private int updateProjectForAllChildren(DBONode node, Long projectId) {
+		List<Long> allChildren = Lists.newLinkedList();
+		getChildrenIdsRecursive(node.getId(), allChildren);
+		// batch the updates, so we don't overwhelm the in clause
+		int count = 0;
+		for (List<Long> batch : Lists.partition(allChildren, 500)) {
+			count += namedParameterJdbcTemplate.update(UPDATE_PROJECT_IDS,
+					new MapSqlParameterSource().addValue(IDS_PARAM_NAME, batch).addValue(PROJECT_ID_PARAM_NAME, projectId));
+		}
+		return count;
+	}
+
+	private void getChildrenIdsRecursive(Long id, List<Long> result) {
+		List<Long> children = jdbcTemplate.queryForList(SQL_GET_ALL_CHILDREN_IDS, Long.class, id);
+		result.addAll(children);
+		for (Long child : children) {
+			getChildrenIdsRecursive(child, result);
+		}
+	}
+		
 	@Override
 	public Long getCurrentRevisionNumber(String nodeId) throws NotFoundException, DatastoreException{
 		if(nodeId == null) throw new IllegalArgumentException("Node Id cannot be null");
@@ -1275,19 +1299,78 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 	}
 
 	@Override
-	public PaginatedResults<ProjectHeader> getProjectHeaders(String principalId, int limit, int offset) {
-		if (principalId == null)
-			throw new IllegalArgumentException("Principal id can not be null");
-		if (limit < 0 || offset < 0)
-			throw new IllegalArgumentException("limit and offset must be greater than 0");
+	public PaginatedResults<ProjectHeader> getMyProjectHeaders(UserInfo userInfo, int limit, int offset) {
+		ValidateArgument.requirement(limit >= 0 && offset >= 0, "limit and offset must be greater than 0");
 		// get one page of projects
 		MapSqlParameterSource params = new MapSqlParameterSource();
-		params.addValue(USER_ID_PARAM_NAME, principalId);
-		params.addValue(PROJECT_TYPE_PARAM_NAME, PROJECT_ENTITY_TYPE.getId());
-		params.addValue(OFFSET_PARAM_NAME, offset);
-		params.addValue(LIMIT_PARAM_NAME, limit);
+		params.addValue(USER_ID_PARAM_NAME, userInfo.getId().toString());
 
-		List<ProjectHeader> projectsHeaders = namedParameterJdbcTemplate.query(SELECT_PROJECT_HEADERS_SORTED_SQL, params,
+		Map<String, Object> parameters = Maps.newHashMap();
+		parameters.put(AuthorizationSqlUtil.RESOURCE_TYPE_BIND_VAR, ObjectType.ENTITY.name());
+		String authForLookup = QueryUtils.buildAuthorizationSelect(userInfo.getGroups(), parameters, 0);
+
+		String pagingSql = QueryUtils.buildPaging(offset, limit, parameters);
+
+		params.addValues(parameters);
+		String selectSql = SELECT_PROJECTS_SQL1 + authForLookup + SELECT_PROJECTS_SQL2 + SELECT_PROJECTS_SQL_JOIN_STATS
+				+ SELECT_PROJECTS_ORDER + " " + pagingSql;
+		String countSql = COUNT_PROJECTS_SQL1 + authForLookup + SELECT_PROJECTS_SQL2;
+		return getProjectHeaders(params, selectSql, countSql);
+	}
+			
+
+	@Override
+	public PaginatedResults<ProjectHeader> getProjectHeadersForUser(UserInfo userToLookup, UserInfo currentUser, int limit, int offset) {
+		ValidateArgument.required(userToLookup, "userToLookupId");
+		ValidateArgument.requirement(limit >= 0 && offset >= 0, "limit and offset must be greater than 0");
+		// get one page of projects
+		MapSqlParameterSource params = new MapSqlParameterSource();
+		params.addValue(USER_ID_PARAM_NAME, userToLookup.getId().toString());
+
+		Map<String, Object> parameters = Maps.newHashMap();
+		parameters.put(AuthorizationSqlUtil.RESOURCE_TYPE_BIND_VAR, ObjectType.ENTITY.name());
+		String authForLookup = QueryUtils.buildAuthorizationSelect(userToLookup.getGroups(), parameters, 0);
+
+		parameters.put(AuthorizationSqlUtil.RESOURCE_TYPE_BIND_VAR, ObjectType.ENTITY.name());
+		String auth2 = QueryUtils.buildAuthorizationFilter(currentUser.isAdmin(), currentUser.getGroups(), parameters, "n", userToLookup
+				.getGroups().size());
+
+		String pagingSql = QueryUtils.buildPaging(offset, limit, parameters);
+
+		params.addValues(parameters);
+		String selectSql = SELECT_PROJECTS_SQL1 + authForLookup + SELECT_PROJECTS_SQL2 + SELECT_PROJECTS_SQL_JOIN_STATS
+				+ (auth2.isEmpty() ? "" : (" where " + auth2)) + SELECT_PROJECTS_ORDER + " " + pagingSql;
+		String countSql = COUNT_PROJECTS_SQL1 + authForLookup + SELECT_PROJECTS_SQL2 + (auth2.isEmpty() ? "" : (" where " + auth2));
+		return getProjectHeaders(params, selectSql, countSql);
+	}
+
+	@Override
+	public PaginatedResults<ProjectHeader> getProjectHeadersForTeam(Team teamToLookup, UserInfo currentUser, int limit, int offset) {
+		ValidateArgument.required(teamToLookup, "teamToLookupId");
+		ValidateArgument.requirement(limit >= 0 && offset >= 0, "limit and offset must be greater than 0");
+
+		long teamId = Long.parseLong(teamToLookup.getId());
+
+		// get one page of projects
+		MapSqlParameterSource params = new MapSqlParameterSource();
+
+		Map<String, Object> parameters = Maps.newHashMap();
+		parameters.put(AuthorizationSqlUtil.RESOURCE_TYPE_BIND_VAR, ObjectType.ENTITY.name());
+		String authForLookup = QueryUtils.buildAuthorizationSelect(Sets.newHashSet(teamId), parameters, 0);
+
+		String auth2 = QueryUtils.buildAuthorizationFilter(currentUser.isAdmin(), currentUser.getGroups(), parameters, "n", 1);
+
+		String pagingSql = QueryUtils.buildPaging(offset, limit, parameters);
+
+		params.addValues(parameters);
+		String selectSql = SELECT_PROJECTS_SQL1 + authForLookup + SELECT_PROJECTS_SQL2 + (auth2.isEmpty() ? "" : (" where " + auth2))
+				+ SELECT_TEAMS_ORDER + pagingSql;
+		String countSql = COUNT_PROJECTS_SQL1 + authForLookup + SELECT_PROJECTS_SQL2 + (auth2.isEmpty() ? "" : (" where " + auth2));
+		return getProjectHeaders(params, selectSql, countSql);
+	}
+
+	private PaginatedResults<ProjectHeader> getProjectHeaders(MapSqlParameterSource params, String selectSql, String countSql) {
+		List<ProjectHeader> projectsHeaders = namedParameterJdbcTemplate.query(selectSql, params,
 				new RowMapper<ProjectHeader>() {
 					@Override
 					public ProjectHeader mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -1303,7 +1386,7 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 		queryResults.setResults(projectsHeaders);
 		long totalCount = 0;
 		try {
-			totalCount = namedParameterJdbcTemplate.queryForObject(COUNT_PROJECT_HEADERS_SQL, params, Long.class);
+			totalCount = namedParameterJdbcTemplate.queryForObject(countSql, params, Long.class);
 		} catch (EmptyResultDataAccessException e) {
 			// count = 0
 		}

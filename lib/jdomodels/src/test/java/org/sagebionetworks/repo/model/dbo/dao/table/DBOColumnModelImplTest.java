@@ -22,6 +22,7 @@ import org.sagebionetworks.repo.model.dao.table.ColumnModelDAO;
 import org.sagebionetworks.repo.model.table.ColumnModel;
 import org.sagebionetworks.repo.model.table.ColumnType;
 import org.sagebionetworks.repo.web.NotFoundException;
+import org.sagebionetworks.table.cluster.utils.TableModelUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.test.context.ContextConfiguration;
@@ -74,7 +75,7 @@ public class DBOColumnModelImplTest {
 		model.setName("column model dao test");
 		model.setColumnType(ColumnType.STRING);
 		model.setMaximumSize(16L);
-		model.setDefaultValue("someDefaultValue");
+		model.setDefaultValue("abc");
 		model.setEnumValues(new LinkedList<String>());
 		model.getEnumValues().add("xyz");
 		model.getEnumValues().add("abc");

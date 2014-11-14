@@ -42,13 +42,24 @@ public interface TableServices {
 	public ColumnModel createColumnModel(Long userId, ColumnModel model) throws DatastoreException, NotFoundException;
 
 	/**
+	 * Create new ColumnModels
+	 * 
+	 * @param userId
+	 * @param list
+	 * @return
+	 * @throws NotFoundException
+	 * @throws DatastoreException
+	 */
+	public List<ColumnModel> createColumnModels(Long userId, List<ColumnModel> columnModels) throws DatastoreException, NotFoundException;
+
+	/**
 	 * Get a ColumnModel for a given ID
 	 * 
 	 * @param userId
 	 * @param columnId
 	 * @return
-	 * @throws NotFoundException 
-	 * @throws DatastoreException 
+	 * @throws NotFoundException
+	 * @throws DatastoreException
 	 */
 	public ColumnModel getColumnModel(Long userId, String columnId) throws DatastoreException, NotFoundException;
 	
@@ -96,8 +107,8 @@ public interface TableServices {
 	 * @throws DatastoreException
 	 * @throws IOException
 	 */
-	public RowReferenceSet appendPartialRows(Long userId, PartialRowSet rowsToAppendOrUpdate) throws NotFoundException, DatastoreException,
-			IOException;
+	public RowReferenceSet appendPartialRows(Long userId, PartialRowSet rowsToAppendOrUpdateOrDelete) throws NotFoundException,
+			DatastoreException, IOException;
 
 	/**
 	 * Delete rows in a table.
@@ -143,7 +154,7 @@ public interface TableServices {
 	 * @throws NotFoundException
 	 * @throws IOException
 	 */
-	public URL getFileRedirectURL(Long userId, String tableId, RowReference rowRef, String columnId) throws IOException, NotFoundException;
+	public String getFileRedirectURL(Long userId, String tableId, RowReference rowRef, String columnId) throws IOException, NotFoundException;
 
 	/**
 	 * get file preview redirect urls for the rows from the column
@@ -154,7 +165,7 @@ public interface TableServices {
 	 * @throws NotFoundException
 	 * @throws IOException
 	 */
-	public URL getFilePreviewRedirectURL(Long userId, String tableId, RowReference rowRef, String columnId) throws IOException,
+	public String getFilePreviewRedirectURL(Long userId, String tableId, RowReference rowRef, String columnId) throws IOException,
 			NotFoundException;
 
 	/**

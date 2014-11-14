@@ -12,6 +12,7 @@ import org.sagebionetworks.asynchronous.workers.sqs.WorkerProgress;
 import org.sagebionetworks.repo.model.DatastoreException;
 import org.sagebionetworks.repo.model.EntityHeader;
 import org.sagebionetworks.repo.model.EntityType;
+import org.sagebionetworks.repo.model.Node;
 import org.sagebionetworks.repo.model.NodeDAO;
 import org.sagebionetworks.repo.model.ObjectType;
 import org.sagebionetworks.repo.model.Project;
@@ -64,6 +65,9 @@ public class ProjectStatsWorker implements Worker {
 				if (returned != null) {
 					toDelete.add(returned);
 				}
+			}catch(NotFoundException e){
+				// entity no longer exists. Common case, so no reason to log an error
+				toDelete.add(message);
 			} catch (Throwable e) {
 				// Treat unknown errors as unrecoverable and return them
 				toDelete.add(message);
@@ -81,7 +85,7 @@ public class ProjectStatsWorker implements Worker {
 			if (changeMessage.getObjectType() == ObjectType.ENTITY) {
 				projectId = getProjectIdFromEntityId(changeMessage.getObjectId());
 			} else {
-				throw new IllegalArgumentException("cannot handle tyep " + changeMessage.getObjectType());
+				throw new IllegalArgumentException("cannot handle type " + changeMessage.getObjectType());
 			}
 
 			if (projectId != null) {
@@ -96,18 +100,8 @@ public class ProjectStatsWorker implements Worker {
 	}
 
 	private Long getProjectIdFromEntityId(String entityId) throws NotFoundException {
-		List<EntityHeader> nodePath = nodeDao.getEntityPath(entityId);
-		// the root of the node path should be the project
-		if (nodePath.isEmpty()) {
-			throw new DatastoreException("No path for entityId " + entityId + " could be found");
-		}
-		// walk the path from the top (the top is probably root and the next one should be project)
-		for (EntityHeader node : nodePath) {
-			if (node.getType().equals(projectEntityType.getEntityType())) {
-				return KeyFactory.stringToKey(node.getId());
-			}
-		}
-		throw new IllegalArgumentException("entityId " + entityId + " is not contained in a project");
+		Node node = nodeDao.getNode(entityId);
+		return node.getProjectId() == null ? null : KeyFactory.stringToKey(node.getProjectId());
 	}
 
 	/**

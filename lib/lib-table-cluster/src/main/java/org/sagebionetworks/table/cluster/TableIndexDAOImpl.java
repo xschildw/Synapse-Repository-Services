@@ -10,15 +10,15 @@ import java.sql.SQLException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 
 import javax.sql.DataSource;
 
 import org.sagebionetworks.repo.model.dao.table.RowAndHeaderHandler;
-import org.sagebionetworks.repo.model.dbo.SinglePrimaryKeySqlParameterSource;
-import org.sagebionetworks.repo.model.dbo.dao.table.TableModelUtils;
 import org.sagebionetworks.repo.model.table.ColumnModel;
 import org.sagebionetworks.repo.model.table.Row;
 import org.sagebionetworks.repo.model.table.RowSet;
+import org.sagebionetworks.table.cluster.utils.TableModelUtils;
 import org.springframework.dao.InvalidDataAccessResourceUsageException;
 import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -42,9 +42,10 @@ public class TableIndexDAOImpl implements TableIndexDAO {
 	private static final String FIELD = "Field";
 	private static final String SQL_SHOW_COLUMNS = "SHOW COLUMNS FROM ";
 
-	DataSourceTransactionManager transactionManager;
-	TransactionTemplate transactionTemplate;
-	JdbcTemplate template;
+	private final DataSourceTransactionManager transactionManager;
+	private final TransactionTemplate writeTransactionTemplate;
+	private final TransactionTemplate readTransactionTemplate;
+	private final JdbcTemplate template;
 
 	/**
 	 * The IoC constructor.
@@ -55,33 +56,36 @@ public class TableIndexDAOImpl implements TableIndexDAO {
 	public TableIndexDAOImpl(DataSource dataSource) {
 		super();
 		this.transactionManager = new DataSourceTransactionManager(dataSource);
+		// This will manage transactions for calls that need it.
+		this.writeTransactionTemplate = createTransactionTemplate(this.transactionManager, false);
+		this.readTransactionTemplate = createTransactionTemplate(this.transactionManager, true);
+		this.template = new JdbcTemplate(dataSource);
+	}
+
+	private static TransactionTemplate createTransactionTemplate(DataSourceTransactionManager transactionManager, boolean readOnly) {
 		// This will define how transaction are run for this instance.
-		DefaultTransactionDefinition transactionDef = new DefaultTransactionDefinition();
+		DefaultTransactionDefinition transactionDef;
+		transactionDef = new DefaultTransactionDefinition();
 		transactionDef.setIsolationLevel(Connection.TRANSACTION_READ_COMMITTED);
-		transactionDef.setReadOnly(false);
+		transactionDef.setReadOnly(readOnly);
 		transactionDef.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
 		transactionDef.setName("TableIndexDAOImpl");
-		// This will manage transactions for calls that need it.
-		this.transactionTemplate = new TransactionTemplate(this.transactionManager, transactionDef);
-		this.template = new JdbcTemplate(dataSource);
+		return new TransactionTemplate(transactionManager, transactionDef);
 	}
 
 	@Override
 	public boolean createOrUpdateTable(List<ColumnModel> newSchema,
 			String tableId) {
 		// First determine if we have any columns for this table yet
-		List<String> columns = getCurrentTableColumns(tableId);
-		// Convert the names to columnIDs
-		List<String> oldSchema = SQLUtils.convertColumnNamesToColumnId(columns);
+		List<String> oldColumns = getCurrentTableColumns(tableId);
 		// Build the SQL to create or update the table
-		String dml = SQLUtils.creatOrAlterTableSQL(oldSchema, newSchema,
-				tableId);
+		String dml = SQLUtils.creatOrAlterTableSQL(oldColumns, newSchema, tableId);
 		// If there is nothing to apply then do nothing
 		if (dml == null)
 			return false;
 		// Execute the DML
 		try {
-		template.update(dml);
+			template.update(dml);
 		} catch (BadSqlGrammarException e) {
 			if (e.getCause() != null && e.getCause().getMessage() != null && e.getCause().getMessage().startsWith("Row size too large")) {
 				throw new InvalidDataAccessResourceUsageException(
@@ -95,7 +99,7 @@ public class TableIndexDAOImpl implements TableIndexDAO {
 
 	@Override
 	public boolean deleteTable(String tableId) {
-		String dropTableDML = SQLUtils.dropTableSQL(tableId);
+		String dropTableDML = SQLUtils.dropTableSQL(tableId, SQLUtils.TableType.INDEX);
 		try {
 			template.update(dropTableDML);
 			return true;
@@ -107,7 +111,7 @@ public class TableIndexDAOImpl implements TableIndexDAO {
 
 	@Override
 	public List<String> getCurrentTableColumns(String tableId) {
-		String tableName = SQLUtils.getTableNameForId(tableId);
+		String tableName = SQLUtils.getTableNameForId(tableId, SQLUtils.TableType.INDEX);
 		// Bind variables do not seem to work here
 		try {
 			return template.query(SQL_SHOW_COLUMNS + tableName,
@@ -133,7 +137,7 @@ public class TableIndexDAOImpl implements TableIndexDAO {
 			throw new IllegalArgumentException("Current schema cannot be null");
 
 		// Execute this within a transaction
-		this.transactionTemplate.execute(new TransactionCallback<Void>() {
+		this.writeTransactionTemplate.execute(new TransactionCallback<Void>() {
 			@Override
 			public Void doInTransaction(TransactionStatus status) {
 				// Within a transaction
@@ -158,7 +162,7 @@ public class TableIndexDAOImpl implements TableIndexDAO {
 			}
 		});
 	}
-
+	
 	@Override
 	public Long getRowCountForTable(String tableId) {
 		String sql = SQLUtils.getCountSQL(tableId);
@@ -183,7 +187,7 @@ public class TableIndexDAOImpl implements TableIndexDAO {
 
 	@Override
 	public void setMaxCurrentCompleteVersionForTable(String tableId, Long version) {
-		String createStatusTableSql = SQLUtils.createStatusTableSQL(tableId);
+		String createStatusTableSql = SQLUtils.createTableSQL(tableId, SQLUtils.TableType.STATUS);
 		template.update(createStatusTableSql);
 
 		String createOrUpdateStatusSql = SQLUtils.buildCreateOrUpdateStatusSQL(tableId);
@@ -192,7 +196,7 @@ public class TableIndexDAOImpl implements TableIndexDAO {
 
 	@Override
 	public void deleteStatusTable(String tableId) {
-		String dropStatusTableDML = SQLUtils.dropStatusTableSQL(tableId);
+		String dropStatusTableDML = SQLUtils.dropTableSQL(tableId, SQLUtils.TableType.STATUS);
 		try {
 			template.update(dropStatusTableDML);
 		} catch (BadSqlGrammarException e) {
@@ -274,6 +278,11 @@ public class TableIndexDAOImpl implements TableIndexDAO {
 		return true;
 	}
 
+	@Override
+	public <T> T executeInReadTransaction(TransactionCallback<T> callable) {
+		return readTransactionTemplate.execute(callable);
+	}
+
 	static void populateHeadersFromResultsSet(List<String> headers, List<Integer> nonMetadataColumnIndicies, SqlQuery query,
 			Map<Integer, ColumnModel> modeledColumns, ResultSetMetaData resultSetMetaData) throws SQLException {
 		// There are three possibilities, column ID, aggregate function, or row
@@ -287,7 +296,7 @@ public class TableIndexDAOImpl implements TableIndexDAO {
 				// We do not include row id or row version in the headers.
 				continue;
 			}
-			if (SQLUtils.hasColumnPrefixe(name) && !name.startsWith("COUNT")) {
+			if (SQLUtils.isColumnName(name)) {
 				// Extract the column ID
 				String columnId = SQLUtils.getColumnIdForColumnName(name);
 				headers.add(columnId);
@@ -298,7 +307,8 @@ public class TableIndexDAOImpl implements TableIndexDAO {
 					}
 				}
 			} else {
-				// Return what was provided unchanged
+				// replace column names where possible
+				name = SQLUtils.replaceColumnNames(name, columnIdToModelMap);
 				headers.add(name);
 			}
 			// This is not a row_id or row_version column.

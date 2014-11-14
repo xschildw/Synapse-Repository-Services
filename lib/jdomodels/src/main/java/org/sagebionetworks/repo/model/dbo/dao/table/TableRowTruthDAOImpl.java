@@ -42,6 +42,7 @@ import org.sagebionetworks.repo.model.table.RowSet;
 import org.sagebionetworks.repo.model.table.TableRowChange;
 import org.sagebionetworks.repo.model.table.TableUnavilableException;
 import org.sagebionetworks.repo.web.NotFoundException;
+import org.sagebionetworks.table.cluster.utils.TableModelUtils;
 import org.sagebionetworks.util.ProgressCallback;
 import org.sagebionetworks.util.ValidateArgument;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -100,7 +101,8 @@ public class TableRowTruthDAOImpl implements TableRowTruthDAO {
 			+ SQL_ALL_ROW_CHANGES_FOR_TABLE_GREATER_VERSION_BASE;
 	private static final String SQL_COUNT_ALL_ROW_CHANGES_FOR_TABLE_GREATER_VERSION = "SELECT COUNT(*) "
 			+ SQL_ALL_ROW_CHANGES_FOR_TABLE_GREATER_VERSION_BASE;
-	private static final String SQL_DELETE_ROW_DATA_FOR_TABLE = "DELETE FROM " + TABLE_ROW_CHANGE + " WHERE " + COL_TABLE_ROW_TABLE_ID
+	private static final String SQL_DELETE_ROW_DATA_FOR_TABLE = "DELETE FROM " + TABLE_TABLE_ID_SEQUENCE + " WHERE "
+			+ COL_ID_SEQUENCE_TABLE_ID
 			+ " = ?";
 	private static final String KEY_TEMPLATE = "%1$s.csv.gz";
 	private static final String SQL_TRUNCATE_SEQUENCE_TABLE = "DELETE FROM "
@@ -186,7 +188,7 @@ public class TableRowTruthDAOImpl implements TableRowTruthDAO {
 
 	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
 	@Override
-	public RowReferenceSet appendRowSetToTable(String userId, String tableId, List<ColumnModel> models, RowSet delta, boolean isDeletion)
+	public RowReferenceSet appendRowSetToTable(String userId, String tableId, List<ColumnModel> models, RowSet delta)
 			throws IOException {
 		// Now set the row version numbers and ID.
 		int coutToReserver = TableModelUtils.countEmptyOrInvalidRowIds(delta);
@@ -201,7 +203,7 @@ public class TableRowTruthDAOImpl implements TableRowTruthDAO {
 		// Now assign the rowIds and set the version number
 		TableModelUtils.assignRowIdsAndVersionNumbers(delta, range);
 		// We are ready to convert the file to a CSV and save it to S3.
-		String key = saveCSVToS3(models, delta, isDeletion);
+		String key = saveCSVToS3(models, delta);
 		List<String> headers = TableModelUtils.getHeaders(models);
 		// record the change
 		DBOTableRowChange changeDBO = new DBOTableRowChange();
@@ -280,7 +282,7 @@ public class TableRowTruthDAOImpl implements TableRowTruthDAO {
 					throw new ConflictingUpdateException(
 							"Row id: "
 									+ row.getRowId()
-									+ " has been changes since last read.  Please get the latest value for this row and then attempt to update it again.");
+									+ " has been changed since last read.  Please get the latest value for this row and then attempt to update it again.");
 				}
 			}
 		}, change);
@@ -325,7 +327,7 @@ public class TableRowTruthDAOImpl implements TableRowTruthDAO {
 		long tableId = KeyFactory.stringToKey(tableIdString);
 		try {
 			DBOTableRowChange dbo = jdbcTemplate.queryForObject(SQL_SELECT_LAST_ROW_CHANGE_FOR_TABLE, rowChangeMapper, tableId);
-			return TableModelUtils.ceateDTOFromDBO(dbo);
+			return TableRowChangeUtils.ceateDTOFromDBO(dbo);
 		} catch (EmptyResultDataAccessException e) {
 			// presumably, no rows have been added yet
 			return null;
@@ -342,14 +344,14 @@ public class TableRowTruthDAOImpl implements TableRowTruthDAO {
 	 * @throws IOException
 	 * @throws FileNotFoundException
 	 */
-	private String saveCSVToS3(List<ColumnModel> models, RowSet delta, boolean isDeletion)
+	private String saveCSVToS3(List<ColumnModel> models, RowSet delta)
 			throws IOException, FileNotFoundException {
 		File temp = File.createTempFile("rowSet", "csv.gz");
 		FileOutputStream out = null;
 		try {
 			out = new FileOutputStream(temp);
 			// Save this to the the zipped CSV
-			TableModelUtils.validateAnWriteToCSVgz(models, delta, out, isDeletion);
+			TableModelUtils.validateAnWriteToCSVgz(models, delta, out);
 			// upload it to S3.
 			String key = String.format(KEY_TEMPLATE, UUID.randomUUID()
 					.toString());
@@ -375,7 +377,7 @@ public class TableRowTruthDAOImpl implements TableRowTruthDAO {
 		long tableId = KeyFactory.stringToKey(tableIdString);
 		List<DBOTableRowChange> dboList = jdbcTemplate.query(
 				SQL_SELECT_ALL_ROW_CHANGES_FOR_TABLE, rowChangeMapper, tableId);
-		return TableModelUtils.ceateDTOFromDBO(dboList);
+		return TableRowChangeUtils.ceateDTOFromDBO(dboList);
 	}
 
 	@Override
@@ -387,7 +389,7 @@ public class TableRowTruthDAOImpl implements TableRowTruthDAO {
 		List<DBOTableRowChange> dboList = jdbcTemplate.query(
 				SQL_SELECT_ALL_ROW_CHANGES_FOR_TABLE_GREATER_VERSION,
 				rowChangeMapper, tableId, versionNumber);
-		return TableModelUtils.ceateDTOFromDBO(dboList);
+		return TableRowChangeUtils.ceateDTOFromDBO(dboList);
 	}
 
 	@Override
@@ -408,7 +410,7 @@ public class TableRowTruthDAOImpl implements TableRowTruthDAO {
 			DBOTableRowChange dbo = jdbcTemplate.queryForObject(
 					SQL_SELECT_ROW_CHANGE_FOR_TABLE_AND_VERSION,
 					rowChangeMapper, tableId, rowVersion);
-			return TableModelUtils.ceateDTOFromDBO(dbo);
+			return TableRowChangeUtils.ceateDTOFromDBO(dbo);
 		} catch (EmptyResultDataAccessException e) {
 			throw new NotFoundException(
 					"TableRowChange does not exist for tableId: " + tableId
@@ -476,6 +478,7 @@ public class TableRowTruthDAOImpl implements TableRowTruthDAO {
 		for (String key : keysToDelete) {
 			s3Client.deleteObject(s3Bucket, key);
 		}
+		// let cascade delete take care of deleting the row changes
 		jdbcTemplate.update(SQL_DELETE_ROW_DATA_FOR_TABLE, KeyFactory.stringToKey(tableId));
 	}
 
@@ -738,7 +741,7 @@ public class TableRowTruthDAOImpl implements TableRowTruthDAO {
 	}
 
 	@Override
-	public void removeLatestVersionCache(String tableId) throws IOException {
+	public void removeCaches(Long tableId) throws IOException {
 		// do nothing here, only caching version needs to do anything
 	}
 

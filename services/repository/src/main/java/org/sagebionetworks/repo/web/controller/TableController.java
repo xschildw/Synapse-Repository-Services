@@ -2,12 +2,14 @@ package org.sagebionetworks.repo.web.controller;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.List;
 
 import javax.servlet.http.HttpServletResponse;
 
 import org.sagebionetworks.repo.model.AsynchJobFailedException;
 import org.sagebionetworks.repo.model.AuthorizationConstants;
 import org.sagebionetworks.repo.model.DatastoreException;
+import org.sagebionetworks.repo.model.ListWrapper;
 import org.sagebionetworks.repo.model.NotReadyException;
 import org.sagebionetworks.repo.model.ServiceConstants;
 import org.sagebionetworks.repo.model.asynch.AsyncJobId;
@@ -131,13 +133,34 @@ public class TableController extends BaseController {
 	}
 
 	/**
-	 * Get a <a
-	 * href="${org.sagebionetworks.repo.model.table.ColumnModel}">ColumnModel
-	 * </a> using its ID.
+	 * Create a batch of <a href="${org.sagebionetworks.repo.model.table.ColumnModel}">ColumnModel </a> that can be used
+	 * as columns of a <a href="${org.sagebionetworks.repo.model.table.TableEntity}" >TableEntity</a>. Unlike other
+	 * objects in Synapse ColumnModels are immutable and reusable and do not have an "owner" or "creator". This method
+	 * is idempotent, so if the same ColumnModel is passed multiple time a new ColumnModel will not be created. Instead
+	 * the existing ColumnModel will be returned. This also means if two users create identical ColumnModels for their
+	 * tables they will both receive the same ColumnModel.
+	 * 
+	 * This call will either create all column models or create none
+	 * 
+	 * @param userId The user's id.
+	 * @param toCreate The ColumnModel to create.
+	 * @return -
+	 * @throws DatastoreException - Synapse error.
+	 */
+	@ResponseStatus(HttpStatus.CREATED)
+	@RequestMapping(value = UrlHelpers.COLUMN_BATCH, method = RequestMethod.POST)
+	public @ResponseBody
+	ListWrapper<ColumnModel> createColumnModels(@RequestParam(value = AuthorizationConstants.USER_ID_PARAM) Long userId,
+			@RequestBody ListWrapper<ColumnModel> toCreate) throws DatastoreException, NotFoundException {
+		List<ColumnModel> results = serviceProvider.getTableServices().createColumnModels(userId, toCreate.getList());
+		return ListWrapper.wrap(results, ColumnModel.class);
+	}
+
+	/**
+	 * Get a <a href="${org.sagebionetworks.repo.model.table.ColumnModel}">ColumnModel </a> using its ID.
 	 * 
 	 * @param userId
-	 * @param columnId
-	 *            The ID of the ColumnModel to get.
+	 * @param columnId The ID of the ColumnModel to get.
 	 * @return
 	 * @throws DatastoreException
 	 * @throws NotFoundException
@@ -298,7 +321,10 @@ public class TableController extends BaseController {
 	 * PartialRow.values identifies the column by ID in the key. When a row is
 	 * added it will be issued both a rowId and a version number. When a row is
 	 * updated it will be issued a new version number (each row version is
-	 * immutable). The resulting RowReferenceSet will enumerate all rowIds and
+	 * immutable). If PartialRow.values is null, the corresponding row will be deleted.
+	 * If PartialRow.values is an empty map, then no change will be made to that row.
+	 * 
+	 * The resulting RowReferenceSet will enumerate all rowIds and
 	 * versionNumbers for this update. The resulting RowReferences will be
 	 * listed in the same order as the passed result set. A single POST to this
 	 * services will be treated as a single transaction, meaning either all of
@@ -490,7 +516,7 @@ public class TableController extends BaseController {
 		RowReference ref = new RowReference();
 		ref.setRowId(rowId);
 		ref.setVersionNumber(versionNumber);
-		URL redirectUrl = serviceProvider.getTableServices()
+		String redirectUrl = serviceProvider.getTableServices()
 				.getFileRedirectURL(userId, id, ref, columnId);
 		RedirectUtils.handleRedirect(redirect, redirectUrl, response);
 	}
@@ -530,7 +556,7 @@ public class TableController extends BaseController {
 		RowReference ref = new RowReference();
 		ref.setRowId(rowId);
 		ref.setVersionNumber(versionNumber);
-		URL redirectUrl = serviceProvider.getTableServices()
+		String redirectUrl = serviceProvider.getTableServices()
 				.getFilePreviewRedirectURL(userId, id, ref, columnId);
 		RedirectUtils.handleRedirect(redirect, redirectUrl, response);
 	}

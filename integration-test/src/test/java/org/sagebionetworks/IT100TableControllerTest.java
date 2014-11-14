@@ -37,7 +37,6 @@ import org.sagebionetworks.client.exceptions.SynapseResultNotReadyException;
 import org.sagebionetworks.repo.model.Entity;
 import org.sagebionetworks.repo.model.Project;
 import org.sagebionetworks.repo.model.dbo.dao.table.TableModelTestUtils;
-import org.sagebionetworks.repo.model.dbo.dao.table.TableModelUtils;
 import org.sagebionetworks.repo.model.file.FileHandle;
 import org.sagebionetworks.repo.model.file.S3FileHandle;
 import org.sagebionetworks.repo.model.table.ColumnModel;
@@ -53,6 +52,7 @@ import org.sagebionetworks.repo.model.table.RowSelection;
 import org.sagebionetworks.repo.model.table.RowSet;
 import org.sagebionetworks.repo.model.table.TableEntity;
 import org.sagebionetworks.repo.model.table.TableFileHandleResults;
+import org.sagebionetworks.table.cluster.utils.TableModelUtils;
 import org.sagebionetworks.util.Pair;
 import org.sagebionetworks.util.TimeUtils;
 
@@ -132,6 +132,27 @@ public class IT100TableControllerTest {
 	}
 	
 	@Test
+	public void testCreateGetColumns() throws SynapseException {
+		List<ColumnModel> cms = Lists.newArrayList();
+		for (int i = 0; i < 2; i++) {
+			ColumnModel cm = new ColumnModel();
+			cm.setName("ExampleColumn" + i);
+			cm.setColumnType(ColumnType.STRING);
+			cms.add(cm);
+		}
+		List<ColumnModel> results = synapse.createColumnModels(cms);
+		assertNotNull(results);
+		assertEquals(2, results.size());
+		for (int i = 0; i < 2; i++) {
+			assertNotNull(results.get(i).getId());
+			ColumnModel clone = synapse.getColumnModel(results.get(i).getId());
+			assertNotNull(clone);
+			assertEquals(results.get(i), clone);
+			assertEquals(cms.get(i).getName(), clone.getName());
+		}
+	}
+
+	@Test
 	public void testCreateTableEntity() throws Exception {
 		// Create a few columns to add to a table entity
 		ColumnModel one = new ColumnModel();
@@ -151,15 +172,7 @@ public class IT100TableControllerTest {
 		entitiesToDelete.add(project);
 		
 		// now create a table entity
-		TableEntity table = new TableEntity();
-		table.setName("Table");
-		List<String> idList = new LinkedList<String>();
-		idList.add(one.getId());
-		idList.add(two.getId());
-		table.setColumnIds(idList);
-		table.setParentId(project.getId());
-		table = synapse.createEntity(table);
-		tablesToDelete.add(table);
+		TableEntity table = createTable(Lists.newArrayList(one.getId(), two.getId()));
 		
 		assertNotNull(table);
 		assertNotNull(table.getId());
@@ -267,19 +280,7 @@ public class IT100TableControllerTest {
 		}
 
 		// Create a project to contain it all
-		Project project = new Project();
-		project.setName(UUID.randomUUID().toString());
-		project = synapse.createEntity(project);
-		assertNotNull(project);
-		entitiesToDelete.add(project);
-
-		// now create a table entity
-		TableEntity table = new TableEntity();
-		table.setName("Table");
-		table.setColumnIds(idList);
-		table.setParentId(project.getId());
-		table = synapse.createEntity(table);
-		tablesToDelete.add(table);
+		TableEntity table = createTable(idList);
 
 		// Append some rows
 		List<Row> rows = Lists.newArrayList();
@@ -366,20 +367,7 @@ public class IT100TableControllerTest {
 		one.setColumnType(ColumnType.DOUBLE);
 		one = synapse.createColumnModel(one);
 
-		// Create a project to contain it all
-		Project project = new Project();
-		project.setName(UUID.randomUUID().toString());
-		project = synapse.createEntity(project);
-		assertNotNull(project);
-		entitiesToDelete.add(project);
-
-		// now create a table entity
-		TableEntity table = new TableEntity();
-		table.setName("Table");
-		table.setColumnIds(Lists.newArrayList(one.getId()));
-		table.setParentId(project.getId());
-		table = synapse.createEntity(table);
-		tablesToDelete.add(table);
+		TableEntity table = createTable(Lists.newArrayList(one.getId()));
 
 		List<ColumnModel> columns = synapse.getColumnModelsForTableEntity(table.getId());
 
@@ -408,6 +396,53 @@ public class IT100TableControllerTest {
 		assertEquals(1L, count.longValue());
 		count = waitForCountResults("select * from " + table.getId() + " where one > 1.3");
 		assertEquals(0L, count.longValue());
+	}
+
+	@Test
+	public void testAdminRebuild() throws Exception {
+		// Create a few columns to add to a table entity
+		ColumnModel one = new ColumnModel();
+		one.setName("one");
+		one.setColumnType(ColumnType.DOUBLE);
+		one = synapse.createColumnModel(one);
+
+		TableEntity table = createTable(Lists.newArrayList(one.getId()));
+
+		List<ColumnModel> columns = synapse.getColumnModelsForTableEntity(table.getId());
+
+		// Append some rows
+		for (int i = 0; i < 10; i++) {
+			RowSet set = new RowSet();
+			set.setRows(TableModelTestUtils.createRows(columns, 4));
+			set.setHeaders(TableModelUtils.getHeaders(columns));
+			set.setTableId(table.getId());
+			synapse.appendRowsToTable(set);
+		}
+
+		// Now query for the table results
+		Long count = waitForCountResults("select * from " + table.getId());
+		assertEquals(40L, count.longValue());
+
+		adminSynapse.rebuildTableCacheAndIndex(table.getId());
+		final String asyncToken = synapse.queryTableEntityBundleAsyncStart("select * from " + table.getId(), null, null, true,
+				SynapseClient.COUNT_PARTMASK);
+		try {
+			synapse.queryTableEntityBundleAsyncGet(asyncToken);
+			fail("table should be invalid");
+		} catch (SynapseResultNotReadyException e) {
+		}
+		count = TimeUtils.waitFor(MAX_QUERY_TIMEOUT_MS, 500L, new Callable<Pair<Boolean, QueryResultBundle>>() {
+			@Override
+			public Pair<Boolean, QueryResultBundle> call() throws Exception {
+				try {
+					QueryResultBundle result = synapse.queryTableEntityBundleAsyncGet(asyncToken);
+					return Pair.create(true, result);
+				} catch (SynapseResultNotReadyException e) {
+					return Pair.create(false, null);
+				}
+			}
+		}).getQueryCount();
+		assertEquals(40L, count.longValue());
 	}
 
 	/**
@@ -463,20 +498,8 @@ public class IT100TableControllerTest {
 		one.setName("one");
 		one.setColumnType(ColumnType.FILEHANDLEID);
 		one = synapse.createColumnModel(one);
-		// Create a project to contain it all
-		Project project = new Project();
-		project.setName(UUID.randomUUID().toString());
-		project = synapse.createEntity(project);
-		entitiesToDelete.add(project);
 
-		// now create a table entity
-		TableEntity table = new TableEntity();
-		table.setName("Table");
-		List<String> idList = Lists.newArrayList(one.getId());
-		table.setColumnIds(idList);
-		table.setParentId(project.getId());
-		table = synapse.createEntity(table);
-		tablesToDelete.add(table);
+		TableEntity table = createTable(Lists.newArrayList(one.getId()));
 
 		List<ColumnModel> columns = synapse.getColumnModelsForTableEntity(table.getId());
 
@@ -556,19 +579,7 @@ public class IT100TableControllerTest {
 	
 	@Test
 	public void testEmtpyTableRoundTrip() throws Exception {
-		// Create a project to contain it all
-		Project project = new Project();
-		project.setName(UUID.randomUUID().toString());
-		project = synapse.createEntity(project);
-		assertNotNull(project);
-		entitiesToDelete.add(project);
-		// now create a table entity
-		TableEntity table = new TableEntity();
-		table.setName("Table");
-		table.setColumnIds(null);
-		table.setParentId(project.getId());
-		table = synapse.createEntity(table);
-		tablesToDelete.add(table);
+		TableEntity table = createTable(null);
 		// Now attempt to query for the table results
 		// This table has no rows and no columns
 		RowSet queryResults = waitForQueryResults("select * from " + table.getId(), 0L, 2L);
@@ -587,20 +598,8 @@ public class IT100TableControllerTest {
 		one.setColumnType(ColumnType.STRING);
 		one = synapse.createColumnModel(one);
 		List<ColumnModel> columns = Arrays.asList(one);
-		// Create a project to contain it all
-		Project project = new Project();
-		project.setName(UUID.randomUUID().toString());
-		project = synapse.createEntity(project);
-		entitiesToDelete.add(project);
 
-		// now create a table entity
-		TableEntity table = new TableEntity();
-		table.setName("Table");
-		List<String> idList = Lists.newArrayList(one.getId());
-		table.setColumnIds(idList);
-		table.setParentId(project.getId());
-		table = synapse.createEntity(table);
-		tablesToDelete.add(table);
+		TableEntity table = createTable(Lists.newArrayList(one.getId()));
 		
 		RowSet set = new RowSet();
 		List<Row> rows = TableModelTestUtils.createRows(columns, 2);
@@ -626,7 +625,7 @@ public class IT100TableControllerTest {
 			// expected
 			System.out.println(e.getMessage());
 			assertTrue(e.getMessage().contains("Row id:"));
-			assertTrue(e.getMessage().contains("has been changes"));
+			assertTrue(e.getMessage().contains("has been changed"));
 		}
 	}
 	
@@ -638,20 +637,8 @@ public class IT100TableControllerTest {
 		one.setColumnType(ColumnType.STRING);
 		one = synapse.createColumnModel(one);
 		List<ColumnModel> columns = Arrays.asList(one);
-		// Create a project to contain it all
-		Project project = new Project();
-		project.setName(UUID.randomUUID().toString());
-		project = synapse.createEntity(project);
-		entitiesToDelete.add(project);
 
-		// now create a table entity
-		TableEntity table = new TableEntity();
-		table.setName("Table");
-		List<String> idList = Lists.newArrayList(one.getId());
-		table.setColumnIds(idList);
-		table.setParentId(project.getId());
-		table = synapse.createEntity(table);
-		tablesToDelete.add(table);
+		TableEntity table = createTable(Lists.newArrayList(one.getId()));
 
 		RowSet set = new RowSet();
 		List<Row> rows = Lists.newArrayList(TableModelTestUtils.createRow(null, null, "test"),
@@ -718,19 +705,7 @@ public class IT100TableControllerTest {
 			columnIds.add(one.getId());
 		}
 
-		// Create a project to contain it all
-		Project project = new Project();
-		project.setName(UUID.randomUUID().toString());
-		project = synapse.createEntity(project);
-		entitiesToDelete.add(project);
-
-		// now create a table entity
-		TableEntity table = new TableEntity();
-		table.setName("Table");
-		table.setColumnIds(columnIds);
-		table.setParentId(project.getId());
-		table = synapse.createEntity(table);
-		tablesToDelete.add(table);
+		TableEntity table = createTable(columnIds);
 
 		List<ColumnModel> columns = synapse.getColumnModelsForTableEntity(table.getId());
 
@@ -771,10 +746,27 @@ public class IT100TableControllerTest {
 		});
 		assertEquals(rowsNeeded - result.getMaxRowsPerPage().intValue(), nextPageResult.getQueryResults().getRows().size());
 		assertNull(nextPageResult.getNextPageToken());
-}
+	}
+
+	private TableEntity createTable(List<String> columns) throws SynapseException {
+		// Create a project to contain it all
+		Project project = new Project();
+		project.setName(UUID.randomUUID().toString());
+		project = synapse.createEntity(project);
+		entitiesToDelete.add(project);
+
+		// now create a table entity
+		TableEntity table = new TableEntity();
+		table.setName("Table");
+		table.setColumnIds(columns);
+		table.setParentId(project.getId());
+		table = synapse.createEntity(table);
+		tablesToDelete.add(table);
+		return table;
+	}
 
 	private <T> T waitForAsync(final Callable<T> callable) throws Exception {
-		return TimeUtils.waitFor(30000, 500, new Callable<Pair<Boolean, T>>() {
+		return TimeUtils.waitFor(80000, 500, new Callable<Pair<Boolean, T>>() {
 			@Override
 			public Pair<Boolean, T> call() throws Exception {
 				try {

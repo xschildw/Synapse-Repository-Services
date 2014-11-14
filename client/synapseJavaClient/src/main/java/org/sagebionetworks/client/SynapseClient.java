@@ -1112,6 +1112,8 @@ public interface SynapseClient extends BaseClient {
 
 	public PaginatedResults<ProjectHeader> getProjectsFromUser(Long userId, Integer limit, Integer offset) throws SynapseException;
 
+	public PaginatedResults<ProjectHeader> getProjectsForTeam(Long teamId, Integer limit, Integer offset) throws SynapseException;
+
 	public void createEntityDoi(String entityId) throws SynapseException;
 
 	public void createEntityDoi(String entityId, Long entityVersion)
@@ -1375,6 +1377,15 @@ public interface SynapseClient extends BaseClient {
 	 */
 	ColumnModel createColumnModel(ColumnModel model) throws SynapseException;
 	
+	/**
+	 * Create new ColumnModels. If a column already exists with the same parameters, that column will be returned.
+	 * 
+	 * @param model
+	 * @return
+	 * @throws SynapseException
+	 */
+	List<ColumnModel> createColumnModels(List<ColumnModel> models) throws SynapseException;
+
 	/**
 	 * Get a ColumnModel from its ID.
 	 * 
@@ -1692,6 +1703,15 @@ public interface SynapseClient extends BaseClient {
 	public PassingRecord submitCertifiedUserTestResponse(QuizResponse response) throws SynapseException;
 	
 	/**
+	 * For integration testing only:  This allows an administrator to set the Certified user status
+	 * of a user.
+	 * @param prinicipalId
+	 * @param status
+	 * @throws SynapseException
+	 */
+	public void setCertifiedUserStatus(String prinicipalId, boolean status) throws SynapseException;
+	
+	/**
 	 * Must be a Synapse admin to make this request
 	 * 
 	 * @param offset
@@ -1779,6 +1799,33 @@ public interface SynapseClient extends BaseClient {
 	 * @throws SynapseException
 	 */
 	ProjectSetting createProjectSetting(ProjectSetting projectSetting) throws SynapseException;
+
+	/**
+	 * create a project setting
+	 * 
+	 * @param projectId
+	 * @param projectSetting
+	 * @throws SynapseException
+	 */
+	ProjectSetting getProjectSetting(String projectId, String settingsType) throws SynapseException;
+
+	/**
+	 * create a project setting
+	 * 
+	 * @param projectId
+	 * @param projectSetting
+	 * @throws SynapseException
+	 */
+	void updateProjectSetting(ProjectSetting projectSetting) throws SynapseException;
+
+	/**
+	 * create a project setting
+	 * 
+	 * @param projectId
+	 * @param projectSetting
+	 * @throws SynapseException
+	 */
+	void deleteProjectSetting(String projectSettingsId) throws SynapseException;
 
 	/**
 	 * Start a job to generate a preivew for an upload CSV to Table.

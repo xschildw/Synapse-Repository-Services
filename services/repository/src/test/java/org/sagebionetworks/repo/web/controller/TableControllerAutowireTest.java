@@ -2,6 +2,7 @@ package org.sagebionetworks.repo.web.controller;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.COL_BOUND_CM_OBJECT_ID;
@@ -35,7 +36,6 @@ import org.sagebionetworks.repo.model.Entity;
 import org.sagebionetworks.repo.model.Project;
 import org.sagebionetworks.repo.model.dao.FileHandleDao;
 import org.sagebionetworks.repo.model.dbo.dao.table.TableModelTestUtils;
-import org.sagebionetworks.repo.model.dbo.dao.table.TableModelUtils;
 import org.sagebionetworks.repo.model.file.S3FileHandle;
 import org.sagebionetworks.repo.model.jdo.KeyFactory;
 import org.sagebionetworks.repo.model.table.ColumnModel;
@@ -48,6 +48,7 @@ import org.sagebionetworks.repo.model.table.RowSelection;
 import org.sagebionetworks.repo.model.table.RowSet;
 import org.sagebionetworks.repo.model.table.TableEntity;
 import org.sagebionetworks.repo.model.table.TableFileHandleResults;
+import org.sagebionetworks.table.cluster.utils.TableModelUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -187,6 +188,28 @@ public class TableControllerAutowireTest extends AbstractAutowiredControllerTest
 	}
 	
 	@Test
+	public void testDeleteAllColumns() throws Exception {
+		// Create a table with two ColumnModels
+		ColumnModel one = servletTestHelper.createColumnModel(dispatchServlet,
+				TableModelTestUtils.createColumn(0L, "one", ColumnType.STRING),
+				adminUserId);
+		ColumnModel two = servletTestHelper.createColumnModel(dispatchServlet,
+				TableModelTestUtils.createColumn(0L, "two", ColumnType.STRING),
+				adminUserId);
+		// Now create a TableEntity with these Columns
+		TableEntity table = new TableEntity();
+		table.setName("TableEntity");
+		table.setParentId(parent.getId());
+		table.setColumnIds(Lists.newArrayList(one.getId(), two.getId()));
+		table = servletTestHelper.createEntity(dispatchServlet, table, adminUserId);
+		entitiesToDelete.add(table.getId());
+
+		table.setColumnIds(Lists.<String>newArrayList());
+		table = servletTestHelper.updateEntity(dispatchServlet, table, adminUserId);
+		assertEquals(0, table.getColumnIds().size());
+	}
+
+	@Test
 	public void testColumnNameCaseSensitiveCreateTableEntity() throws Exception{
 		// create two columns that differ only by case.
 		ColumnModel one = new ColumnModel();
@@ -291,45 +314,6 @@ public class TableControllerAutowireTest extends AbstractAutowiredControllerTest
 		Row row2 = TableModelTestUtils.createRow(results1.getRows().get(0).getRowId(), results1.getRows().get(0).getVersionNumber(), rows
 				.get(0).getValues().toArray(new String[0]));
 		update.setRows(Lists.newArrayList(row1, row2));
-		update.setTableId(results1.getTableId());
-		update.setHeaders(results1.getHeaders());
-		update.setEtag(results1.getEtag());
-		servletTestHelper.appendTableRows(dispatchServlet, update, adminUserId);
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void testNullRowUpdateFails() throws Exception {
-		// Create a few columns to add to a table entity
-		ColumnModel one = new ColumnModel();
-		one.setName("one");
-		one.setColumnType(ColumnType.STRING);
-		one = servletTestHelper.createColumnModel(dispatchServlet, one, adminUserId);
-
-		// now create a table entity
-		TableEntity table = new TableEntity();
-		table.setName("Table");
-		table.setColumnIds(Lists.newArrayList(one.getId()));
-		table.setParentId(parent.getId());
-		table = servletTestHelper.createEntity(dispatchServlet, table, adminUserId);
-		entitiesToDelete.add(table.getId());
-		List<ColumnModel> columns = servletTestHelper.getColumnModelsForTableEntity(dispatchServlet, table.getId(),
-				adminUserId);
-
-		// Append some rows
-		RowSet set = new RowSet();
-		List<Row> rows = TableModelTestUtils.createRows(columns, 2);
-		set.setRows(rows);
-		set.setHeaders(TableModelUtils.getHeaders(columns));
-		set.setTableId(table.getId());
-		RowReferenceSet results1 = servletTestHelper.appendTableRows(dispatchServlet, set, adminUserId);
-
-		// update one row with null values
-		RowSet update = new RowSet();
-		Row row1 = new Row();
-		row1.setRowId(results1.getRows().get(0).getRowId());
-		row1.setVersionNumber(results1.getRows().get(0).getVersionNumber());
-		row1.setValues(null);
-		update.setRows(Lists.newArrayList(row1));
 		update.setTableId(results1.getTableId());
 		update.setHeaders(results1.getHeaders());
 		update.setEtag(results1.getEtag());

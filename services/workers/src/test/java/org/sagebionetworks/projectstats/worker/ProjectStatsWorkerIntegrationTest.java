@@ -46,7 +46,6 @@ import org.sagebionetworks.repo.model.asynch.AsynchronousJobStatus;
 import org.sagebionetworks.repo.model.auth.NewUser;
 import org.sagebionetworks.repo.model.dao.FileHandleDao;
 import org.sagebionetworks.repo.model.dao.WikiPageKey;
-import org.sagebionetworks.repo.model.dbo.dao.table.TableModelUtils;
 import org.sagebionetworks.repo.model.file.FileHandle;
 import org.sagebionetworks.repo.model.file.S3FileHandle;
 import org.sagebionetworks.repo.model.jdo.KeyFactory;
@@ -60,6 +59,7 @@ import org.sagebionetworks.repo.model.table.UploadToTableResult;
 import org.sagebionetworks.repo.model.v2.dao.V2WikiPageDao;
 import org.sagebionetworks.repo.model.v2.wiki.V2WikiPage;
 import org.sagebionetworks.repo.web.NotFoundException;
+import org.sagebionetworks.table.cluster.utils.TableModelUtils;
 import org.sagebionetworks.util.Pair;
 import org.sagebionetworks.util.ThreadLocalProvider;
 import org.sagebionetworks.util.TimeUtils;
@@ -91,7 +91,7 @@ public class ProjectStatsWorkerIntegrationTest {
 	@Autowired
 	private V2WikiPageDao v2wikiPageDAO;
 
-	private static final ThreadLocal<Long> currentUserId = ThreadLocalProvider.getInstance(AuthorizationConstants.USER_ID_PARAM, Long.class);
+	private static final ThreadLocal<Long> currentUserIdThreadLocal = ThreadLocalProvider.getInstance(AuthorizationConstants.USER_ID_PARAM, Long.class);
 
 	private UserInfo adminUserInfo;
 	private List<String> toDelete = Lists.newArrayList();
@@ -108,12 +108,12 @@ public class ProjectStatsWorkerIntegrationTest {
 		user.setUserName(UUID.randomUUID().toString());
 		user.setEmail(user.getUserName() + "@xx.com");
 		userId = userManager.createUser(user);
-		currentUserId.set(null);
+		currentUserIdThreadLocal.set(null);
 	}
 
 	@After
 	public void after() throws Exception {
-		currentUserId.set(null);
+		currentUserIdThreadLocal.set(null);
 		if (adminUserInfo != null) {
 			for (String id : toDelete) {
 				try {
@@ -142,7 +142,7 @@ public class ProjectStatsWorkerIntegrationTest {
 		// Create a project
 		assertEquals(0, projectStatsDAO.getProjectStatsForUser(userId).size());
 
-		currentUserId.set(userId);
+		currentUserIdThreadLocal.set(userId);
 
 		Project project = new Project();
 		project.setName(UUID.randomUUID().toString());
@@ -257,7 +257,7 @@ public class ProjectStatsWorkerIntegrationTest {
 		// Create a project
 		assertEquals(0, projectStatsDAO.getProjectStatsForUser(userId).size());
 
-		currentUserId.set(userId);
+		currentUserIdThreadLocal.set(userId);
 
 		Project project = new Project();
 		project.setName(UUID.randomUUID().toString());

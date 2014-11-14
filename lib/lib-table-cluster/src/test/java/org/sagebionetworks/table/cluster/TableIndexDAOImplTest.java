@@ -4,7 +4,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-
 import static org.sagebionetworks.repo.model.table.TableConstants.ROW_ID;
 import static org.sagebionetworks.repo.model.table.TableConstants.ROW_VERSION;
 
@@ -12,6 +11,7 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 import org.junit.After;
 import org.junit.Assume;
@@ -20,7 +20,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.sagebionetworks.StackConfiguration;
 import org.sagebionetworks.repo.model.dbo.dao.table.TableModelTestUtils;
-import org.sagebionetworks.repo.model.dbo.dao.table.TableModelUtils;
+import org.sagebionetworks.table.cluster.SQLUtils.TableType;
+import org.sagebionetworks.table.cluster.utils.TableModelUtils;
 import org.sagebionetworks.repo.model.table.ColumnModel;
 import org.sagebionetworks.repo.model.table.ColumnType;
 import org.sagebionetworks.repo.model.table.IdRange;
@@ -30,6 +31,8 @@ import org.sagebionetworks.table.query.ParseException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+
+import com.google.common.collect.Lists;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(locations = { "classpath:table-cluster-spb.xml" })
@@ -48,7 +51,7 @@ public class TableIndexDAOImplTest {
 	public void before(){
 		// Only run this test if the table feature is enabled.
 		Assume.assumeTrue(config.getTableEnabled());
-		tableId = "syn123";
+		tableId = "syn" + new Random().nextInt(Integer.MAX_VALUE);
 		// First get a connection for this table
 		tableIndexDAO = tableConnectionFactory.getConnection(tableId);
 	}
@@ -80,25 +83,28 @@ public class TableIndexDAOImplTest {
 		assertFalse("The table already existed in that state so it should not have been updated",updated);
 		// Now we should be able to see the columns that were created
 		List<String> names = tableIndexDAO.getCurrentTableColumns(tableId);
-		// There should be a column for each column in the schema plus one ROW_ID and one ROW_VERSION.
-		assertEquals(allTypes.size() + 2, names.size());
-		// Now remove a column and update the table
-		allTypes.remove(0);
-		tableIndexDAO.createOrUpdateTable(allTypes, tableId);
-		// Now we should be able to see the columns that were created
-		names = tableIndexDAO.getCurrentTableColumns(tableId);
-		// There should be a column for each column in the schema plus one ROW_ID and one ROW_VERSION.
-		assertEquals(allTypes.size() + 2, names.size());
-		// Now add a column
-		ColumnModel cm = new ColumnModel();
-		cm.setColumnType(ColumnType.BOOLEAN);
-		cm.setId("9");
-		allTypes.add(cm);
-		tableIndexDAO.createOrUpdateTable(allTypes, tableId);
-		// Now we should be able to see the columns that were created
-		names = tableIndexDAO.getCurrentTableColumns(tableId);
-		// There should be a column for each column in the schema plus one ROW_ID and one ROW_VERSION.
-		assertEquals(allTypes.size() + 2, names.size());
+		// There should be a column for each column in the schema plus one ROW_ID and one ROW_VERSION plus one extra for doubles.
+		assertEquals(allTypes.size() + 2 + 1, names.size());
+		for (int i = 0; i < allTypes.size(); i++) {
+			// Now remove a column and update the table
+			ColumnModel removed = allTypes.remove(0);
+			tableIndexDAO.createOrUpdateTable(allTypes, tableId);
+			// Now we should be able to see the columns that were created
+			names = tableIndexDAO.getCurrentTableColumns(tableId);
+			// There should be a column for each column in the schema plus one ROW_ID and one ROW_VERSION.
+			int extraColumns = 1;
+			if (removed.getColumnType() == ColumnType.DOUBLE) {
+				extraColumns = 0;
+			}
+			assertEquals("removed " + removed, allTypes.size() + 2 + extraColumns, names.size());
+			// Now add a column
+			allTypes.add(removed);
+			tableIndexDAO.createOrUpdateTable(allTypes, tableId);
+			// Now we should be able to see the columns that were created
+			names = tableIndexDAO.getCurrentTableColumns(tableId);
+			// There should be a column for each column in the schema plus one ROW_ID and one ROW_VERSION.
+			assertEquals("readded " + removed, allTypes.size() + 2 + 1, names.size());
+		}
 		// Now delete the table
 		assertTrue(tableIndexDAO.deleteTable(tableId));
 		names = tableIndexDAO.getCurrentTableColumns(tableId);
@@ -123,26 +129,27 @@ public class TableIndexDAOImplTest {
 		tableIndexDAO.createOrUpdateTable(allTypes, tableId);
 		// Now fill the table with data
 		tableIndexDAO.createOrUpdateOrDeleteRows(set, allTypes);
-		List<Map<String, Object>> result = tableIndexDAO.getConnection().queryForList("SELECT * FROM "+SQLUtils.getTableNameForId("syn123"));
+		List<Map<String, Object>> result = tableIndexDAO.getConnection().queryForList(
+				"SELECT * FROM " + SQLUtils.getTableNameForId(tableId, TableType.INDEX));
 		assertNotNull(result);
 		assertEquals(5, result.size());
 		// Row zero
 		Map<String, Object> row = result.get(0);
 		assertEquals(100l, row.get(ROW_ID));
-		assertEquals(404000l, row.get("C4"));
+		assertEquals(404000l, row.get("_C4_"));
 		// row four
 		row = result.get(4);
 		assertEquals(104l, row.get(ROW_ID));
-		assertEquals(341016.76, row.get("C1"));
-		assertEquals(404004l, row.get("C4"));
+		assertEquals(341016.76, row.get("_C1_"));
+		assertEquals(404004l, row.get("_C4_"));
 		
 		// We should be able to update all of the rows
-		rows.get(4).setValues(Arrays.asList("update", "99.99", "3", "false", "123", "123", "syn123.3"));
+		rows.get(4).setValues(Arrays.asList("update", "99.99", "3", "false", "123", "123", "syn123.3", "link2"));
 		rows.get(4).setVersionNumber(5L);
 		// This should not fail
 		tableIndexDAO.createOrUpdateOrDeleteRows(set, allTypes);
 		// Check the update
-		result = tableIndexDAO.getConnection().queryForList("SELECT * FROM "+SQLUtils.getTableNameForId("syn123"));
+		result = tableIndexDAO.getConnection().queryForList("SELECT * FROM " + SQLUtils.getTableNameForId(tableId, TableType.INDEX));
 		assertNotNull(result);
 		assertEquals(5, result.size());
 		// row four
@@ -150,13 +157,13 @@ public class TableIndexDAOImplTest {
 		// Check all values on the updated row.
 		assertEquals(104l, row.get(ROW_ID));
 		assertEquals(5L, row.get(ROW_VERSION));
-		assertEquals("update", row.get("C0"));
-		assertEquals(99.99, row.get("C1"));
-		assertEquals(3L, row.get("C2"));
-		assertEquals(Boolean.FALSE, row.get("C3"));
-		assertEquals(123L, row.get("C4"));
-		assertEquals(123L, row.get("C5"));
-		assertEquals("syn123.3", row.get("C6"));
+		assertEquals("update", row.get("_C0_"));
+		assertEquals(99.99, row.get("_C1_"));
+		assertEquals(3L, row.get("_C2_"));
+		assertEquals(Boolean.FALSE, row.get("_C3_"));
+		assertEquals(123L, row.get("_C4_"));
+		assertEquals(123L, row.get("_C5_"));
+		assertEquals("syn123.3", row.get("_C6_"));
 	}
 	
 	@Test
@@ -230,7 +237,7 @@ public class TableIndexDAOImplTest {
 		// Now fill the table with data
 		tableIndexDAO.createOrUpdateOrDeleteRows(set, allTypes);
 		// This is our query
-		SqlQuery query = new SqlQuery("select * from "+tableId, allTypes);
+		SqlQuery query = new SqlQuery("select * from " + tableId, allTypes);
 		// Now query for the results
 		RowSet results = tableIndexDAO.query(query);
 		assertNotNull(results);
@@ -244,17 +251,57 @@ public class TableIndexDAOImplTest {
 		assertNotNull(row);
 		assertEquals(new Long(100), row.getRowId());
 		assertEquals(new Long(3), row.getVersionNumber());
-		List<String> expectedValues = Arrays.asList("string0", "341003.12", "203000", "false", "404000", "505000", "syn606000.607000");
+		List<String> expectedValues = Arrays.asList("string0", "341003.12", "203000", "false", "404000", "505000", "syn606000.607000",
+				"link708000");
 		assertEquals(expectedValues, row.getValues());
 		// Second row
 		row = results.getRows().get(1);
 		assertNotNull(row);
 		assertEquals(new Long(101), row.getRowId());
 		assertEquals(new Long(3), row.getVersionNumber());
-		expectedValues = Arrays.asList("string1", "341006.53", "203001", "true", "404001", "505001", "syn606001.607001");
+		expectedValues = Arrays.asList("string1", "341006.53", "203001", "true", "404001", "505001", "syn606001.607001", "link708001");
 		assertEquals(expectedValues, row.getValues());
-		
+	}
 
+	@Test
+	public void testDoubleQuery() throws ParseException {
+		// Create the table
+		List<ColumnModel> doubleColumn = Lists.newArrayList(TableModelTestUtils.createColumn(1L, "col1", ColumnType.DOUBLE));
+		tableIndexDAO.createOrUpdateTable(doubleColumn, tableId);
+		// Now add some data
+		List<Row> rows = TableModelTestUtils.createRows(doubleColumn, 5);
+		// insert special values
+		rows.get(1).getValues().set(0, "0");
+		rows.get(2).getValues().set(0, "NaN");
+		rows.get(3).getValues().set(0, "Infinity");
+		rows.get(4).getValues().set(0, "-Infinity");
+		RowSet set = new RowSet();
+		set.setRows(rows);
+		List<String> headers = TableModelUtils.getHeaders(doubleColumn);
+		set.setHeaders(headers);
+		set.setTableId(tableId);
+		IdRange range = new IdRange();
+		range.setMinimumId(100L);
+		range.setMaximumId(200L);
+		range.setVersionNumber(3L);
+		TableModelUtils.assignRowIdsAndVersionNumbers(set, range);
+		// Now fill the table with data
+		tableIndexDAO.createOrUpdateOrDeleteRows(set, doubleColumn);
+		// This is our query
+		SqlQuery query = new SqlQuery("select * from " + tableId, doubleColumn);
+		// Now query for the results
+		RowSet results = tableIndexDAO.query(query);
+		assertNotNull(results);
+		System.out.println(results);
+		assertEquals(headers, results.getHeaders());
+		assertNotNull(results.getRows());
+		assertEquals(tableId, results.getTableId());
+		assertEquals(5, results.getRows().size());
+		assertEquals("3.12",results.getRows().get(0).getValues().get(0));
+		assertEquals("0", results.getRows().get(1).getValues().get(0));
+		assertEquals("NaN", results.getRows().get(2).getValues().get(0));
+		assertEquals("Infinity", results.getRows().get(3).getValues().get(0));
+		assertEquals("-Infinity", results.getRows().get(4).getValues().get(0));
 	}
 	
 	@Test
@@ -332,14 +379,14 @@ public class TableIndexDAOImplTest {
 		assertNotNull(row);
 		assertEquals(new Long(100), row.getRowId());
 		assertEquals(new Long(3), row.getVersionNumber());
-		List<String> expectedValues = Arrays.asList(null, null, null, null, null, null, null);
+		List<String> expectedValues = Arrays.asList(null, null, null, null, null, null, null, null);
 		assertEquals(expectedValues, row.getValues());
 		// Second row
 		row = results.getRows().get(1);
 		assertNotNull(row);
 		assertEquals(new Long(101), row.getRowId());
 		assertEquals(new Long(3), row.getVersionNumber());
-		expectedValues = Arrays.asList(null, null, null, null, null, null, null);
+		expectedValues = Arrays.asList(null, null, null, null, null, null, null, null);
 		assertEquals(expectedValues, row.getValues());
 	}
 
@@ -424,8 +471,9 @@ public class TableIndexDAOImplTest {
 		// first and only row.
 		Row row = results.getRows().get(0);
 		assertNotNull(row);
-		assertEquals(new Long(199), row.getRowId());
-		assertEquals(new Long(4), row.getVersionNumber());
+		// is aggregate, so no row id and version
+		assertEquals(null, row.getRowId());
+		assertEquals(null, row.getVersionNumber());
 		List<String> expectedValues = Arrays.asList("string99", "103099");
 		assertEquals(expectedValues, row.getValues());
 	}

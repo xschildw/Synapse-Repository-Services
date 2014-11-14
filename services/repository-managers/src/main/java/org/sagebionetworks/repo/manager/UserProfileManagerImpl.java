@@ -20,6 +20,7 @@ import org.sagebionetworks.repo.model.PaginatedResults;
 import org.sagebionetworks.repo.model.PaginatedResultsUtil;
 import org.sagebionetworks.repo.model.ProjectHeader;
 import org.sagebionetworks.repo.model.QueryResults;
+import org.sagebionetworks.repo.model.Team;
 import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UserGroupDAO;
 import org.sagebionetworks.repo.model.UserInfo;
@@ -200,32 +201,24 @@ public class UserProfileManagerImpl implements UserProfileManager {
 	}
 
 	@Override
-	public PaginatedResults<ProjectHeader> getProjects(final UserInfo userInfo, UserInfo userToFetch, int limit, int offset)
-			throws DatastoreException, InvalidModelException, NotFoundException {
-		if (userToFetch == null) {
-			PaginatedResults<ProjectHeader> projectHeaders = nodeDao.getProjectHeaders(userInfo.getId().toString(), limit, offset);
-			return projectHeaders;
-		} else {
-			PaginatedResults<ProjectHeader> projectHeaders = nodeDao.getProjectHeaders(userToFetch.getId().toString(), 10000, 0);
+	public PaginatedResults<ProjectHeader> getMyProjects(final UserInfo userInfo, int limit, int offset) throws DatastoreException,
+			InvalidModelException, NotFoundException {
+		PaginatedResults<ProjectHeader> projectHeaders = nodeDao.getMyProjectHeaders(userInfo, limit, offset);
+		return projectHeaders;
+	}
 
-			// we must filter out projects we don't have access to
-			List<ProjectHeader> headers = Lists.newArrayList(Iterators.filter(projectHeaders.getResults().iterator(),
-					new Predicate<ProjectHeader>() {
-						@Override
-						public boolean apply(ProjectHeader header) {
-							try {
-								return authorizationManager.canAccess(userInfo, header.getId(), ObjectType.ENTITY, ACCESS_TYPE.READ);
-							} catch (DatastoreException e) {
-								return false;
-							} catch (NotFoundException e) {
-								return false;
-							}
-						}
-					}));
-			PaginatedResults<ProjectHeader> paginatedResults = PaginatedResultsUtil.createPaginatedResults(headers, limit, offset);
-			paginatedResults.setTotalNumberOfResults(projectHeaders.getTotalNumberOfResults());
-			return projectHeaders;
-		}
+	@Override
+	public PaginatedResults<ProjectHeader> getProjectsForUser(final UserInfo userInfo, UserInfo userToFetch, int limit, int offset)
+			throws DatastoreException, InvalidModelException, NotFoundException {
+		PaginatedResults<ProjectHeader> projectHeaders = nodeDao.getProjectHeadersForUser(userToFetch, userInfo, limit, offset);
+		return projectHeaders;
+	}
+
+	@Override
+	public PaginatedResults<ProjectHeader> getProjectsForTeam(final UserInfo userInfo, Team teamToFetch, int limit, int offset)
+			throws DatastoreException, InvalidModelException, NotFoundException {
+		PaginatedResults<ProjectHeader> projectHeaders = nodeDao.getProjectHeadersForTeam(teamToFetch, userInfo, limit, offset);
+		return projectHeaders;
 	}
 
 	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)

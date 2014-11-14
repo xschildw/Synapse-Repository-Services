@@ -1,11 +1,10 @@
 package org.sagebionetworks.repo.model.dao.table;
 
 import java.io.IOException;
-import java.util.ConcurrentModificationException;
 import java.util.Map;
 
-import org.sagebionetworks.repo.model.table.CurrentRowCacheStatus;
 import org.sagebionetworks.repo.model.table.Row;
+import org.sagebionetworks.util.ProgressCallback;
 
 /**
  * This is an interface to the row cache.
@@ -14,16 +13,13 @@ public interface TableRowCache {
 	
 	public boolean isEnabled();
 
-	public CurrentRowCacheStatus getLatestCurrentVersionNumber(Long tableId);
-
-	public void setLatestCurrentVersionNumber(CurrentRowCacheStatus oldStatus, Long newLastCurrentVersion2)
-			throws ConcurrentModificationException;
+	public long getLatestCurrentVersionNumber(Long tableId);
 
 	public Map<Long, Long> getCurrentVersionNumbers(Long tableId, Iterable<Long> rowIds);
 
 	public Map<Long, Long> getCurrentVersionNumbers(Long tableId, long rowIdOffset, long limit);
 
-	public void updateCurrentVersionNumbers(Long tableId, Map<Long, Long> rowIdVersionNumbers);
+	public void updateCurrentVersionNumbers(Long tableId, Map<Long, Long> rowIdVersionNumbers, ProgressCallback<Long> progressCallback);
 
 	public void removeFromCache(Long tableId);
 

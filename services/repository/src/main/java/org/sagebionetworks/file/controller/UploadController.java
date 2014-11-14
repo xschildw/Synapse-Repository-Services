@@ -474,20 +474,20 @@ public class UploadController extends BaseController {
 	}
 	
 	/**
-	 * Get the status of a daemon started with <a href="${POST.startCompleteUploadDaemon}">POST
-	 * /startCompleteUploadDaemon</a>.
+	 * Get the upload destinations for a file with this parent entity. This will return a list of at least one
+	 * destination. The first destination in the list is always the default destination
 	 * 
 	 * @param userId
-	 * @param daemonId The ID of the daemon (UploadDaemonStatus.id).
+	 * @param parentId
 	 * @return
 	 * @throws DatastoreException
 	 * @throws NotFoundException
 	 */
 	@ResponseStatus(HttpStatus.OK)
-	@RequestMapping(value = "/uploadDestinations/{parentId}", method = RequestMethod.GET)
+	@RequestMapping(value = UrlHelpers.ENTITY_ID + "/uploadDestinations", method = RequestMethod.GET)
 	public @ResponseBody
 	ListWrapper<UploadDestination> getUploadDestinations(@RequestParam(value = AuthorizationConstants.USER_ID_PARAM) Long userId,
-			@PathVariable String parentId) throws DatastoreException, NotFoundException {
+			@PathVariable(value = "id") String parentId) throws DatastoreException, NotFoundException {
 		List<UploadDestination> uploadDestinations = fileService.getUploadDestinations(userId, parentId);
 		return ListWrapper.wrap(uploadDestinations, UploadDestination.class);
 	}
@@ -520,7 +520,7 @@ public class UploadController extends BaseController {
 			HttpServletResponse response) throws DatastoreException,
 			NotFoundException, IOException {
 		// Get the redirect url
-		URL redirectUrl = fileService.getPresignedUrlForFileHandle(userId, handleId);
+		String redirectUrl = fileService.getPresignedUrlForFileHandle(userId, handleId);
 		RedirectUtils.handleRedirect(redirect, redirectUrl, response);
 	}
 }

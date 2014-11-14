@@ -24,6 +24,7 @@ import org.sagebionetworks.repo.model.table.RowReference;
 import org.sagebionetworks.repo.model.table.RowReferenceSet;
 import org.sagebionetworks.repo.model.table.RowSelection;
 import org.sagebionetworks.repo.model.table.RowSet;
+import org.sagebionetworks.repo.model.table.SortItem;
 import org.sagebionetworks.repo.model.table.TableFailedException;
 import org.sagebionetworks.repo.model.table.TableRowChange;
 import org.sagebionetworks.repo.model.table.TableStatus;
@@ -86,8 +87,8 @@ public interface TableRowManager {
 	 * @throws NotFoundException
 	 * @throws DatastoreException
 	 */
-	public RowReferenceSet appendPartialRows(UserInfo user, String tableId, List<ColumnModel> models, PartialRowSet rowsToAppendOrUpdate)
-			throws DatastoreException, NotFoundException, IOException;
+	public RowReferenceSet appendPartialRows(UserInfo user, String tableId, List<ColumnModel> models,
+			PartialRowSet rowsToAppendOrUpdateOrDelete) throws DatastoreException, NotFoundException, IOException;
 
 	/**
 	 * Delete a set of rows from a table.
@@ -123,6 +124,7 @@ public interface TableRowManager {
 	 *            with a RowReference for each row appended to the table. This
 	 *            parameter should be null for large change sets to minimize
 	 *            memory usage.
+	 * @param The callback will be called for each batch of rows appended to the table.  Can be null.
 	 * @return
 	 * @throws DatastoreException
 	 * @throws NotFoundException
@@ -130,7 +132,7 @@ public interface TableRowManager {
 	 */
 	String appendRowsAsStream(UserInfo user, String tableId,
 			List<ColumnModel> models, Iterator<Row> rowStream, String etag,
-			RowReferenceSet results) throws DatastoreException,
+			RowReferenceSet results, ProgressCallback<Long> progressCallback) throws DatastoreException,
 			NotFoundException, IOException;
 
 	/**
@@ -369,8 +371,9 @@ public interface TableRowManager {
 	 * @throws TableUnavilableException
 	 * @throws TableFailedException
 	 */
-	public Pair<QueryResult, Long> query(UserInfo user, String query, Long offset, Long limit, boolean runQuery, boolean runCount,
-			boolean isConsistent) throws DatastoreException, NotFoundException, TableUnavilableException, TableFailedException;
+	public Pair<QueryResult, Long> query(UserInfo user, String query, List<SortItem> sortList, Long offset, Long limit, boolean runQuery,
+			boolean runCount, boolean isConsistent) throws DatastoreException, NotFoundException, TableUnavilableException,
+			TableFailedException;
 
 	/**
 	 * Execute a table query.
@@ -416,61 +419,29 @@ public interface TableRowManager {
 			TableUnavilableException, TableFailedException;
 
 	/**
-	 * Create an query object for the given SQL.
-	 * 
-	 * @param sql
-	 * @param countOnly
-	 * @return
-	 */
-	SqlQuery createQuery(String sql, boolean countOnly);
-
-	/**
-	 * Run queries while holding a non-exclusive lock (read lock) on the table. This method will load all resulting rows
-	 * into memory at on time an should only be used if there is a limit to the number of rows read. It will also run
-	 * the count query under the same lock. If one of the queries is null, the result for it will be null
-	 * 
-	 * @param query
-	 * @return
-	 * @throws TableUnavilableException
-	 * @throws NotFoundException
-	 * @throws TableFailedException
-	 */
-	Pair<RowSet, Long> runConsistentQuery(SqlQuery query, SqlQuery countQuery) throws TableUnavilableException, NotFoundException,
-			TableFailedException;
-
-	/**
-	 * Runs queries while holding a non-exclusive lock (read lock) on the table. This method will stream over the rows
-	 * and will not keep the row data in memory. This method can be used to stream over results sets that are larger
-	 * than the available system memory, as long as the caller does not hold the resulting rows in memory.
-	 * 
-	 * @param queries
-	 * @throws TableUnavilableException
-	 * @throws NotFoundException
-	 * @throws TableFailedException
-	 */
-	void runConsistentQueryAsStream(List<QueryHandler> queries) throws TableUnavilableException, NotFoundException, TableFailedException;
-
-	/**
 	 * Run the provided SQL query string and stream the results to the passed CSVWriter. This method will stream over
 	 * the rows and will not keep the row data in memory. This method can be used to stream over results sets that are
 	 * larger than the available system memory, as long as the caller does not hold the resulting rows in memory.
 	 * 
+	 * @param user
+	 * 
 	 * @param sql
+	 * @param list
 	 * @param writer
 	 * @return
 	 * @throws TableUnavilableException
 	 * @throws NotFoundException
 	 * @throws TableFailedException
 	 */
-	DownloadFromTableResult runConsistentQueryAsStream(String sql, CSVWriterStream writer, boolean includeRowIdAndVersion)
-			throws TableUnavilableException, NotFoundException, TableFailedException;
+	DownloadFromTableResult runConsistentQueryAsStream(UserInfo user, String sql, List<SortItem> list, CSVWriterStream writer,
+			boolean includeRowIdAndVersion) throws TableUnavilableException, NotFoundException, TableFailedException;
 
 	/**
 	 * Update the current version cache if enabled
 	 */
 	void updateLatestVersionCache(String tableId, ProgressCallback<Long> progressCallback) throws IOException;
 
-	void removeLatestVersionCache(String tableId) throws IOException;
+	void removeCaches(String tableId) throws IOException;
 
 	/**
 	 * Get the maximum number of rows allowed for a single page (get, put, or query) for the given columns.

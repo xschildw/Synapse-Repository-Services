@@ -255,6 +255,7 @@ public class SynapseClientImpl extends BaseClientImpl implements SynapseClient {
 	protected static final String ASYNC_GET = "/async/get/";
 
 	protected static final String COLUMN = "/column";
+	protected static final String COLUMN_BATCH = COLUMN + "/batch";
 	protected static final String TABLE = "/table";
 	protected static final String ROW_ID = "/row";
 	protected static final String ROW_VERSION = "/version";
@@ -307,6 +308,8 @@ public class SynapseClientImpl extends BaseClientImpl implements SynapseClient {
 	
 	private static final String ETAG = "etag";
 
+	private static final String PROJECT_SETTINGS = "/projectSettings";
+
 	// web request pagination parameters
 	public static final String LIMIT = "limit";
 	public static final String OFFSET = "offset";
@@ -349,6 +352,8 @@ public class SynapseClientImpl extends BaseClientImpl implements SynapseClient {
 	private static final String CERTIFIED_USER_TEST_RESPONSE = "/certifiedUserTestResponse";
 	private static final String CERTIFIED_USER_PASSING_RECORD = "/certifiedUserPassingRecord";
 	private static final String CERTIFIED_USER_PASSING_RECORDS = "/certifiedUserPassingRecords";
+	private static final String CERTIFIED_USER_STATUS = "/certificationStatus";
+	
 
 	private static final String PRINCIPAL_ID_REQUEST_PARAM = "principalId";
 
@@ -1943,7 +1948,7 @@ public class SynapseClientImpl extends BaseClientImpl implements SynapseClient {
 
 	public List<UploadDestination> getUploadDestinations(String parentEntityId) throws SynapseException {
 		// Get the json for this entity as a list wrapper
-		String url = "/uploadDestinations/" + parentEntityId;
+		String url = ENTITY + "/" + parentEntityId + "/uploadDestinations";
 		JSONObject json = getSynapseEntity(getFileEndpoint(), url);
 		try {
 			@SuppressWarnings("unchecked")
@@ -5016,22 +5021,54 @@ public class SynapseClientImpl extends BaseClientImpl implements SynapseClient {
 	}
 
 	@Override
-	public ProjectSetting createProjectSetting(ProjectSetting projectSetting) throws SynapseException {
+	public ProjectSetting getProjectSetting(String projectId, String settingsType) throws SynapseException {
 		try {
-			JSONObject jsonObject = EntityFactory.createJSONObjectForEntity(projectSetting);
-			jsonObject = createJSONObject("/projectSettings", jsonObject);
-			JSONObjectAdapter adapter = new JSONObjectAdapterImpl(jsonObject);
-			ProjectSetting obj = (ProjectSetting) autoGenFactory.newInstance(projectSetting.getConcreteType());
-			Iterator<String> it = adapter.keys();
-			while (it.hasNext()) {
-				String s = it.next();
-				log.trace(s);
-			}
-			obj.initializeFromJSONObject(adapter);
-			return obj;
+			String uri = PROJECT_SETTINGS + "/" + projectId + "/type/" + settingsType;
+			JSONObject jsonObject = getSharedClientConnection().getJson(repoEndpoint, uri, getUserAgent());
+			return createJsonObjectFromInterface(jsonObject, ProjectSetting.class);
 		} catch (JSONObjectAdapterException e) {
 			throw new SynapseClientException(e);
 		}
+	}
+
+	@Override
+	public ProjectSetting createProjectSetting(ProjectSetting projectSetting) throws SynapseException {
+		try {
+			JSONObject jsonObject = EntityFactory.createJSONObjectForEntity(projectSetting);
+			jsonObject = getSharedClientConnection().postJson(repoEndpoint, PROJECT_SETTINGS, jsonObject.toString(), getUserAgent(), null);
+			return createJsonObjectFromInterface(jsonObject, ProjectSetting.class);
+		} catch (JSONObjectAdapterException e) {
+			throw new SynapseClientException(e);
+		}
+	}
+
+	@Override
+	public void updateProjectSetting(ProjectSetting projectSetting) throws SynapseException {
+		try {
+			JSONObject jsonObject = EntityFactory.createJSONObjectForEntity(projectSetting);
+			getSharedClientConnection().putJson(repoEndpoint, PROJECT_SETTINGS, jsonObject.toString(), getUserAgent());
+		} catch (JSONObjectAdapterException e) {
+			throw new SynapseClientException(e);
+		}
+	}
+
+	@Override
+	public void deleteProjectSetting(String projectSettingsId) throws SynapseException {
+		String uri = PROJECT_SETTINGS + "/" + projectSettingsId;
+		getSharedClientConnection().deleteUri(repoEndpoint, uri, getUserAgent());
+	}
+
+	@SuppressWarnings("unchecked")
+	private <T extends JSONEntity> T createJsonObjectFromInterface(JSONObject jsonObject, Class<T> expectedType)
+			throws JSONObjectAdapterException {
+		if (jsonObject == null) {
+			return null;
+		}
+		JSONObjectAdapter adapter = new JSONObjectAdapterImpl(jsonObject);
+		String concreteType = adapter.getString("concreteType");
+		JSONEntity obj = autoGenFactory.newInstance(concreteType);
+		obj.initializeFromJSONObject(adapter);
+		return (T) obj;
 	}
 
 	/**
@@ -5098,7 +5135,7 @@ public class SynapseClientImpl extends BaseClientImpl implements SynapseClient {
 	 */
 	@Override
 	public PaginatedResults<ProjectHeader> getMyProjects(Integer limit, Integer offset) throws SynapseException {
-		return getProjectsFromUser(null, limit, offset);
+		return getProjects(null, null, limit, offset);
 	}
 
 	/**
@@ -5111,11 +5148,29 @@ public class SynapseClientImpl extends BaseClientImpl implements SynapseClient {
 	 */
 	@Override
 	public PaginatedResults<ProjectHeader> getProjectsFromUser(Long userId, Integer limit, Integer offset) throws SynapseException {
-		String url;
-		if (userId == null) {
-			url = PROJECT_URI_PATH;
-		} else {
-			url = PROJECT_URI_PATH + USER + '/' + userId;
+		return getProjects(userId, null, limit, offset);
+	}
+
+	/**
+	 * Retrieve another user's Projects list
+	 * 
+	 * @param limit
+	 * @param offset
+	 * @return
+	 * @throws SynapseException
+	 */
+	@Override
+	public PaginatedResults<ProjectHeader> getProjectsForTeam(Long teamId, Integer limit, Integer offset) throws SynapseException {
+		return getProjects(null, teamId, limit, offset);
+	}
+
+	private PaginatedResults<ProjectHeader> getProjects(Long userId, Long teamId, Integer limit, Integer offset) throws SynapseException,
+			SynapseClientException {
+		String url = PROJECT_URI_PATH;
+		if (userId != null) {
+			url += USER + '/' + userId;
+		} else if (teamId != null) {
+			url += TEAM + '/' + teamId;
 		}
 		url += '?' + OFFSET_PARAMETER + offset + '&' + LIMIT_PARAMETER + limit;
 		JSONObject jsonObj = getEntity(url);
@@ -5461,6 +5516,16 @@ public class SynapseClientImpl extends BaseClientImpl implements SynapseClient {
 		if(model == null) throw new IllegalArgumentException("ColumnModel cannot be null");
 		String url = COLUMN;
 		return createJSONEntity(url, model);
+	}
+
+	@Override
+	public List<ColumnModel> createColumnModels(List<ColumnModel> models) throws SynapseException {
+		if (models == null) {
+			throw new IllegalArgumentException("ColumnModel cannot be null");
+		}
+		String url = COLUMN_BATCH;
+		ListWrapper<ColumnModel> results = createJSONEntity(url, ListWrapper.wrap(models, ColumnModel.class));
+		return results.getList();
 	}
 
 	@Override
@@ -6018,6 +6083,14 @@ public class SynapseClientImpl extends BaseClientImpl implements SynapseClient {
 			throw new SynapseClientException(e);
 		}
 	}
+	
+	
+	@Override
+	public void setCertifiedUserStatus(String principalId, boolean status) throws SynapseException {
+		String url = USER+"/"+principalId+CERTIFIED_USER_STATUS + "?isCertified="+status;
+		getSharedClientConnection().putJson(repoEndpoint, url, null, getUserAgent());
+	}
+
 	
 	@Override
 	public PaginatedResults<QuizResponse> getCertifiedUserTestResponses(

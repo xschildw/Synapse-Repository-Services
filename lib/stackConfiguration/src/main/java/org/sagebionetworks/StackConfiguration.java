@@ -1438,9 +1438,19 @@ public class StackConfiguration {
 		return Integer.parseInt(configuration
 				.getProperty("org.sagebionetworks.table.max.bytes.per.change.set"));
 	}
+	
 	/**
-	 * The maximum amount of time in MS that the table worker can hold the semaphore
-	 * lock on the table.
+	 * Get the max bytes per HTTP request for a table.
+	 * 
+	 * @return
+	 */
+	public int getTableMaxEnumValues() {
+		return Integer.parseInt(configuration.getProperty("org.sagebionetworks.table.max.enum.values"));
+	}
+
+	/**
+	 * The maximum amount of time in MS that the table worker can hold the semaphore lock on the table.
+	 * 
 	 * @return
 	 */
 	public long getTableWorkerTimeoutMS() {
@@ -1508,6 +1518,16 @@ public class StackConfiguration {
 		if (emailDeliveredString==null || emailDeliveredString.length()==0) return false;
 		return Boolean.parseBoolean(emailDeliveredString);
 	}
+	
+	/**
+	 * 
+	 * @return if missing or false then certified user restrictions are in effect.  Setting to true disables.
+	 */
+	public PropertyAccessor<Boolean> getDisableCertifiedUser() {
+		return new StackConfigurationBooleanPropertyAccessor("org.sagebionetworks.disable.certified.user");
+	}
+
+
 
 
 	private static StackConfiguration singleton = new StackConfiguration();

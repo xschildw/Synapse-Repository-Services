@@ -21,6 +21,7 @@ import org.sagebionetworks.util.csv.CsvNullReader;
 
 import au.com.bytecode.opencsv.CSVWriter;
 
+import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
@@ -43,6 +44,13 @@ public class TableModelTestUtils {
 		return createOneOfEachType(false);
 	}
 
+	public static final Function<ColumnModel, String> convertToNameFunction = new Function<ColumnModel, String>() {
+		@Override
+		public String apply(ColumnModel input) {
+			return input.getName();
+		}
+	};
+
 	public static List<ColumnModel> createOneOfEachType(boolean hasDefaults) {
 		List<ColumnModel> results = new LinkedList<ColumnModel>();
 		for (int i = 0; i < ColumnType.values().length; i++) {
@@ -51,7 +59,7 @@ public class TableModelTestUtils {
 			cm.setColumnType(type);
 			cm.setName("i" + i);
 			cm.setId("" + i);
-			if (ColumnType.STRING == type) {
+			if (type == ColumnType.STRING || type == ColumnType.LINK) {
 				cm.setMaximumSize(47L);
 			}
 			if (hasDefaults) {
@@ -77,6 +85,9 @@ public class TableModelTestUtils {
 					break;
 				case STRING:
 					defaultValue = "defaultString";
+					break;
+				case LINK:
+					defaultValue = "defaultLink";
 					break;
 				default:
 					throw new IllegalStateException("huh? missing enum");
@@ -276,6 +287,8 @@ public class TableModelTestUtils {
 			}
 		case DOUBLE:
 			return "" + (i * 3.41 + 3.12 + (isUpdate ? 10000 : 0));
+		case LINK:
+			return (isUpdate ? "updatelink" : "link") + (8000 + i);
 		}
 		throw new IllegalArgumentException("Unknown ColumnType: " + cm.getColumnType());
 	}
@@ -285,6 +298,14 @@ public class TableModelTestUtils {
 		row.setRowId(rowId);
 		row.setVersionNumber(rowVersion);
 		row.setValues(Lists.newArrayList(values));
+		return row;
+	}
+
+	public static Row createDeletionRow(Long rowId, Long rowVersion) {
+		Row row = new Row();
+		row.setRowId(rowId);
+		row.setVersionNumber(rowVersion);
+		row.setValues(null);
 		return row;
 	}
 
@@ -315,8 +336,8 @@ public class TableModelTestUtils {
 	 */
 	public static List<ColumnModel> createColumsWithNames(String...names){
 		List<ColumnModel> results = new ArrayList<ColumnModel>(names.length);
-		for(int i=0; i<names.length; i++){
-			results.add(createColumn(i, names[i], ColumnType.STRING));
+		for (int i = 0; i < names.length; i++) {
+			results.add(createColumn((long) i, names[i], ColumnType.STRING));
 		}
 		return results;
 	}
@@ -325,11 +346,16 @@ public class TableModelTestUtils {
 		return createColumn(id, "col_" + id, ColumnType.STRING);
 	}
 
-	public static ColumnModel createColumn(long id, String name, ColumnType type) {
+	public static ColumnModel createColumn(Long id, String name, ColumnType type) {
 		ColumnModel cm = new ColumnModel();
-		cm.setId("" + id);
+		if (id != null) {
+			cm.setId(id.toString());
+		}
 		cm.setName(name);
 		cm.setColumnType(type);
+		if (type == ColumnType.STRING) {
+			cm.setMaximumSize(50L);
+		}
 		return cm;
 	}
 

@@ -1,4 +1,4 @@
-package org.sagebionetworks.repo.model.dbo.dao.table;
+package org.sagebionetworks.table.cluster.utils;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -7,7 +7,6 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -24,7 +23,6 @@ import org.apache.commons.lang.StringUtils;
 import org.sagebionetworks.repo.model.dao.table.RowAccessor;
 import org.sagebionetworks.repo.model.dao.table.RowHandler;
 import org.sagebionetworks.repo.model.dao.table.RowSetAccessor;
-import org.sagebionetworks.repo.model.dbo.persistence.table.DBOTableRowChange;
 import org.sagebionetworks.repo.model.jdo.KeyFactory;
 import org.sagebionetworks.repo.model.table.ColumnModel;
 import org.sagebionetworks.repo.model.table.ColumnType;
@@ -35,11 +33,13 @@ import org.sagebionetworks.repo.model.table.RowSet;
 import org.sagebionetworks.repo.model.table.TableConstants;
 import org.sagebionetworks.repo.model.table.TableRowChange;
 import org.sagebionetworks.util.TimeUtils;
+import org.sagebionetworks.util.ValidateArgument;
 import org.sagebionetworks.util.csv.CsvNullReader;
 
 import au.com.bytecode.opencsv.CSVWriter;
 
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
@@ -82,7 +82,7 @@ public class TableModelUtils {
 	 * @param isDeletion
 	 * @throws IOException
 	 */
-	public static void validateAnWriteToCSVgz(List<ColumnModel> models, RowSet set, OutputStream out, boolean isDeletion) throws IOException {
+	public static void validateAnWriteToCSVgz(List<ColumnModel> models, RowSet set, OutputStream out) throws IOException {
 		GZIPOutputStream zipOut = null;
 		OutputStreamWriter osw = null;
 		CSVWriter csvWriter = null;
@@ -91,7 +91,7 @@ public class TableModelUtils {
 			osw = new OutputStreamWriter(zipOut);
 			csvWriter = new CSVWriter(osw);
 			// Write the data to the the CSV.
-			TableModelUtils.validateAndWriteToCSV(models, set, csvWriter, isDeletion);
+			TableModelUtils.validateAndWriteToCSV(models, set, csvWriter);
 		}finally{
 			if(csvWriter != null){
 				csvWriter.flush();
@@ -111,8 +111,7 @@ public class TableModelUtils {
 	 * @param models
 	 * @param set
 	 */
-	public static void validateAndWriteToCSV(List<ColumnModel> models,
- RowSet set, CSVWriter out, boolean isDeletion) {
+	public static void validateAndWriteToCSV(List<ColumnModel> models, RowSet set, CSVWriter out) {
 		if (models == null)
 			throw new IllegalArgumentException("Models cannot be null");
 		validateRowSet(set);
@@ -137,14 +136,10 @@ public class TableModelUtils {
 						"Row.versionNumber cannot be null for row number: "
 								+ count);
 			String[] finalRow;
-			if (isDeletion) {
+			if (row.getValues() == null) {
 				// only output rowId and rowVersion
 				finalRow = new String[2];
 			} else {
-				// First convert the values to
-				if (row.getValues() == null)
-					throw new IllegalArgumentException("Row " + count
-							+ " has null list of values");
 				if (row.getValues().size() == 0)
 					throw new IllegalArgumentException("Row " + count + " has empty list of values");
 				if (models.size() != row.getValues().size())
@@ -224,7 +219,7 @@ public class TableModelUtils {
 					"ColumnModel.columnType cannot be null");
 		
 		// Only strings can have a value that is an empty string. See PLFM-2657
-		if("".equals(value)  &&  !ColumnType.STRING.equals(cm.getColumnType())){
+		if ("".equals(value) && !(cm.getColumnType() == ColumnType.STRING || cm.getColumnType() == ColumnType.LINK)) {
 			value = null;
 		}
 		
@@ -280,7 +275,22 @@ public class TableModelUtils {
 			}
 			return Long.toString(time);
 		case DOUBLE:
-			double dv = Double.parseDouble(value);
+			double dv;
+			try {
+				dv = Double.parseDouble(value);
+			} catch (NumberFormatException e) {
+				value = value.toLowerCase();
+				if (value.equals("nan")) {
+					dv = Double.NaN;
+				} else if (value.equals("-inf") || value.equals("-infinity") || value.equals("-\u221E")) {
+					dv = Double.NEGATIVE_INFINITY;
+				} else if (value.equals("+inf") || value.equals("+infinity") || value.equals("+\u221E") || value.equals("inf")
+						|| value.equals("infinity") || value.equals("\u221E")) {
+					dv = Double.POSITIVE_INFINITY;
+				} else {
+					throw e;
+				}
+			}
 			return Double.toString(dv);
 		case STRING:
 			if (cm.getMaximumSize() == null)
@@ -289,9 +299,36 @@ public class TableModelUtils {
 				throw new IllegalArgumentException("String '" + value + "' exceeds the maximum length of " + cm.getMaximumSize()
 						+ " characters. Consider using a FileHandle to store large strings.");
 			}
+			checkStringEnum(value, cm);
+			return value;
+		case LINK:
+			if (cm.getMaximumSize() == null)
+				throw new IllegalArgumentException("Link columns must have a maximum size");
+			if (value.length() > cm.getMaximumSize()) {
+				throw new IllegalArgumentException("Link '" + value + "' exceeds the maximum length of " + cm.getMaximumSize()
+						+ " characters.");
+			}
+			checkStringEnum(value, cm);
 			return value;
 		}
 		throw new IllegalArgumentException("Unknown ColumModel type: " + cm.getColumnType());
+	}
+
+
+	private static void checkStringEnum(String value, ColumnModel cm) {
+		if (cm.getEnumValues() != null) {
+			// doing a contains directly on the list. With 100 values or less, making this a set is not making much
+			// of a difference and isn't east to do. When/if we allow many more values, we might have to revisit
+			if (!cm.getEnumValues().contains(value)) {
+				if (cm.getEnumValues().size() > 10) {
+					throw new IllegalArgumentException("'" + value
+							+ "' is not a valid value for this column. See column definition for valid values.");
+				} else {
+					throw new IllegalArgumentException("'" + value + "' is not a valid value for this column. Valid values are: "
+							+ StringUtils.join(cm.getEnumValues(), ", ") + ".");
+				}
+			}
+		}
 	}
 
 	/**
@@ -530,61 +567,6 @@ public class TableModelUtils {
 		}
 		return result;
 	}
-	/**
-	 * Convert from the DBO to the DTO
-	 * @param dbo
-	 * @return
-	 */
-	public static TableRowChange ceateDTOFromDBO(DBOTableRowChange dbo){
-		if(dbo == null) throw new IllegalArgumentException("dbo cannot be null");
-		TableRowChange dto = new TableRowChange();
-		dto.setTableId(KeyFactory.keyToString(dbo.getTableId()));
-		dto.setRowVersion(dbo.getRowVersion());
-		dto.setEtag(dbo.getEtag());
-		dto.setHeaders(readColumnModelIdsFromDelimitedString(dbo.getColumnIds()));
-		dto.setCreatedBy(Long.toString(dbo.getCreatedBy()));
-		dto.setCreatedOn(new Date(dbo.getCreatedOn()));
-		dto.setBucket(dbo.getBucket());
-		dto.setKey(dbo.getKey());
-		dto.setRowCount(dbo.getRowCount());
-		return dto;
-	}
-	
-	/**
-	 * Create a DBO from the DTO
-	 * @param dto
-	 * @return
-	 */
-	public static DBOTableRowChange createDBOFromDTO(TableRowChange dto){
-		if(dto == null) throw new IllegalArgumentException("dto cannot be null");
-		DBOTableRowChange dbo = new DBOTableRowChange();
-		dbo.setTableId(KeyFactory.stringToKey(dto.getTableId()));
-		dbo.setRowVersion(dto.getRowVersion());
-		dbo.setEtag(dto.getEtag());
-		dbo.setColumnIds(createDelimitedColumnModelIdString(dto.getHeaders()));
-		dbo.setCreatedBy(Long.parseLong(dto.getCreatedBy()));
-		dbo.setCreatedOn(dto.getCreatedOn().getTime());
-		dbo.setBucket(dto.getBucket());
-		dbo.setKey(dto.getKey());
-		dbo.setRowCount(dto.getRowCount());
-		return dbo;
-	}
-	
-	/**
-	 * Convert a list of DTOs from a list of DBOs
-	 * @param dbos
-	 * @return
-	 */
-	public static List<TableRowChange> ceateDTOFromDBO(List<DBOTableRowChange> dbos){
-		if(dbos == null) throw new IllegalArgumentException("DBOs cannot be null");
-		List<TableRowChange> dtos = new LinkedList<TableRowChange>();
-		for(DBOTableRowChange dbo: dbos){
-			TableRowChange dto = ceateDTOFromDBO(dbo);
-			dtos.add(dto);
-		}
-		return dtos;
-	}
-
 
 	/**
 	 * Get the distinct version from the the rows ordered by version
@@ -722,6 +704,7 @@ public class TableModelUtils {
 		if(type == null) throw new IllegalArgumentException("ColumnType cannot be null");
 		switch (type) {
 		case STRING:
+		case LINK:
 			if (maxSize == null)
 				throw new IllegalArgumentException("maxSize cannot be null for String types");
 			return (int) (ColumnConstants.MAX_BYTES_PER_CHAR_UTF_8 * maxSize);
@@ -867,6 +850,8 @@ public class TableModelUtils {
 			ColumnModel cm = map.get(id);
 			if(cm != null){
 				columnName = cm.getName();
+			} else {
+				columnName = id;
 			}
 			outHeaderList.add(columnName);
 		}
@@ -953,14 +938,20 @@ public class TableModelUtils {
 
 			private Map<String, Integer> columnIdToIndexMap = null;
 			private Map<Long, RowAccessor> rowIdToRowMap = null;
-			private List<RowAccessor> rows = null;
+			private List<RowAccessor> newRows = null;
 
 			@Override
-			public Collection<RowAccessor> getRows() {
-				if (rows == null) {
-					rows = Lists.newArrayListWithCapacity(rowset.getRows().size());
+			public Iterable<RowAccessor> getRows() {
+				Collection<RowAccessor> rows = getRowIdToRowMap().values();
+				return Iterables.concat(newRows, rows);
+			}
+
+			public Map<Long, RowAccessor> getRowIdToRowMap() {
+				if (rowIdToRowMap == null) {
+					rowIdToRowMap = Maps.newHashMap();
+					newRows = Lists.newLinkedList();
 					for (final Row row : rowset.getRows()) {
-						rows.add(new RowAccessor() {
+						RowAccessor rowAccessor = new RowAccessor() {
 							public String getCell(String columnId) {
 								Integer index = getColumnIdToIndexMap().get(columnId);
 								if (row.getValues() == null || index >= row.getValues().size()) {
@@ -973,20 +964,12 @@ public class TableModelUtils {
 							public Row getRow() {
 								return row;
 							}
-						});
-					}
-				}
-				return rows;
-			}
-
-			public Map<Long, RowAccessor> getRowIdToRowMap() {
-				if (rowIdToRowMap == null) {
-					rowIdToRowMap = Maps.newHashMap();
-					for (final RowAccessor row : getRows()) {
-						if (row.getRow().getRowId() == null) {
-							throw new IllegalArgumentException("Cannot handle new rows in RowSetAccessor, access by id");
+						};
+						if (rowAccessor.getRow().getRowId() == null) {
+							newRows.add(rowAccessor);
+						} else {
+							rowIdToRowMap.put(rowAccessor.getRow().getRowId(), rowAccessor);
 						}
-						rowIdToRowMap.put(row.getRow().getRowId(), row);
 					}
 				}
 				return rowIdToRowMap;

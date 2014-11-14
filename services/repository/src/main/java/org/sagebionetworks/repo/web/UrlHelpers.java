@@ -418,12 +418,6 @@ public class UrlHelpers {
 	 */
 	public static final String RESOURCES = "/resources";
 	
-	/*
-	 * Project URLs
-	 */
-	public static final String MY_PROJECTS = PrefixConst.PROJECT;
-	public static final String PROJECTS_FOR_USER = PrefixConst.PROJECT + USER + "/{principalId}";
-
 	/**
 	 * URL prefix for User mirroring service
 	 * 
@@ -672,6 +666,7 @@ public class UrlHelpers {
 
 	// Tables
 	public static final String COLUMN = "/column";
+	public static final String COLUMN_BATCH = COLUMN + "/batch";
 	public static final String ROW_ID = "/row/{rowId}";
 	public static final String ROW_VERSION = "/version/{versionNumber}";
 	public static final String TABLE = "/table";
@@ -699,6 +694,8 @@ public class UrlHelpers {
 	public static final String TABLE_UPLOAD_CSV_PREVIEW = TABLE + "/upload/csv/preview";
 	public static final String TABLE_UPLOAD_CSV_PREVIEW_ASYNC_START = TABLE_UPLOAD_CSV_PREVIEW + ASYNC_START_REQUEST;
 	public static final String TABLE_UPLOAD_CSV_PREVIEW_ASYNC_GET = TABLE_UPLOAD_CSV_PREVIEW + ASYNC_GET_REQUEST;
+
+	public static final String ADMIN_TABLE_REBUILD = ADMIN + ENTITY_TABLE + "/rebuild";
 
 	// Team
 	public static final String TEAM = "/team";
@@ -736,13 +733,21 @@ public class UrlHelpers {
 	public static final String OPEN_MEMBERSHIP_REQUEST_FOR_TEAM = TEAM_ID+"/openRequest";
 	public static final String OPEN_MEMBERSHIP_REQUEST_FOR_USER = USER+ID+"/openRequest";
 	public static final String REQUESTOR_ID_REQUEST_PARAMETER = "requestorId";
-	
+
+	/*
+	 * Project URLs
+	 */
+	public static final String MY_PROJECTS = PrefixConst.PROJECT;
+	public static final String PROJECTS_FOR_USER = PrefixConst.PROJECT + USER + "/{principalId}";
+	public static final String PROJECTS_FOR_TEAM = PrefixConst.PROJECT + TEAM + "/{teamId}";
+
 	// certified user services
 	public static final String CERTIFIED_USER_TEST = "/certifiedUserTest";
 	public static final String CERTIFIED_USER_TEST_RESPONSE = "/certifiedUserTestResponse";
 	public static final String CERTIFIED_USER_TEST_RESPONSE_WITH_ID = "/certifiedUserTestResponse"+ID;
 	public static final String CERTIFIED_USER_PASSING_RECORD_WITH_ID = USER+ID+"/certifiedUserPassingRecord";
 	public static final String CERTIFIED_USER_PASSING_RECORDS_WITH_ID = USER+ID+"/certifiedUserPassingRecords";
+	public static final String CERTIFIED_USER_STATUS = USER+ID+"/certificationStatus";
 
 	/**
 	 * APIs for DynamoDB related operations.
