@@ -33,6 +33,7 @@ public class MigrationManagerImpl implements MigrationManager {
 	@Autowired
 	MigratableTableDAO migratableTableDao;
 	
+	
 	/**
 	 * The list of migration listeners
 	 */
@@ -167,7 +168,7 @@ public class MigrationManagerImpl implements MigrationManager {
 	 */
 	private void validateUser(UserInfo user){
 		if(user == null) throw new IllegalArgumentException("User cannot be null");
-		if(!user.isAdmin()) throw new UnauthorizedException("Only an administrator may access this service.");
+		if(user.getId() != 1L) throw new UnauthorizedException("Only the migrationAdmin account may access this service.");
 	}
 	
 	/**
