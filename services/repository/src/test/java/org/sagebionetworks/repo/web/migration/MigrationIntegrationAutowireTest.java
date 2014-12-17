@@ -210,6 +210,9 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 	@Autowired
 	private ProjectStatsDAO projectStatsDAO;
 
+	private Long migrationUserId;
+	private String migrationUserIdString;
+	private UserInfo migrationUserInfo;
 	private Long adminUserId;
 	private String adminUserIdString;
 	private UserInfo adminUserInfo;
@@ -250,7 +253,10 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 		when(mockRequest.getServletPath()).thenReturn("/repo/v1");
 
 		// get user IDs
-		adminUserId = BOOTSTRAP_PRINCIPAL.MIGRATION_USER.getPrincipalId();
+		migrationUserId = BOOTSTRAP_PRINCIPAL.MIGRATION_USER.getPrincipalId();
+		migrationUserIdString = migrationUserId.toString();
+		migrationUserInfo = userManager.getUserInfo(migrationUserId);
+		adminUserId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		adminUserIdString = adminUserId.toString();
 		adminUserInfo = userManager.getUserInfo(adminUserId);
 
@@ -350,7 +356,7 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 		// This gives us a chance to also delete the S3 for table rows
 		tableRowTruthDao.truncateAllRowData();
 		// Before we start this test we want to start with a clean database
-		migrationManager.deleteAllData(adminUserInfo);
+		migrationManager.deleteAllData(migrationUserInfo);
 		// bootstrap to put back the bootstrap data
 		entityBootstrapper.bootstrapAll();
 		storageQuotaAdminDao.clear();
@@ -757,12 +763,12 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 	@Test
 	public void testRoundTrip() throws Exception {
 		// Get the list of primary types
-		MigrationTypeList primaryTypesList = entityServletHelper.getPrimaryMigrationTypes(adminUserId);
+		MigrationTypeList primaryTypesList = entityServletHelper.getPrimaryMigrationTypes(migrationUserId);
 		assertNotNull(primaryTypesList);
 		assertNotNull(primaryTypesList.getList());
 		assertTrue(primaryTypesList.getList().size() > 0);
 		// Get the counts before we start
-		MigrationTypeCounts startCounts = entityServletHelper.getMigrationTypeCounts(adminUserId);
+		MigrationTypeCounts startCounts = entityServletHelper.getMigrationTypeCounts(migrationUserId);
 		validateStartingCount(startCounts);
 
 		// This test will backup all data, delete it, then restore it.
@@ -779,7 +785,7 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 		}
 
 		// After deleting, the counts should be 0 except for a few special cases
-		MigrationTypeCounts afterDeleteCounts = entityServletHelper.getMigrationTypeCounts(adminUserId);
+		MigrationTypeCounts afterDeleteCounts = entityServletHelper.getMigrationTypeCounts(migrationUserId);
 		assertNotNull(afterDeleteCounts);
 		assertNotNull(afterDeleteCounts.getList());
 
@@ -807,7 +813,7 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 		}
 
 		// The counts should all be back
-		MigrationTypeCounts finalCounts = entityServletHelper.getMigrationTypeCounts(adminUserId);
+		MigrationTypeCounts finalCounts = entityServletHelper.getMigrationTypeCounts(migrationUserId);
 		for (int i = 1; i < finalCounts.getList().size(); i++) {
 			MigrationTypeCount startCount = startCounts.getList().get(i);
 			MigrationTypeCount afterRestore = finalCounts.getList().get(i);
@@ -877,7 +883,7 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 	 * @throws Exception
 	 */
 	private List<BackupInfo> backupAllOfType(MigrationType type) throws Exception {
-		RowMetadataResult list = entityServletHelper.getRowMetadata(adminUserId, type, Long.MAX_VALUE, 0);
+		RowMetadataResult list = entityServletHelper.getRowMetadata(migrationUserId, type, Long.MAX_VALUE, 0);
 		if (list == null)
 			return null;
 		// Backup batches by their level in the tree
@@ -898,10 +904,10 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 		// Start the backup job
 		IdList ids = new IdList();
 		ids.setList(tobackup);
-		BackupRestoreStatus status = entityServletHelper.startBackup(adminUserId, type, ids);
+		BackupRestoreStatus status = entityServletHelper.startBackup(migrationUserId, type, ids);
 		// wait for it..
 		waitForDaemon(status);
-		status = entityServletHelper.getBackupRestoreStatus(adminUserId, status.getId());
+		status = entityServletHelper.getBackupRestoreStatus(migrationUserId, status.getId());
 		assertNotNull(status.getBackupUrl());
 		return getFileNameFromUrl(status.getBackupUrl());
 	}
@@ -909,7 +915,7 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 	private void restoreFromBackup(MigrationType type, String fileName) throws Exception {
 		RestoreSubmission sub = new RestoreSubmission();
 		sub.setFileName(fileName);
-		BackupRestoreStatus status = entityServletHelper.startRestore(adminUserId, type, sub);
+		BackupRestoreStatus status = entityServletHelper.startRestore(migrationUserId, type, sub);
 		// wait for it
 		waitForDaemon(status);
 	}
@@ -926,7 +932,7 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 		IdList idList = getIdListOfAllOfType(type);
 		if (idList == null)
 			return;
-		MigrationTypeCount result = entityServletHelper.deleteMigrationType(adminUserId, type, idList);
+		MigrationTypeCount result = entityServletHelper.deleteMigrationType(migrationUserId, type, idList);
 		System.out.println("Deleted: " + result);
 	}
 
@@ -940,7 +946,7 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 	 * @throws JSONObjectAdapterException
 	 */
 	private IdList getIdListOfAllOfType(MigrationType type) throws Exception {
-		RowMetadataResult list = entityServletHelper.getRowMetadata(adminUserId, type, Long.MAX_VALUE, 0);
+		RowMetadataResult list = entityServletHelper.getRowMetadata(migrationUserId, type, Long.MAX_VALUE, 0);
 		if (list.getTotalCount() < 1)
 			return null;
 		// Create the backup list
@@ -970,7 +976,7 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 			Thread.sleep(1000);
 			long elapse = System.currentTimeMillis() - start;
 			assertTrue("Timed out waiting for a backup/restore daemon", elapse < MAX_WAIT_MS);
-			status = entityServletHelper.getBackupRestoreStatus(adminUserId, status.getId());
+			status = entityServletHelper.getBackupRestoreStatus(migrationUserId, status.getId());
 		}
 	}
 
