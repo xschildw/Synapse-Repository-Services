@@ -67,7 +67,7 @@ public class ActivityControllerAutowiredTest extends AbstractAutowiredController
 		activityIdstoDelete = new ArrayList<String>();
 		entityIdsToDelete = new ArrayList<String>();
 		
-		userId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		userId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		
 		mockRequest = Mockito.mock(HttpServletRequest.class);
 		when(mockRequest.getServletPath()).thenReturn("/repo/v1");

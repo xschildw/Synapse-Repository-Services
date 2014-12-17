@@ -54,7 +54,7 @@ public class UserProfileControllerAutowiredTest extends AbstractAutowiredControl
 
 	@Before
 	public void before() throws Exception{
-		adminUserId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		adminUserId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		
 		assertNotNull(userProfileService);
 		favoritesToDelete = new ArrayList<String>();
@@ -200,7 +200,7 @@ public class UserProfileControllerAutowiredTest extends AbstractAutowiredControl
 	@Test
 	public void testPreferences() throws Exception {
 		UserProfile userProfile = servletTestHelper.getUserProfile(dispatchServlet, adminUserId);
-		userProfile.setUserName(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.name());
+		userProfile.setUserName(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.name());
 		userProfile.setEmails(Collections.singletonList("migrationAdmin@sagebase.org"));
 		Set<UserPreference> preferences = userProfile.getPreferences();
 		if (preferences==null) {

@@ -103,7 +103,7 @@ public class EvaluationControllerAutowiredTest extends AbstractAutowiredControll
 		nodesToDelete = new ArrayList<String>();
 		
 		// get user IDs
-		adminUserId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		adminUserId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		adminUserInfo = userManager.getUserInfo(adminUserId);
 		
 		NewUser user = new NewUser();

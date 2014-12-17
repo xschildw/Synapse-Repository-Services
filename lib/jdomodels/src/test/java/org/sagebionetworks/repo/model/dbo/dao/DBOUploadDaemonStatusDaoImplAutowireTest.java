@@ -39,7 +39,7 @@ public class DBOUploadDaemonStatusDaoImplAutowireTest {
 	@Before
 	public void before(){
 		toDelete = new LinkedList<String>();
-		userId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId().toString();
+		userId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId().toString();
 	}
 	
 	@After

@@ -76,7 +76,7 @@ public class TableControllerAutowireTest extends AbstractAutowiredControllerTest
 	public void before() throws Exception {
 		Assume.assumeTrue(config.getTableEnabled());
 	
-		adminUserId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		adminUserId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		
 		parent = new Project();
 		parent.setName(UUID.randomUUID().toString());

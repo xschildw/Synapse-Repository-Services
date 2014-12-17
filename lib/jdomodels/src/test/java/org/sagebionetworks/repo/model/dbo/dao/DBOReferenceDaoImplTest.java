@@ -95,7 +95,7 @@ public class DBOReferenceDaoImplTest {
 		
 		// Create a node to create revisions of.
 		node = new DBONode();
-		long createdById = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		long createdById = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		for (int i = 0; i < NODE_COUNT; i++) {
 			Node dto = NodeTestUtils.createNew("DBOReferenceDAOImplTest node " + i, createdById);
 			String id = nodeDAO.createNew(dto);

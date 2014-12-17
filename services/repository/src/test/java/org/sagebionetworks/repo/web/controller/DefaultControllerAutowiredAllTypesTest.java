@@ -115,7 +115,7 @@ public class DefaultControllerAutowiredAllTypesTest extends AbstractAutowiredCon
 		assertNotNull(entityController);
 		toDelete = new ArrayList<String>();
 		
-		userId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		userId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		
 		// Map test objects to their urls
 		// Make sure we have a valid user.
@@ -762,7 +762,7 @@ public class DefaultControllerAutowiredAllTypesTest extends AbstractAutowiredCon
 	 */
 	@Test
 	public void testLocationableS3Token() throws Exception {
-		servletTestHelper.setTestUser(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		servletTestHelper.setTestUser(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 		
 		// First create one of each type
 		List<Entity> created = createEntitesOfEachType(1);

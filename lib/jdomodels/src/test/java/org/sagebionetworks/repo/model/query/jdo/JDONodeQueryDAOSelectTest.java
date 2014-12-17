@@ -98,7 +98,7 @@ public class JDONodeQueryDAOSelectTest {
 	 * @throws DatastoreException
 	 */
 	private String createSingleNode(String name) throws NotFoundException,	DatastoreException, InvalidModelException  {
-		Long createdBy = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		Long createdBy = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		Node root = NodeTestUtils.createNew(name, createdBy);
 		String id = nodeDao.createNew(root);
 		nodeIds.add(id);

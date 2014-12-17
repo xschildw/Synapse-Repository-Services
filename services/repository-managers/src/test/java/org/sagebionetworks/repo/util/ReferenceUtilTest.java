@@ -48,7 +48,7 @@ public class ReferenceUtilTest {
 	
 	@Before
 	public void before() throws NotFoundException, DatastoreException, InvalidModelException {
-		userGroupId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		userGroupId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		toDelete = new ArrayList<String>();
 		
 		// Create two nodes to reference

@@ -103,7 +103,7 @@ public class EntityPermissionsManagerImplTest {
 
 	@Before
 	public void setUp() throws Exception {
-		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 		
 		DBOTermsOfUseAgreement tou = new DBOTermsOfUseAgreement();
 		tou.setDomain(DomainType.SYNAPSE);

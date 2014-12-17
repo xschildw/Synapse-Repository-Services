@@ -98,7 +98,7 @@ public class AccessRequirementManagerImplAutoWiredTest {
 		user.setUserName(UUID.randomUUID().toString());
 		testUserInfo = userManager.getUserInfo(userManager.createUser(user));
 		testUserInfo.getGroups().add(BOOTSTRAP_PRINCIPAL.CERTIFIED_USERS.getPrincipalId());
-		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 		
 		assertNotNull(nodeManager);
 		nodesToDelete = new ArrayList<String>();

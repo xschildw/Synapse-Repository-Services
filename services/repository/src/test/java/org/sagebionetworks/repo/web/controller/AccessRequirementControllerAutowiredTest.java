@@ -72,7 +72,7 @@ public class AccessRequirementControllerAutowiredTest extends AbstractAutowiredC
 		assertNotNull(entityController);
 		toDelete = new ArrayList<String>();
 		
-		userId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		userId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		
 		NewUser user = new NewUser();
 		user.setEmail(UUID.randomUUID().toString() + "@test.com");
@@ -117,7 +117,7 @@ public class AccessRequirementControllerAutowiredTest extends AbstractAutowiredC
 			} catch (Exception e) {}
 		}
 		
-		UserInfo adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		UserInfo adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 		userManager.deletePrincipal(adminUserInfo, otherUserInfo.getId());
 	}
 

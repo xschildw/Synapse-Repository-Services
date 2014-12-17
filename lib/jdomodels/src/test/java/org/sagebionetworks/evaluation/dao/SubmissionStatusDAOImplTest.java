@@ -65,7 +65,7 @@ public class SubmissionStatusDAOImplTest {
     public void setUp() throws DatastoreException, InvalidModelException, NotFoundException, JSONObjectAdapterException {
     	evalIds = new ArrayList<String>();
     	submissionIds = new ArrayList<String>();
-    	userId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId().toString();
+    	userId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId().toString();
     	
     	// create a node
   		Node toCreate = NodeTestUtils.createNew(NODE_NAME, Long.parseLong(userId));

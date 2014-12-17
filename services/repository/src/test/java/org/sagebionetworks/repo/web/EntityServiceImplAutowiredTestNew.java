@@ -57,7 +57,7 @@ public class EntityServiceImplAutowiredTestNew extends AbstractAutowiredControll
 		toDelete = new LinkedList<String>();
 		// Map test objects to their urls
 		// Make sure we have a valid user.
-		adminUserId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		adminUserId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		adminUserInfo = userManager.getUserInfo(adminUserId);
 		UserInfo.validateUserInfo(adminUserInfo);
 		

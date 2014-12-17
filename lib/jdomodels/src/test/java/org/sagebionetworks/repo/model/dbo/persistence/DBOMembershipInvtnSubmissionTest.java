@@ -73,7 +73,7 @@ public class DBOMembershipInvtnSubmissionTest {
 		team = dboBasicDao.createNew(team);
 		invitation.setTeamId(team.getId());
 		invitation.setProperties((new String("abcdefg")).getBytes());
-		Long invitee = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		Long invitee = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		invitation.setInviteeId(invitee);
 		return invitation;
 	}

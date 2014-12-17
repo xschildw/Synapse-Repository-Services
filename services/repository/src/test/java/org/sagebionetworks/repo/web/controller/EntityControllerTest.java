@@ -69,7 +69,7 @@ public class EntityControllerTest extends AbstractAutowiredControllerTestBase {
 		assertNotNull(userManager);
 		assertNotNull(nodeManager);
 		
-		adminUserId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		adminUserId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		adminUserIdString = adminUserId.toString();
 		
 		toDelete = new ArrayList<String>();

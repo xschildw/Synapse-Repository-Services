@@ -69,7 +69,7 @@ public class TableRowTruthDAOImplTest {
 	public void before(){
 		ALL_SET = mock(Set.class);
 		when(ALL_SET.contains(any())).thenReturn(true);
-		creatorUserGroupId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId().toString();
+		creatorUserGroupId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId().toString();
 		assertNotNull(creatorUserGroupId);
 	}
 	

@@ -59,7 +59,7 @@ public class V2WikiControllerTest extends AbstractAutowiredControllerTestBase {
 	@Before
 	public void before() throws Exception{
 		// get user IDs
-		adminUserId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		adminUserId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		adminUserIdString = adminUserId.toString();
 
 		toDelete = new LinkedList<WikiPageKey>();

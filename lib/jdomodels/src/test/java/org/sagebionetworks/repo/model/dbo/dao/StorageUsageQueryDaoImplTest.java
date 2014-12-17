@@ -47,7 +47,7 @@ public class StorageUsageQueryDaoImplTest {
 		assertNotNull(storageUsageQueryDao);
 		assertNotNull(fileHandleDao);
 
-		userId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		userId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		userIdString = userId.toString();
 
 		toDelete = new ArrayList<String>();

@@ -34,7 +34,7 @@ public class EvaluationDBOTest {
  
     @Before
     public void before() {
-    	ownerId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+    	ownerId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
     }
     
     @After

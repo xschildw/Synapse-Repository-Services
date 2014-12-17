@@ -44,7 +44,7 @@ public class ParticipantDAOImplTest {
     
     @Before
     public void setUp() {
-    	principalId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+    	principalId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
     	principalId_str = principalId.toString(); 
     	
     	// create and persist Evaluations

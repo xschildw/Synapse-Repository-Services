@@ -53,7 +53,7 @@ public class TableEntityMetadataProviderTest extends AbstractAutowiredController
 	
 	@Before
 	public void before() throws Exception {
-		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 		
 		List<EntityProvider<Entity>> types = metadataProviderFactory.getMetadataProvider(EntityType.getNodeTypeForClass(TableEntity.class));
 		assertNotNull(types);

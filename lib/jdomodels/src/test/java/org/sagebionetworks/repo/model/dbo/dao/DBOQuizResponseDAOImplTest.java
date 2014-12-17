@@ -79,7 +79,7 @@ public class DBOQuizResponseDAOImplTest {
 	@Before
 	public void before() throws Exception {
 		toDelete = new ArrayList<Long>();
-    	userId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId().toString();
+    	userId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId().toString();
 	}
 	
 	@After

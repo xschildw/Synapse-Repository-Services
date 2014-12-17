@@ -104,7 +104,7 @@ public class NodeManagerImplAutoWiredTest {
 		tou.setAgreesToTermsOfUse(Boolean.TRUE);
 		
 		// Make sure we have a valid user.
-		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 		UserInfo.validateUserInfo(adminUserInfo);
 		
 		DBOCredential cred = new DBOCredential();

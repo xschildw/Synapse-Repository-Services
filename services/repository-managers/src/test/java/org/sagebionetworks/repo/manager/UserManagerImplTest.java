@@ -50,7 +50,7 @@ public class UserManagerImplTest {
 
 	@After
 	public void tearDown() throws Exception {
-		UserInfo adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		UserInfo adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 		for (String groupId : groupsToDelete) {
 			userManager.deletePrincipal(adminUserInfo, Long.parseLong(groupId));
 		}

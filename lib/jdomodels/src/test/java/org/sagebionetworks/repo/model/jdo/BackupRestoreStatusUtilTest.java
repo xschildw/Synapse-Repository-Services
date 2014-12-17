@@ -16,7 +16,7 @@ public class BackupRestoreStatusUtilTest {
 
 	@Test
 	public void testRoundTrip() throws DatastoreException{
-		String userGroupId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId().toString();
+		String userGroupId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId().toString();
 		// Make a round trip from the DTO->JDO->DTO
 		BackupRestoreStatus dto = new BackupRestoreStatus();
 		dto.setId("12");
@@ -44,7 +44,7 @@ public class BackupRestoreStatusUtilTest {
 
 	@Test
 	public void testRoundTripWithOptionalNulls() throws DatastoreException{
-		String userGroupId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId().toString();
+		String userGroupId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId().toString();
 		// Make a round trip from the DTO->JDO->DTO
 		BackupRestoreStatus dto = new BackupRestoreStatus();
 		dto.setId("12");

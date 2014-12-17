@@ -66,7 +66,7 @@ public class DeadlockWatcherTestAutoWire extends AbstractAutowiredControllerTest
 		ReflectionTestUtils.setField(((EntityServiceImpl) getTargetObject(entityService)), "entityManager", mockEntityManager);
 
 		try {
-			entityService.getEntityHeader(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId(), null, null);
+			entityService.getEntityHeader(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId(), null, null);
 			fail("Should have thrown a DeadlockLoserDataAccessException");
 		} catch (DeadlockLoserDataAccessException e2) {
 		}
@@ -88,7 +88,7 @@ public class DeadlockWatcherTestAutoWire extends AbstractAutowiredControllerTest
 		ReflectionTestUtils.setField(((EntityServiceImpl) getTargetObject(entityService)), "entityManager", mockEntityManager);
 
 		try {
-			entityService.getEntityHeader(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId(), null, null);
+			entityService.getEntityHeader(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId(), null, null);
 			fail("Should have thrown a DeadlockLoserDataAccessException");
 		} catch (TransientDataAccessException e2) {
 

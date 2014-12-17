@@ -56,6 +56,7 @@ public class BackupDriverImplAutowireTest {
 	
 	private List<String> toDelete;
 	private UserInfo adminUser;
+	private UserInfo migrationUser;
 	private String creatorUserGroupId;
 	private S3FileHandle withPreview;
 	private PreviewFileHandle preview;
@@ -69,7 +70,8 @@ public class BackupDriverImplAutowireTest {
 	@Before
 	public void before() throws Exception {
 		toDelete = new LinkedList<String>();
-		adminUser = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		adminUser = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
+		migrationUser = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.MIGRATION_USER.getPrincipalId());
 		creatorUserGroupId = adminUser.getId().toString();
 		assertNotNull(creatorUserGroupId);
 		// The one will have a preview
@@ -153,22 +155,22 @@ public class BackupDriverImplAutowireTest {
 		List<Long> ids1 = new LinkedList<Long>();
 		ids1.add(Long.parseLong(wiki.getId()));
 		backupOne = File.createTempFile("backupOne", ".zip");
-		backupDriver.writeBackup(adminUser, backupOne, new Progress(), MigrationType.V2_WIKI_PAGE, ids1);
+		backupDriver.writeBackup(migrationUser, backupOne, new Progress(), MigrationType.V2_WIKI_PAGE, ids1);
 		// Now delete one of the attachments and take another backup copy.
 		fileNameToFileHandleMap.remove(preview.getFileName());
 		wiki = wikiPageDao.updateWikiPage(wiki, fileNameToFileHandleMap, wikiKey.getOwnerObjectId(), wikiKey.getOwnerObjectType(), new ArrayList<String>());
 		assertEquals(1, wiki.getAttachmentFileHandleIds().size());
 		// Now create another backup
 		backupTwo = File.createTempFile("backupTwo", ".zip");
-		backupDriver.writeBackup(adminUser, backupTwo, new Progress(), MigrationType.V2_WIKI_PAGE, ids1);
+		backupDriver.writeBackup(migrationUser, backupTwo, new Progress(), MigrationType.V2_WIKI_PAGE, ids1);
 		
 		// Now apply the first backup, should restore the deleted attachment
-		backupDriver.restoreFromBackup(adminUser, backupOne, new Progress());
+		backupDriver.restoreFromBackup(migrationUser, backupOne, new Progress());
 		// We should have two attachments
 		wiki = wikiPageDao.get(wikiKey, null);
 		assertEquals(2, wiki.getAttachmentFileHandleIds().size());
 		// Now apply the second backup
-		backupDriver.restoreFromBackup(adminUser, backupTwo, new Progress());
+		backupDriver.restoreFromBackup(migrationUser, backupTwo, new Progress());
 		wiki = wikiPageDao.get(wikiKey, null);
 		assertEquals("update did not clear secondary table rows",1, wiki.getAttachmentFileHandleIds().size());
 	}

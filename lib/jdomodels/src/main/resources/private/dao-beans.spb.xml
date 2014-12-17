@@ -63,6 +63,21 @@
 			   	</bean>
 			</property>
 		</bean>
+		<bean class="org.sagebionetworks.repo.model.principal.BootstrapUser">
+			<property name="id" value="5" />
+			<property name="email">
+			   	<bean class="org.sagebionetworks.repo.model.principal.BootstrapAlias">
+			   		<property name="aliasName" value="testAdmin@sagebase.org" />
+			   		<property name="aliasId" value="7" />
+			   	</bean>
+			</property>
+			<property name="userName">
+			   	<bean class="org.sagebionetworks.repo.model.principal.BootstrapAlias">
+			   		<property name="aliasName" value="testAdmin" />
+			   		<property name="aliasId" value="8" />
+			   	</bean>
+			</property>
+		</bean>
 		<bean class="org.sagebionetworks.repo.model.principal.BootstrapGroup">
 			<property name="id" value="273948" />
 			<property name="groupAlias">

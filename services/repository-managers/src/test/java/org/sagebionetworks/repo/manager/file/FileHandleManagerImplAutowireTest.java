@@ -178,7 +178,7 @@ public class FileHandleManagerImplAutowireTest {
 			entityManager.deleteEntity(userInfo, id);
 		}
 		
-		UserInfo adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		UserInfo adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 		userManager.deletePrincipal(adminUserInfo, Long.parseLong(userInfo.getId().toString()));
 	}
 	

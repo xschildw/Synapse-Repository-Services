@@ -41,7 +41,7 @@ public class StackStatusManagerImplTest {
 	
 	@After
 	public void after() throws Exception {
-		UserInfo adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		UserInfo adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 		userManager.deletePrincipal(adminUserInfo, testUserInfo.getId());
 	}
 	
@@ -61,7 +61,7 @@ public class StackStatusManagerImplTest {
 	
 	@Test 
 	public void testAdminUpdate() throws Exception {
-		UserInfo adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		UserInfo adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 		
 		// Only an admin can change the status
 		StackStatus status = stackStatusManager.getCurrentStatus();

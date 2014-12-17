@@ -51,7 +51,7 @@ public class AuthenticationServiceAutowireTest {
 	
 	@Before
 	public void before() throws NotFoundException{
-		amdin = userManger.getUserInfo(AuthorizationConstants.BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		amdin = userManger.getUserInfo(AuthorizationConstants.BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 		NewUser nu = new NewUser();
 		nu.setEmail(OPEN_ID_TEST_EMAIL);
 		nu.setUserName("openIdTestUser");

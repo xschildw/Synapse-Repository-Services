@@ -35,7 +35,7 @@ public class ParticipantDBOTest {
     
     @Before
     public void setUp() {
-    	userId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+    	userId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
     	
         // Initialize a new Evaluation
         EvaluationDBO evaluation = new EvaluationDBO();

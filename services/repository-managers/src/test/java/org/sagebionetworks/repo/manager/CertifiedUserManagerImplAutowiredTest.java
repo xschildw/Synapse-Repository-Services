@@ -23,7 +23,7 @@ public class CertifiedUserManagerImplAutowiredTest {
 	// this simple round-trip makes sure that the certified user group was properly bootstrapped
 	@Test
 	public void testCertifiedUserGroupExistence() throws Exception {
-		Long arbitraryPrincipalId = AuthorizationConstants.BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		Long arbitraryPrincipalId = AuthorizationConstants.BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		String certifiedUserGroupId = AuthorizationConstants.BOOTSTRAP_PRINCIPAL.CERTIFIED_USERS.getPrincipalId().toString();
 		List<String> idList = Collections.singletonList(arbitraryPrincipalId.toString());
 		groupMembersDao.addMembers(certifiedUserGroupId, idList);

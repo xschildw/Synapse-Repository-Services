@@ -49,7 +49,7 @@ public class DBOFileHandleDaoImplTest {
 	@Before
 	public void before(){
 		toDelete = new LinkedList<String>();
-		creatorUserGroupId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId().toString();
+		creatorUserGroupId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId().toString();
 		assertNotNull(creatorUserGroupId);
 		creatorUserGroupId2 = BOOTSTRAP_PRINCIPAL.ANONYMOUS_USER.getPrincipalId().toString();
 		assertNotNull(creatorUserGroupId2);

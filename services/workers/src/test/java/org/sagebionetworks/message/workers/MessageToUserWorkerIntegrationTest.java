@@ -79,7 +79,7 @@ public class MessageToUserWorkerIntegrationTest {
 		user.setUserName(UUID.randomUUID().toString());
 		toUserInfo = userManager.getUserInfo(userManager.createUser(user));
 		
-		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 
 		final URL url = MessageToUserWorkerIntegrationTest.class.getClassLoader().getResource("Message.txt");
 		FileItemStream fis = new FileItemStream() {

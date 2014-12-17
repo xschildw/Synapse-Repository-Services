@@ -66,7 +66,7 @@ public class MultipartManagerImplAutowireTest {
 	@Before
 	public void before() throws Exception {
 		fileHandlesToDelete = new LinkedList<String>();
-		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 	}
 	
 	@After

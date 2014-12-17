@@ -76,7 +76,7 @@ public class BackupRestoreStatusDAOImplTest {
 	 * Helper to create a status object with the minimum data.
 	 */
 	public BackupRestoreStatus createStatusObject(DaemonStatus status, DaemonType type) {
-		String userGroupId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId().toString();
+		String userGroupId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId().toString();
 		
 		BackupRestoreStatus dto = new BackupRestoreStatus();
 		dto.setStatus(status);

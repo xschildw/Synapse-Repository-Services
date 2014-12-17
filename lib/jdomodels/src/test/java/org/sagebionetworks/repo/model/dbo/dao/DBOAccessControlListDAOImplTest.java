@@ -65,7 +65,7 @@ public class DBOAccessControlListDAOImplTest {
 	
 	@Before
 	public void setUp() throws Exception {
-		createdById = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		createdById = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		
 		// strictly speaking it's nonsensical for a group to be a 'modifier'.  we're just using it for testing purposes
 		modifiedById = BOOTSTRAP_PRINCIPAL.AUTHENTICATED_USERS_GROUP.getPrincipalId();

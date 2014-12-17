@@ -84,7 +84,7 @@ public class EntityManagerImplAutowireTest {
 	
 	@Before
 	public void before() throws Exception{
-		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 		NewUser nu = new NewUser();
 		nu.setUserName("test");
 		nu.setEmail("just.a.test@sagebase.org");

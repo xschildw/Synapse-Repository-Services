@@ -74,7 +74,7 @@ public class DBOActivityDAOImplAutowiredTest {
 		toDelete = new ArrayList<String>();
 		nodesToDelete = new ArrayList<String>();
 		
-		creatorUserGroupId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		creatorUserGroupId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		assertNotNull(creatorUserGroupId);
 		
 		altUserGroupId = BOOTSTRAP_PRINCIPAL.AUTHENTICATED_USERS_GROUP.getPrincipalId();

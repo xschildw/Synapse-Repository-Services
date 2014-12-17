@@ -81,7 +81,7 @@ public class AnnotationsWorkerIntegrationTest {
 	
 	@Before
 	public void before() throws Exception {
-		userId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		userId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 	    userInfo = new UserInfo(true);
 	    userInfo.setId(userId);
 		semphoreManager.releaseAllLocksAsAdmin(userInfo);

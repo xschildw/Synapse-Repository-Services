@@ -56,7 +56,7 @@ public class UserProfileServiceAutowireTest extends AbstractAutowiredControllerT
 	public void before() throws NotFoundException{
 		principalsToDelete = new LinkedList<Long>();
 		// Get the admin info
-		admin = userManger.getUserInfo(AuthorizationConstants.BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		admin = userManger.getUserInfo(AuthorizationConstants.BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 		// Create two users
 		
 		// Create a user Profile

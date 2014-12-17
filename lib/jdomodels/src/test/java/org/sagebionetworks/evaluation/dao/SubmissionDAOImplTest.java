@@ -73,7 +73,7 @@ public class SubmissionDAOImplTest {
     
     @Before
     public void setUp() throws DatastoreException, InvalidModelException, NotFoundException {
-    	userId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId().toString();
+    	userId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId().toString();
     	
     	// create a file handle
 		PreviewFileHandle meta = new PreviewFileHandle();

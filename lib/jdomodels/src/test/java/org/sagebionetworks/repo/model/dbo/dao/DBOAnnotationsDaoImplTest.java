@@ -49,7 +49,7 @@ public class DBOAnnotationsDaoImplTest {
 	
 	@Before
 	public void before() throws Exception {
-		Long createdBy = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		Long createdBy = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		
 		// Create a node to create revisions of.
 		Node dto = NodeTestUtils.createNew("DBOAnnotationsDaoImplTest.baseNode", createdBy, createdBy);

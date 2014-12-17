@@ -11,7 +11,8 @@ public class AuthorizationConstants {
 	 * The values reflect that of dao-beans.spb.xml  
 	 */
 	public enum BOOTSTRAP_PRINCIPAL {
-		THE_ADMIN_USER(1L), 
+		MIGRATION_USER(1L),
+		TEST_ADMIN_USER(5L), 
 		AUTHENTICATED_USERS_GROUP(273948L), 
 		PUBLIC_GROUP(273949L), 
 		ANONYMOUS_USER(273950L),

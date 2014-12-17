@@ -376,7 +376,7 @@ public class JDONodeQueryAuthorizationTest implements InitializingBean{
 	 */
 	@Override
 	public void afterPropertiesSet() throws Exception {
-		Long creatorUserGroupId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		Long creatorUserGroupId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 
 		if(instance != null){
 			return;

@@ -103,7 +103,7 @@ public class NodeDAOImplTest {
 
 	@Before
 	public void before() throws Exception {
-		creatorUserGroupId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		creatorUserGroupId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		altUserGroupId = BOOTSTRAP_PRINCIPAL.AUTHENTICATED_USERS_GROUP.getPrincipalId();
 		
 		assertNotNull(nodeDao);

@@ -129,7 +129,7 @@ public class ServletTestHelper {
 			for (String idToDelete : toDelete) {
 				try {
 					entityController
-							.deleteEntity(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER
+							.deleteEntity(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER
 									.getPrincipalId(), idToDelete);
 				} catch (NotFoundException e) {
 					// nothing to do here

@@ -57,7 +57,7 @@ public class QueryControllerAutowireTest extends AbstractAutowiredControllerTest
 		mockRequest = Mockito.mock(HttpServletRequest.class);
 		toDelete = new LinkedList<String>();
 		
-		adminUserId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		adminUserId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		adminUserInfo = userManager.getUserInfo(adminUserId);
 		
 		// The user can't be an admin, since admins can see trash-canned entities

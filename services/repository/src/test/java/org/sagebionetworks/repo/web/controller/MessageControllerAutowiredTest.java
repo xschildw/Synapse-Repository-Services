@@ -79,7 +79,7 @@ public class MessageControllerAutowiredTest extends AbstractAutowiredControllerT
 	public void before() throws Exception {
 		cleanup = new ArrayList<String>();
 		
-		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 		
 		// Need 3 users
 		NewUser user = new NewUser(); 

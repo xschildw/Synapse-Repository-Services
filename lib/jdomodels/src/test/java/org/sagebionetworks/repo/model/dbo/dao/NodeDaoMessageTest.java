@@ -65,7 +65,7 @@ public class NodeDaoMessageTest {
 	
 	@Before
 	public void before() throws NumberFormatException, DatastoreException{
-		creatorUserGroupId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		creatorUserGroupId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		
 		mockObserver = Mockito.mock(TransactionalMessengerObserver.class);
 		// Add a mock observer

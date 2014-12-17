@@ -102,7 +102,7 @@ public class ProjectStatsWorkerIntegrationTest {
 	@Before
 	public void before() throws NotFoundException {
 		// Get the admin user
-		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 		semphoreManager.releaseAllLocksAsAdmin(adminUserInfo);
 		NewUser user = new NewUser();
 		user.setUserName(UUID.randomUUID().toString());

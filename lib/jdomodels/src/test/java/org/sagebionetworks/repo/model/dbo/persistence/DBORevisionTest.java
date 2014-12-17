@@ -54,7 +54,7 @@ public class DBORevisionTest {
 		node.setId(idGenerator.generateNewId());
 		toDelete.add(node.getId());
 		node.setBenefactorId(node.getId());
-		Long createdById = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		Long createdById = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		node.setCreatedBy(createdById);
 		node.setCreatedOn(System.currentTimeMillis());
 		node.setCurrentRevNumber(null);
@@ -75,7 +75,7 @@ public class DBORevisionTest {
 		rev.setReferences(null);
 		rev.setComment(null);
 		rev.setLabel(""+rev.getRevisionNumber());
-		Long createdById = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		Long createdById = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		rev.setModifiedBy(createdById);
 		rev.setModifiedOn(System.currentTimeMillis());
 		// Now create it

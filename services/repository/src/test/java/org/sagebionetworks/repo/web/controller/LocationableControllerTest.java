@@ -47,7 +47,7 @@ public class LocationableControllerTest extends AbstractAutowiredControllerTestB
 	 */
 	@Before
 	public void setUp() throws Exception {
-		servletTestHelper.setTestUser(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		servletTestHelper.setTestUser(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 
 		project = new Project();
 		project = servletTestHelper.createEntity(project, null);

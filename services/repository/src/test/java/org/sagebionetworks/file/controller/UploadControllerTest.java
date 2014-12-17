@@ -38,7 +38,7 @@ public class UploadControllerTest extends AbstractAutowiredControllerTestBase {
 		toDelete = new LinkedList<String>();
 		
 		// get user IDs
-		adminUserId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		adminUserId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		adminUserIdString = adminUserId.toString();
 		
 		// Create a file handle

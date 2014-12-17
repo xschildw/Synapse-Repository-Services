@@ -44,7 +44,7 @@ public class MembershipInvitationControllerAutowiredTest extends AbstractAutowir
 
 	@Before
 	public void before() throws Exception {
-		adminUserId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		adminUserId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		adminUserInfo = userManager.getUserInfo(adminUserId);
 		
 		// create a Team

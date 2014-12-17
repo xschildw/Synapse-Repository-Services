@@ -344,7 +344,7 @@ public class DBOAuthenticationDAOImplTest {
 		}
 		
 		// Migration admin should have a specific API key
-		String secretKey = authDAO.getSecretKey(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		String secretKey = authDAO.getSecretKey(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 		assertEquals(StackConfiguration.getMigrationAdminAPIKey(), secretKey);
 	}
 	

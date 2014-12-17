@@ -83,7 +83,7 @@ public class DefaultControllerAutowiredTest extends AbstractAutowiredControllerT
 		assertNotNull(nodeManager);
 		toDelete = new ArrayList<String>();
 		
-		userId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		userId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		
 		// Map test objects to their urls
 		// Make sure we have a valid user.

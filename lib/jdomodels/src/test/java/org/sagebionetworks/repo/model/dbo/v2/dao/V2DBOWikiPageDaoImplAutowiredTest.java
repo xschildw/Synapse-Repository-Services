@@ -87,7 +87,7 @@ public class V2DBOWikiPageDaoImplAutowiredTest {
 	@Before
 	public void before(){
 		toDelete = new LinkedList<WikiPageKey>();
-		creatorUserGroupId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId().toString();
+		creatorUserGroupId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId().toString();
 		assertNotNull(creatorUserGroupId);
 		// We use a long file name to test the uniqueness constraint
 		String longFileNamePrefix = "loooooooooooooooooooooooooooooooooooooonnnnnnnnnnnnnnnnnnnnnnnnnnnggggggggggggggggggggggggg";

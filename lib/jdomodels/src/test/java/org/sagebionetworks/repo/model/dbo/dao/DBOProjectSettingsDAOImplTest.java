@@ -41,7 +41,7 @@ public class DBOProjectSettingsDAOImplTest {
 
 	@Before
 	public void setup() throws Exception {
-		Long userId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		Long userId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 
 		Node project = new Node();
 		project.setName("project");

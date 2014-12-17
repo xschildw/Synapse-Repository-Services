@@ -34,7 +34,7 @@ public class DBOStorageQuotaDaoImplAutowiredTest {
 	public void before() {
 		assertNotNull(storageQuotaDao);
 		assertNotNull(storageQuotaAdminDao);
-		userId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId().toString();
+		userId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId().toString();
 	}
 
 	@After

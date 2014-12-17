@@ -69,7 +69,7 @@ public class DBOMembershipRqstSubmissionTest {
 		DBOTeam team = DBOTeamTest.newTeam();
 		team = dboBasicDao.createNew(team);
 		request.setTeamId(team.getId());
-		Long userId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		Long userId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		request.setUserId(userId);
 		request.setProperties((new String("abcdefg")).getBytes());
 		return request;

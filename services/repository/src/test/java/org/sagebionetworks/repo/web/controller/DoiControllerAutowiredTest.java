@@ -49,7 +49,7 @@ public class DoiControllerAutowiredTest extends AbstractAutowiredControllerTestB
 		StackConfiguration config = new StackConfiguration();
 		Assume.assumeTrue(config.getDoiEnabled());
 
-		adminUserId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		adminUserId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		
 		entity = new Project();
 		entity.setName("DoiControllerAutowiredTest");

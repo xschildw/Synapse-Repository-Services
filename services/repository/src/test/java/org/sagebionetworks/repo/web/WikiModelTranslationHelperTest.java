@@ -58,7 +58,7 @@ public class WikiModelTranslationHelperTest extends AbstractAutowiredControllerT
 	@Before
 	public void before() throws Exception{
 		// get user IDs
-		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 		ownerId = adminUserInfo.getId().toString();
 	}
 	

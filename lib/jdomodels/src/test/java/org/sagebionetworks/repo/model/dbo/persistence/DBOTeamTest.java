@@ -47,7 +47,7 @@ public class DBOTeamTest {
 	}
 	
 	public static DBOTeam newTeam() {
-		Long id = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		Long id = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		DBOTeam team = new DBOTeam();
 		team.setId(id);
 		team.setEtag("1");

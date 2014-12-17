@@ -44,7 +44,7 @@ public class MigrationControllerAutowireTest extends AbstractAutowiredController
 	@Before
 	public void before() throws Exception{
 		// get user IDs
-		adminUserId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		adminUserId = BOOTSTRAP_PRINCIPAL.MIGRATION_USER.getPrincipalId();
 		String adminUserIdString = adminUserId.toString();
 
 		startFileCount = fileMetadataDao.getCount();

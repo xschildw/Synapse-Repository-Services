@@ -250,7 +250,7 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 		when(mockRequest.getServletPath()).thenReturn("/repo/v1");
 
 		// get user IDs
-		adminUserId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		adminUserId = BOOTSTRAP_PRINCIPAL.MIGRATION_USER.getPrincipalId();
 		adminUserIdString = adminUserId.toString();
 		adminUserInfo = userManager.getUserInfo(adminUserId);
 
@@ -305,7 +305,7 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 		passingRecord.setResponseId(222L);
 		passingRecord.setScore(7L);
 		passingRecord.setUserId(adminUserId.toString());
-		adminUserId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		adminUserId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		dto.setCreatedBy(adminUserId.toString());
 		dto.setCreatedOn(new Date());
 		dto.setQuizId(101L);
@@ -788,7 +788,7 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 
 			// Special cases for the not-deleted migration admin
 			if (afterDelete.getType() == MigrationType.PRINCIPAL) {
-				assertEquals("There should be 4 UserGroups remaining after the delete: " + BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER + ", "
+				assertEquals("There should be 4 UserGroups remaining after the delete: " + BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER + ", "
 						+ "Administrators" + ", " + BOOTSTRAP_PRINCIPAL.PUBLIC_GROUP + ", and "
 						+ BOOTSTRAP_PRINCIPAL.AUTHENTICATED_USERS_GROUP, new Long(4), afterDelete.getCount());
 			} else if (afterDelete.getType() == MigrationType.GROUP_MEMBERS || afterDelete.getType() == MigrationType.CREDENTIAL) {

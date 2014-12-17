@@ -57,7 +57,7 @@ public class NodeTreeQueryControllerAutowireTest extends AbstractAutowiredContro
 
 	@Before
 	public void before() throws Exception {
-		adminUserId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		adminUserId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		
 		StackConfiguration config = new StackConfiguration();
 		// These tests are not run if dynamo is disabled.

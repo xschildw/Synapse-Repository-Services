@@ -68,7 +68,7 @@ public class DBOAccessControlListDAOScaleTest {
 		userId = userGroupDAO.create(userGroup).toString();
 		// update the object from the database so it has its ID
 		userGroup = userGroupDAO.get(Long.parseLong(userId));
-		Long createdById = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		Long createdById = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 
 		// Create 100 projects root project
 		for (int i = 0; i < 200; i++) {

@@ -25,7 +25,7 @@ public class StorageUsageControllerAutowireTest extends AbstractAutowiredControl
 
 	@Before
 	public void before() throws Exception {
-		adminUserId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		adminUserId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		
 		testEntity = new Project();
 		testEntity.setName("projectForStorageUsageControllerTest");

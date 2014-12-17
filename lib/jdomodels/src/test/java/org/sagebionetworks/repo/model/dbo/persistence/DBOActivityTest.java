@@ -54,7 +54,7 @@ public class DBOActivityTest {
 	public void testRoundTrip() throws DatastoreException, NotFoundException, UnsupportedEncodingException{
 		DBOActivity activity = new DBOActivity();
 		activity.setId(idGenerator.generateNewId());
-		Long createdById = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		Long createdById = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		activity.setCreatedBy(createdById);
 		activity.setCreatedOn(System.currentTimeMillis());
 		activity.setModifiedBy(createdById);

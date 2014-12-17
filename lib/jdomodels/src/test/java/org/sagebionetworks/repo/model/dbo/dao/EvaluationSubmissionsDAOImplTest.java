@@ -63,7 +63,7 @@ public class EvaluationSubmissionsDAOImplTest {
 
 	@Before
 	public void setUp() throws Exception {
-		Long ownerId = AuthorizationConstants.BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		Long ownerId = AuthorizationConstants.BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		Node node = new Node();
 		node.setName("testNode");
 		node.setNodeType(EntityType.project.toString());

@@ -33,7 +33,7 @@ public class NodeUtilsTest {
 	
 	@Before 
 	public void before() {
-		createdById = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		createdById = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 	}
 
 	@Test

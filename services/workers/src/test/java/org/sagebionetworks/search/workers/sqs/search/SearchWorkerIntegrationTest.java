@@ -124,7 +124,7 @@ public class SearchWorkerIntegrationTest {
 		}));
 		
 		// Create a project
-		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 		project = new Project();
 		project.setName("SearchIntegrationTest.Project");
 		// this should trigger create messaage.

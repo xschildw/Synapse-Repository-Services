@@ -68,7 +68,7 @@ public class EntityBundleControllerTest extends AbstractAutowiredControllerTestB
 		toDelete = new ArrayList<String>();
 		filesToDelete = new ArrayList<String>();
 		
-		adminUserId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		adminUserId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		adminUserIdString = adminUserId.toString();
 		adminUserInfo = userManager.getUserInfo(adminUserId);
 		adminUserInfo.getGroups().add(BOOTSTRAP_PRINCIPAL.CERTIFIED_USERS.getPrincipalId());

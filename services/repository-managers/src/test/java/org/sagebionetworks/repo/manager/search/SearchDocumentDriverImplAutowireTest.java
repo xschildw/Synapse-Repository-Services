@@ -102,7 +102,7 @@ public class SearchDocumentDriverImplAutowireTest {
 	@Before
 	public void before() throws Exception {
 		// To satisfy some FKs
-		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 		
 		// Create a project
 		project = new Project();

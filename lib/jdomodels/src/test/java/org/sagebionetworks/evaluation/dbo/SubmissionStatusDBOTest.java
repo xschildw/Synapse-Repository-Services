@@ -46,7 +46,7 @@ public class SubmissionStatusDBOTest {
     
     @Before
     public void setUp() throws Exception {
-    	userId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+    	userId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
     	
     	// create a node
   		Node toCreate = NodeTestUtils.createNew(name, userId);

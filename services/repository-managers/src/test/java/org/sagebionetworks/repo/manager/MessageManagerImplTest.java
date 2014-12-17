@@ -157,7 +157,7 @@ public class MessageManagerImplTest {
 	public void setUp() throws Exception {
 		aliasesToDelete = new ArrayList<PrincipalAlias>();
 		
-		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 		cleanup = new ArrayList<String>();
 		
 		DBOTermsOfUseAgreement tou = new DBOTermsOfUseAgreement();

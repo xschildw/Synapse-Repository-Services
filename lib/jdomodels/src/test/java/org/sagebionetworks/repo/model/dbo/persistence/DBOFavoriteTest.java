@@ -80,7 +80,7 @@ public class DBOFavoriteTest {
 		
 		DBOFavorite favorite = new DBOFavorite();
 		favorite.setNodeId(node.getId());
-		Long createdById = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		Long createdById = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		favorite.setPrincipalId(createdById);
 		favorite.setCreatedOn(System.currentTimeMillis());
 		favorite.setId(idGenerator.generateNewId(TYPE.FAVORITE_ID));
@@ -115,7 +115,7 @@ public class DBOFavoriteTest {
 		node.setId(idGenerator.generateNewId());
 		node.setName("SomeName");
 		node.setBenefactorId(node.getId());
-		Long createdById = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		Long createdById = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		node.setCreatedBy(createdById);
 		node.setCreatedOn(System.currentTimeMillis());
 		node.setCurrentRevNumber(null);

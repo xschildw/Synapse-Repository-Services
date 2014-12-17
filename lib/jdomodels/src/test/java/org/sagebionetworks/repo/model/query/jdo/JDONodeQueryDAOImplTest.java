@@ -125,7 +125,7 @@ public class JDONodeQueryDAOImplTest {
 		when(mockUserInfo.isAdmin()).thenReturn(false);
 		when(mockUserInfo.getGroups()).thenReturn(Sets.newHashSet(BOOTSTRAP_PRINCIPAL.ANONYMOUS_USER.getPrincipalId()));
 
-		createdBy = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		createdBy = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		
 		populateNodesForTest();
 	}

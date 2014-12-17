@@ -85,7 +85,7 @@ public class EntityDoiManagerImplAutowiredTest {
 
 	@After
 	public void after() throws Exception {
-		UserInfo adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		UserInfo adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 		for (String nodeId : toClearList) {
 			nodeManager.delete(adminUserInfo, nodeId);
 		}

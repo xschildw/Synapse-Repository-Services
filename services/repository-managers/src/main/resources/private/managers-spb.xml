@@ -317,8 +317,8 @@
             <property name="name" value="Administrators" />
             <property name="initialMembers">
                 <list>
-                    <!-- the admin user -->
-                    <value>1</value>
+                    <!-- the test admin user -->
+                    <value>5</value>
                 </list>
             </property>
             </bean>

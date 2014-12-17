@@ -57,7 +57,7 @@ public class DBONodeTest {
 		node.setId(idGenerator.generateNewId());
 		node.setName("SomeName");
 		node.setBenefactorId(node.getId());
-		Long createdById = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		Long createdById = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		node.setCreatedBy(createdById);
 		node.setCreatedOn(System.currentTimeMillis());
 		node.setCurrentRevNumber(null);

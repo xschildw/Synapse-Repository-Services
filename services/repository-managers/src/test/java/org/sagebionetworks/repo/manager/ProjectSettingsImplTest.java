@@ -51,7 +51,7 @@ public class ProjectSettingsImplTest {
 
 	@Before
 	public void setUp() throws Exception {
-		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId());
+		adminUserInfo = userManager.getUserInfo(BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId());
 		Project project = new Project();
 		project.setName("project" + RandomStringUtils.randomAlphanumeric(10));
 		projectId = entityManager.createEntity(adminUserInfo, project, null);

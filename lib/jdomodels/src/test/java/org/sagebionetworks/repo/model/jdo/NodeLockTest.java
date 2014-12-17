@@ -61,7 +61,7 @@ public class NodeLockTest {
 		assertNotNull(nodeLockerB);
 		assertNotNull(nodeDao);
 		// Create a node
-		Long creatorUserGroupId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId();
+		Long creatorUserGroupId = BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER.getPrincipalId();
 		Node theNode = NodeTestUtils.createNew("NodeLockTest", creatorUserGroupId);
 		nodeId = nodeDao.createNew(theNode);
 		assertNotNull(nodeId);
