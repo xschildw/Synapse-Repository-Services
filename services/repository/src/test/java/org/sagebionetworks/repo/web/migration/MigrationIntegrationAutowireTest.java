@@ -48,6 +48,8 @@ import org.sagebionetworks.repo.manager.StorageQuotaManager;
 import org.sagebionetworks.repo.manager.UserManager;
 import org.sagebionetworks.repo.manager.UserProfileManager;
 import org.sagebionetworks.repo.manager.migration.MigrationManager;
+import org.sagebionetworks.repo.manager.team.TeamManager;
+import org.sagebionetworks.repo.manager.team.TeamManagerImpl;
 import org.sagebionetworks.repo.model.*;
 import org.sagebionetworks.repo.model.AuthorizationConstants.BOOTSTRAP_PRINCIPAL;
 import org.sagebionetworks.repo.model.auth.NewUser;
@@ -140,6 +142,9 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 
 	@Autowired
 	private MigrationManager migrationManager;
+	
+	@Autowired
+	private TeamManager teamManager;
 
 	@Autowired
 	private StorageQuotaManager storageQuotaManager;
@@ -360,6 +365,7 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 		// bootstrap to put back the bootstrap data
 		entityBootstrapper.bootstrapAll();
 		storageQuotaAdminDao.clear();
+		teamManager.bootstrapTeams();
 	}
 
 	private void createFavorite() {
@@ -794,10 +800,10 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 
 			// Special cases for the not-deleted migration admin
 			if (afterDelete.getType() == MigrationType.PRINCIPAL) {
-				assertEquals("There should be 4 UserGroups remaining after the delete: " + BOOTSTRAP_PRINCIPAL.TEST_ADMIN_USER + ", "
+				assertEquals("There should be 4 UserGroups remaining after the delete: " + BOOTSTRAP_PRINCIPAL.MIGRATION_USER + ", "
 						+ "Administrators" + ", " + BOOTSTRAP_PRINCIPAL.PUBLIC_GROUP + ", and "
 						+ BOOTSTRAP_PRINCIPAL.AUTHENTICATED_USERS_GROUP, new Long(4), afterDelete.getCount());
-			} else if (afterDelete.getType() == MigrationType.GROUP_MEMBERS || afterDelete.getType() == MigrationType.CREDENTIAL) {
+			} else if (afterDelete.getType() == MigrationType.CREDENTIAL) {
 				assertEquals("Counts do not match for: " + afterDelete.getType().name(), new Long(1), afterDelete.getCount());
 
 			} else {
@@ -850,7 +856,7 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 		assertNotNull(startCounts.getList());
 		List<MigrationType> typesToMigrate = new LinkedList<MigrationType>();
 		for (MigrationType tm : MigrationType.values()) {
-			if (migrationManager.isMigrationTypeUsed(adminUserInfo, tm)) {
+			if (migrationManager.isMigrationTypeUsed(migrationUserInfo, tm)) {
 				typesToMigrate.add(tm);
 			}
 		}

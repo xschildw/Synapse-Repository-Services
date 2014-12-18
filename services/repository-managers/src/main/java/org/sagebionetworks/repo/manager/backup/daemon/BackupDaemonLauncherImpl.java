@@ -60,7 +60,7 @@ public class BackupDaemonLauncherImpl implements BackupDaemonLauncher {
 	public void terminate(UserInfo user, String id)	throws UnauthorizedException, DatastoreException, NotFoundException {
 		UserInfo.validateUserInfo(user);
 		// Only an admin can stop deamon;
-		if(!user.isAdmin()) throw new UnauthorizedException("Must be an administrator to terminate a backup/restore daemon");
+		if(user.getId() != 1) throw new UnauthorizedException("Must be migrationUser to terminate a backup/restore daemon");
 		// To terminate a daemon we simply flip the its termination bit in the database.  The daemon will be watching this bit.
 		backupRestoreStatusDao.setForceTermination(id, true);
 	}
@@ -69,7 +69,7 @@ public class BackupDaemonLauncherImpl implements BackupDaemonLauncher {
 	public BackupRestoreStatus getStatus(UserInfo user, String id) throws UnauthorizedException, DatastoreException, NotFoundException {
 		UserInfo.validateUserInfo(user);
 		// Only an admin can stop deamon;
-		if(!user.isAdmin()) throw new UnauthorizedException("Must be an administrator to get the status of a backup/restore daemon");
+		if(user.getId() != 1) throw new UnauthorizedException("Must be migrationUser to get the status of a backup/restore daemon");
 		return backupRestoreStatusDao.get(id);
 	}
 

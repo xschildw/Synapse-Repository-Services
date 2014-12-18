@@ -181,4 +181,6 @@ public interface TeamManager {
 	 * @return
 	 */
 	public String getIconURL(String teamId) throws NotFoundException;
+	
+	public void bootstrapTeams() throws NotFoundException;
 }
