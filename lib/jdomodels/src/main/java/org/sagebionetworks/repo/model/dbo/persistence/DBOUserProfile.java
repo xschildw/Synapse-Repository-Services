@@ -15,6 +15,7 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 
+import org.sagebionetworks.repo.model.UserPreferences;
 import org.sagebionetworks.repo.model.UserProfile;
 import org.sagebionetworks.repo.model.dbo.FieldColumn;
 import org.sagebionetworks.repo.model.dbo.MigratableDatabaseObject;
@@ -189,6 +190,14 @@ public class DBOUserProfile implements MigratableDatabaseObject<DBOUserProfile, 
 				up.setEmails(null);
 				up.setOpenIds(null);
 				up.setUserName(null);
+				// Move notification settings to preferences
+				if (up.getNotificationSettings() != null) {
+					if (up.getPreferences() == null) {
+						UserPreferences prefs = new UserPreferences();
+						up.setPreferences(prefs);
+					}
+					up.getPreferences().setNotificationSettings(up.getNotificationSettings());
+				}
 				try {
 					backup.setProperties(JDOSecondaryPropertyUtils.compressObject(up));
 				} catch (IOException e) {

@@ -2,9 +2,13 @@ package org.sagebionetworks.repo.model.dbo.persistence;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 import org.junit.After;
 import org.junit.Before;
@@ -13,7 +17,12 @@ import org.junit.runner.RunWith;
 import org.sagebionetworks.repo.model.DatastoreException;
 import org.sagebionetworks.repo.model.UserGroup;
 import org.sagebionetworks.repo.model.UserGroupDAO;
+import org.sagebionetworks.repo.model.UserProfile;
 import org.sagebionetworks.repo.model.dbo.DBOBasicDao;
+import org.sagebionetworks.repo.model.dbo.dao.UserProfileUtils;
+import org.sagebionetworks.repo.model.dbo.migration.MigratableTableTranslation;
+import org.sagebionetworks.repo.model.jdo.JDOSecondaryPropertyUtils;
+import org.sagebionetworks.repo.model.message.Settings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.test.context.ContextConfiguration;
@@ -89,6 +98,43 @@ public class DBOUserProfileTest {
 		boolean result = dboBasicDao.deleteObjectByPrimaryKey(DBOUserProfile.class,  params);
 		assertTrue("Failed to delete the type created", result);
 		
+	}
+	
+	@Test
+	public void testMigrationTranslator() throws Exception {
+		// Create user profile
+		UserProfile userProfile = new UserProfile();
+		userProfile.setDisplayName("userDisplayName");
+		userProfile.setEmail("emailShouldBeDeleted");
+		userProfile.setUserName("userNameShouldBeDeleted");
+		List<String> emails = new ArrayList<String>();
+		emails.add("email1ShouldBeDeleted");
+		emails.add("email2ShouldBeDeleted");
+		userProfile.setEmails(emails);
+		List<String> openIds = new ArrayList<String>();
+		openIds.add("openId1ShouldBeDeleted");
+		userProfile.setOpenIds(openIds);
+		Settings notificationSettings = new Settings();
+		notificationSettings.setSendEmailNotifications(false);
+		userProfile.setNotificationSettings(notificationSettings);
+		// Backup
+		byte[] userProfileSerialized = JDOSecondaryPropertyUtils.compressObject(userProfile);
+		DBOUserProfile backup = new DBOUserProfile();
+		backup.setOwnerId(Long.parseLong(individualGroup.getId()));
+		backup.seteTag("xxx");
+		backup.setProperties(userProfileSerialized);
+		MigratableTableTranslation<DBOUserProfile, DBOUserProfile> translator = backup.getTranslator();
+		// Restore
+		DBOUserProfile dbo = translator.createDatabaseObjectFromBackup(backup);
+		UserProfile restoredUserProfile = UserProfileUtils.deserialize(dbo.getProperties());
+		assertNull(restoredUserProfile.getEmail());
+		assertNull(restoredUserProfile.getEmails());
+		assertNull(restoredUserProfile.getOpenIds());
+		assertNull(restoredUserProfile.getUserName());
+		assertEquals(userProfile.getDisplayName(), restoredUserProfile.getDisplayName());
+		assertNotNull(restoredUserProfile.getPreferences());
+		assertNotNull(restoredUserProfile.getPreferences().getNotificationSettings());
+		assertEquals(userProfile.getNotificationSettings().getSendEmailNotifications(), restoredUserProfile.getPreferences().getNotificationSettings().getSendEmailNotifications());
 	}
 
 }
