@@ -1,0 +1,12 @@
+{
+	"title": "User Preferences",
+	"description": "User preferences",
+	"properties": {
+        "notificationSettings": {
+            "type": "object", 
+            "title": "Notification Settings", 
+            "description": "The user's preferences regarding when email notifications should be sent", 
+            "$ref": "org.sagebionetworks.repo.model.message.Settings"
+        }
+	}
+}

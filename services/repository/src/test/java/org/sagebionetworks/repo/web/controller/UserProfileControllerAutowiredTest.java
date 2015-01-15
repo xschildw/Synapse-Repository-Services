@@ -28,12 +28,14 @@ import org.sagebionetworks.repo.model.Project;
 import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UserGroupHeader;
 import org.sagebionetworks.repo.model.UserGroupHeaderResponsePage;
-import org.sagebionetworks.repo.model.UserPreference;
-import org.sagebionetworks.repo.model.UserPreferenceBoolean;
+import org.sagebionetworks.repo.model.UserPreferences;
 import org.sagebionetworks.repo.model.UserProfile;
+import org.sagebionetworks.repo.model.message.Settings;
+
 import org.sagebionetworks.repo.web.NotFoundException;
 import org.sagebionetworks.repo.web.service.EntityService;
 import org.sagebionetworks.repo.web.service.UserProfileService;
+
 import org.springframework.beans.factory.annotation.Autowired;
 
 public class UserProfileControllerAutowiredTest extends AbstractAutowiredControllerTestBase {
@@ -202,28 +204,19 @@ public class UserProfileControllerAutowiredTest extends AbstractAutowiredControl
 		UserProfile userProfile = servletTestHelper.getUserProfile(dispatchServlet, adminUserId);
 		userProfile.setUserName(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.name());
 		userProfile.setEmails(Collections.singletonList("migrationAdmin@sagebase.org"));
-		Set<UserPreference> preferences = userProfile.getPreferences();
+		UserPreferences preferences = userProfile.getPreferences();
 		if (preferences==null) {
-			preferences = new HashSet<UserPreference>();
+			preferences = new UserPreferences();
 			userProfile.setPreferences(preferences);
 		}
+		Settings expectedEmailSettings = new Settings();
+		expectedEmailSettings.setSendEmailNotifications(false);
 		{
-			UserPreferenceBoolean pref = new UserPreferenceBoolean();
-			pref.setName("testPref");
-			pref.setValue(true);
-			preferences.add(pref);
+			preferences.setNotificationSettings(expectedEmailSettings);
 		}
 		servletTestHelper.updateUserProfile(adminUserId, userProfile);
 		userProfile = servletTestHelper.getUserProfile(dispatchServlet, adminUserId);
-		boolean foundIt = false;
-		for (UserPreference pref : userProfile.getPreferences()) {
-			if (pref.getName().equals("testPref")) {
-				foundIt=true;
-				assertTrue(((UserPreferenceBoolean)pref).getValue());
-				break;
-			}
-		}
-		assertTrue(foundIt);
+		assertEquals(expectedEmailSettings.getSendEmailNotifications(), userProfile.getPreferences().getNotificationSettings().getSendEmailNotifications());
 	}
 	
 }
