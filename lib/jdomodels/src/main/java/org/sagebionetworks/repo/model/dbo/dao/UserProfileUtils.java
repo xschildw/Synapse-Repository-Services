@@ -7,6 +7,7 @@ import org.sagebionetworks.repo.model.DatastoreException;
 import org.sagebionetworks.repo.model.Favorite;
 import org.sagebionetworks.repo.model.NamedAnnotations;
 import org.sagebionetworks.repo.model.SchemaCache;
+import org.sagebionetworks.repo.model.UserPreferences;
 import org.sagebionetworks.repo.model.UserProfile;
 import org.sagebionetworks.repo.model.dbo.persistence.DBOFavorite;
 import org.sagebionetworks.repo.model.dbo.persistence.DBOUserProfile;
@@ -23,6 +24,14 @@ public class UserProfileUtils {
 			dbo.setOwnerId(Long.parseLong(dto.getOwnerId()));
 		}
 		dbo.seteTag(dto.getEtag());
+		if (dto.getNotificationSettings() != null) {
+			// New clients should use the preferences and set this to null, so this is is an old client
+			if (dto.getPreferences() == null) {
+				UserPreferences prefs = new UserPreferences();
+				dto.setPreferences(prefs);
+			}
+			dto.getPreferences().setNotificationSettings(dto.getNotificationSettings());
+		}
 		try {
 			dbo.setProperties(JDOSecondaryPropertyUtils.compressObject(dto));
 		} catch (IOException e) {
@@ -60,6 +69,11 @@ public class UserProfileUtils {
 			dto.setOwnerId(dbo.getOwnerId().toString());
 		}
 		dto.setEtag(dbo.geteTag());
+		if (dto.getPreferences() == null) {
+			dto.setNotificationSettings(null);
+		} else	{
+			dto.setNotificationSettings(dto.getPreferences().getNotificationSettings());
+		}
 		return dto;
 	}
 	

@@ -1,6 +1,7 @@
 package org.sagebionetworks.repo.model.dbo.dao;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 
@@ -16,6 +17,7 @@ import org.sagebionetworks.repo.model.Annotations;
 import org.sagebionetworks.repo.model.DatastoreException;
 import org.sagebionetworks.repo.model.Favorite;
 import org.sagebionetworks.repo.model.NamedAnnotations;
+import org.sagebionetworks.repo.model.UserPreferences;
 import org.sagebionetworks.repo.model.UserProfile;
 import org.sagebionetworks.repo.model.attachment.AttachmentData;
 import org.sagebionetworks.repo.model.dbo.persistence.DBOFavorite;
@@ -31,7 +33,7 @@ import org.sagebionetworks.schema.adapter.org.json.JSONObjectAdapterImpl;
 public class UserProfileUtilsTest {
 
 	@Test
-	public void testRoundtrip() throws Exception {
+	public void testRoundtripBackCompat() throws Exception {
 		UserProfile dto = new UserProfile();
 		dto.setOwnerId("101");
 		dto.setFirstName("foo");
@@ -51,11 +53,25 @@ public class UserProfileUtilsTest {
 		dto.setPic(picData);
 		dto.setNotificationSettings(new Settings());
 		dto.getNotificationSettings().setSendEmailNotifications(false);
+		dto.setPreferences(null);
 		
 		DBOUserProfile dbo = new DBOUserProfile();
 		UserProfileUtils.copyDtoToDbo(dto, dbo);
 		UserProfile dto2 = UserProfileUtils.convertDboToDto(dbo);
-		assertEquals(dto, dto2);
+		assertEquals(dto.getOwnerId(), dto2.getOwnerId());
+		assertEquals(dto.getFirstName(), dto2.getFirstName());
+		assertEquals(dto.getLastName(), dto2.getLastName());
+		assertEquals(dto.getRStudioUrl(), dto2.getRStudioUrl());
+		assertEquals(dto.getEtag(), dto2.getEtag());
+		assertEquals(dto.getCompany(), dto2.getCompany());
+		assertEquals(dto.getIndustry(), dto2.getIndustry());
+		assertEquals(dto.getLocation(), dto2.getLocation());
+		assertEquals(dto.getSummary(), dto2.getSummary());
+		assertEquals(dto.getTeamName(), dto2.getTeamName());
+		assertEquals(dto.getPic(), dto2.getPic());
+		assertEquals(dto.getNotificationSettings(), dto2.getNotificationSettings());
+		assertEquals(dto.getNotificationSettings(), dto2.getPreferences().getNotificationSettings());
+		
 	}
 	
 	/**
@@ -243,5 +259,52 @@ public class UserProfileUtilsTest {
 		fail("principalId can not be null");
 	}
 	
+	@Test
+	public void testUserPreferencesNewClientBehavior() {
+		UserProfile dto = new UserProfile();
+		dto.setOwnerId("101");
+		dto.setFirstName("foo");
+		dto.setLastName("bar");
+		dto.setRStudioUrl("http://rstudio.com");
+		dto.setEtag("0");
+		dto.setCompany("my company");
+		dto.setIndustry("my industry");
+		dto.setLocation("Seattle area");
+		dto.setSummary("My summary");
+		dto.setTeamName("Team A");
+		dto.setUrl("http://link.to.my.page/");
+		AttachmentData picData = new AttachmentData();
+		picData.setName("Fake name");
+		picData.setTokenId("Fake token ID");
+		picData.setMd5("Fake MD5");
+		dto.setPic(picData);
+		dto.setNotificationSettings(null);
+		UserPreferences prefs = new UserPreferences();
+		Settings notificationSettings = new Settings();
+		notificationSettings.setSendEmailNotifications(false);
+		prefs.setNotificationSettings(notificationSettings);
+		dto.setPreferences(prefs);
+		// New clients should set old field to null and use new field
+		assertNull(dto.getNotificationSettings());
+		assertNotNull(dto.getPreferences().getNotificationSettings());
+		
+		DBOUserProfile dbo = new DBOUserProfile();
+		UserProfileUtils.copyDtoToDbo(dto, dbo);
+		UserProfile dto2 = UserProfileUtils.convertDboToDto(dbo);
+		assertEquals(dto.getOwnerId(), dto2.getOwnerId());
+		assertEquals(dto.getFirstName(), dto2.getFirstName());
+		assertEquals(dto.getLastName(), dto2.getLastName());
+		assertEquals(dto.getRStudioUrl(), dto2.getRStudioUrl());
+		assertEquals(dto.getEtag(), dto2.getEtag());
+		assertEquals(dto.getCompany(), dto2.getCompany());
+		assertEquals(dto.getIndustry(), dto2.getIndustry());
+		assertEquals(dto.getLocation(), dto2.getLocation());
+		assertEquals(dto.getSummary(), dto2.getSummary());
+		assertEquals(dto.getTeamName(), dto2.getTeamName());
+		assertEquals(dto.getPic(), dto2.getPic());
+		// On return, the old field is exposed for backcompat
+		assertNotNull(dto2.getNotificationSettings());
+		assertEquals(dto.getPreferences().getNotificationSettings(), dto2.getNotificationSettings());
+	}
 }
 
