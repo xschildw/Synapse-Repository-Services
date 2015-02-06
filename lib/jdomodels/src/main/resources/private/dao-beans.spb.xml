@@ -121,6 +121,9 @@
 		init-method="bootstrapProfiles" >
 	</bean>
 	
+	<bean id="userPreferencesDAO"
+		class="org.sagebionetworks.repo.model.dbo.dao.DBOUserPreferencesDAOImpl"/>
+	
 	<bean id="projectSettingsDAO"
 		class="org.sagebionetworks.repo.model.dbo.dao.DBOProjectSettingsDAOImpl"/>
 	

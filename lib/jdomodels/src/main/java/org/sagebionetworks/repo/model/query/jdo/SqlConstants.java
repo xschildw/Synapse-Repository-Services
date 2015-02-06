@@ -74,6 +74,12 @@ public class SqlConstants {
 	public static final String COL_USER_PROFILE_PROPS_BLOB		= "PROPERTIES";
 	public static final String DDL_FILE_USER_PROFILE			= "schema/UserProfile-ddl.sql";
 
+	// The User Preferences table
+	public static final String TABLE_USER_PREFERENCES			= "USER_PREFERENCES";
+	public static final String COL_USER_PREFERENCES_ID			= "OWNER_ID";
+	public static final String COL_USER_PREFERENCES_ETAG		= "ETAG";
+	public static final String COL_USER_PREFERENCES_PROPS_BLOB	= "PROPERTIES";
+	
 	// The Project Settings table
 	public static final String TABLE_PROJECT_SETTING			= "PROJECT_SETTING";
 	public static final String COL_PROJECT_SETTING_ID			= "ID";
