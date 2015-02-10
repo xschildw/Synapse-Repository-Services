@@ -46,6 +46,7 @@ import org.sagebionetworks.evaluation.model.EvaluationStatus;
 import org.sagebionetworks.evaluation.model.Submission;
 import org.sagebionetworks.repo.manager.StorageQuotaManager;
 import org.sagebionetworks.repo.manager.UserManager;
+import org.sagebionetworks.repo.manager.UserPreferencesManager;
 import org.sagebionetworks.repo.manager.UserProfileManager;
 import org.sagebionetworks.repo.manager.migration.MigrationManager;
 import org.sagebionetworks.repo.model.*;
@@ -131,6 +132,9 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 
 	@Autowired
 	private UserProfileManager userProfileManager;
+	
+	@Autowired
+	private UserPreferencesManager userPreferencesManager;
 
 	@Autowired
 	private ServiceProvider serviceProvider;
@@ -215,6 +219,9 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 	
 	@Autowired
 	private ChallengeTeamDAO challengeTeamDAO;
+	
+	@Autowired
+	private UserPreferencesDAO userPreferencesDAO;
 	
 	private Team team;
 
@@ -369,7 +376,11 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 		user.setUserName(UUID.randomUUID().toString());
 		user.setEmail(user.getUserName() + "@test.com");
 		Long id = userManager.createUser(user);
-		userManager.getUserInfo(id);
+		UserInfo usrInfo = userManager.getUserInfo(id);
+		//	Add user preferences
+		UserPreferences prefs = new UserPreferences();
+		prefs.setOwnerId(usrInfo.getId().toString());
+		userPreferencesManager.createUserPreferences(usrInfo, prefs);
 	}
 
 	private void resetDatabase() throws Exception {

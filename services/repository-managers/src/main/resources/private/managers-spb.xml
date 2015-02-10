@@ -340,5 +340,7 @@
        </util:list>
 		
 	<bean id="certifiedUserManager" class="org.sagebionetworks.repo.manager.CertifiedUserManagerImpl" scope="singleton"/>
+	
+	<bean id="userPreferencesManager" class="org.sagebionetworks.repo.manager.UserPreferencesManagerImpl" scope="singleton" />
     
 </beans>
