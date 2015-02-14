@@ -44,6 +44,7 @@ import org.sagebionetworks.bridge.model.data.value.ParticipantDataValue;
 import org.sagebionetworks.evaluation.model.Evaluation;
 import org.sagebionetworks.evaluation.model.EvaluationStatus;
 import org.sagebionetworks.evaluation.model.Submission;
+import org.sagebionetworks.evaluation.model.SubmissionContributor;
 import org.sagebionetworks.repo.manager.StorageQuotaManager;
 import org.sagebionetworks.repo.manager.UserManager;
 import org.sagebionetworks.repo.manager.UserPreferencesManager;
@@ -356,18 +357,18 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 		}
 		ColumnMapper mapper = TableModelUtils.createColumnModelColumnMapper(models, false);
 
-		List<String> header = TableModelUtils.getHeaders(models);
+		List<Long> headers = TableModelUtils.getIds(models);
 		// bind the columns to the entity
-		columnModelDao.bindColumnToObject(header, tableId);
+		columnModelDao.bindColumnToObject(Lists.transform(headers, TableModelUtils.LONG_TO_STRING), tableId);
 
 		// create some test rows.
 		List<Row> rows = TableModelTestUtils.createRows(models, 5);
-		RawRowSet set = new RawRowSet(TableModelUtils.getHeaders(models), null, tableId, rows);
+		RawRowSet set = new RawRowSet(TableModelUtils.getIds(models), null, tableId, rows);
 		// Append the rows to the table
 		tableRowTruthDao.appendRowSetToTable(adminUserIdString, tableId, mapper, set);
 		// Append some more rows
 		rows = TableModelTestUtils.createRows(models, 6);
-		set = new RawRowSet(TableModelUtils.getHeaders(models), null, tableId, rows);
+		set = new RawRowSet(TableModelUtils.getIds(models), null, tableId, rows);
 		tableRowTruthDao.appendRowSetToTable(adminUserIdString, tableId, mapper, set);
 	}
 
@@ -436,6 +437,9 @@ public class MigrationIntegrationAutowireTest extends AbstractAutowiredControlle
 		submission.setEntityId(fileEntity.getId());
 		submission.setUserId(adminUserIdString);
 		submission.setEvaluationId(evaluation.getId());
+		SubmissionContributor contributor = new SubmissionContributor();
+		contributor.setPrincipalId(adminUserIdString);
+		submission.setContributors(Collections.singleton(contributor));
 		submission = entityServletHelper.createSubmission(submission, adminUserId, fileEntity.getEtag());
 	}
 
