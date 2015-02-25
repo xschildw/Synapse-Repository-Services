@@ -1,7 +1,12 @@
 package org.sagebionetworks.repo.web.service;
 
+import java.io.IOException;
+
+import javax.servlet.http.HttpServletRequest;
+
 import org.sagebionetworks.repo.model.UserPreferences;
 import org.sagebionetworks.repo.web.NotFoundException;
+import org.springframework.http.HttpHeaders;
 
 public interface UserPreferencesService {
 	
@@ -19,8 +24,9 @@ public interface UserPreferencesService {
 	 * @param prefs
 	 * @return
 	 * @throws NotFoundException 
+	 * @throws IOException 
 	 */
-	public UserPreferences createUserPreferences(Long userId, UserPreferences prefs) throws NotFoundException;
+	public UserPreferences createUserPreferences(Long userId, HttpHeaders header, HttpServletRequest request) throws NotFoundException, IOException;
 	
 	/**
 	 * Update user preferences for specified user
@@ -28,8 +34,9 @@ public interface UserPreferencesService {
 	 * @param prefs
 	 * @return
 	 * @throws NotFoundException 
+	 * @throws IOException 
 	 */
-	public UserPreferences updateUserPreferences(Long userId, UserPreferences prefs) throws NotFoundException;
+	public UserPreferences updateUserPreferences(Long userId, HttpHeaders header, HttpServletRequest request) throws NotFoundException, IOException;
 	
 	/**
 	 * Delete user preferences for specified user

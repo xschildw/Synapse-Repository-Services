@@ -34,6 +34,8 @@ public class ServiceProviderImpl implements ServiceProvider {
 	@Autowired
 	private UserProfileService userProfileService;
 	@Autowired
+	private UserPreferencesService userPreferencesService;
+	@Autowired
 	SearchService searchService;
 	@Autowired
 	private ActivityService activityService;
@@ -106,6 +108,9 @@ public class ServiceProviderImpl implements ServiceProvider {
 	}
 	public UserProfileService getUserProfileService() {
 		return userProfileService;
+	}
+	public UserPreferencesService getUserPreferencesService() {
+		return userPreferencesService;
 	}
 	@Override
 	public SearchService getSearchService() {

@@ -29,6 +29,8 @@ public interface ServiceProvider {
 	public UserGroupService getUserGroupService();
 	
 	public UserProfileService getUserProfileService();
+	
+	public UserPreferencesService getUserPreferencesService();
 
 	public SearchService getSearchService();
 

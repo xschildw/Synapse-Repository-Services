@@ -612,6 +612,34 @@ public class ServletTestHelper {
 		ServletTestHelperUtils.dispatchRequest(dispatchServlet, request,
 				HttpStatus.OK);
 	}
+	
+	public UserPreferences getUserPreferences(HttpServlet dispatchServlet,
+			Long userId) throws Exception {
+		MockHttpServletRequest request = ServletTestHelperUtils.initRequest(
+				HTTPMODE.GET, UrlHelpers.USER_PREFERENCES, userId, null);
+		MockHttpServletResponse response = ServletTestHelperUtils.dispatchRequest(dispatchServlet, request, HttpStatus.OK);
+		return (UserPreferences) objectMapper.readValue(
+				response.getContentAsString(), UserPreferences.class);
+	}
+	
+	public UserPreferences createUserPreferences(HttpServlet dispatchServlet,
+			UserPreferences prefs, Long userId) throws Exception {
+		MockHttpServletRequest request = ServletTestHelperUtils.initRequest(
+				HTTPMODE.POST, UrlHelpers.USER_PREFERENCES, userId, prefs);
+		MockHttpServletResponse response = ServletTestHelperUtils.dispatchRequest(dispatchServlet, request, HttpStatus.CREATED);
+		return (UserPreferences) objectMapper.readValue(
+				response.getContentAsString(), UserPreferences.class);
+	}
+	
+	public UserPreferences updateUserPreferences(HttpServlet dispatchServlet,
+			UserPreferences prefs, Long userId) throws Exception {
+		MockHttpServletRequest request = ServletTestHelperUtils.initRequest(
+				HTTPMODE.PUT, UrlHelpers.USER_PREFERENCES, userId, prefs);
+		MockHttpServletResponse response = ServletTestHelperUtils.dispatchRequest(dispatchServlet, request, HttpStatus.OK);
+		return (UserPreferences) objectMapper.readValue(
+				response.getContentAsString(), UserPreferences.class);
+	}
+	
 
 
 
