@@ -12,14 +12,19 @@ import org.sagebionetworks.repo.manager.UserProfileManager;
 import org.sagebionetworks.repo.model.ConflictingUpdateException;
 import org.sagebionetworks.repo.model.DatastoreException;
 import org.sagebionetworks.repo.model.EntityHeader;
+import org.sagebionetworks.repo.model.IdList;
 import org.sagebionetworks.repo.model.InvalidModelException;
+import org.sagebionetworks.repo.model.ListWrapper;
 import org.sagebionetworks.repo.model.PaginatedResults;
 import org.sagebionetworks.repo.model.ProjectHeader;
+import org.sagebionetworks.repo.model.ProjectListSortColumn;
+import org.sagebionetworks.repo.model.ProjectListType;
 import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UserGroupHeaderResponsePage;
 import org.sagebionetworks.repo.model.UserProfile;
 import org.sagebionetworks.repo.model.attachment.PresignedUrl;
 import org.sagebionetworks.repo.model.attachment.S3AttachmentToken;
+import org.sagebionetworks.repo.model.entity.query.SortDirection;
 import org.sagebionetworks.repo.model.principal.PrincipalAliasDAO;
 import org.sagebionetworks.repo.web.NotFoundException;
 import org.sagebionetworks.repo.web.controller.ObjectTypeSerializer;
@@ -62,6 +67,19 @@ public interface UserProfileService {
 			HttpServletRequest request, Long userId, Integer offset,
 			Integer limit, String sort, Boolean ascending)
 			throws DatastoreException, UnauthorizedException, NotFoundException;
+
+	/**
+	 * Return UserProfiles for the given ids
+	 * @param userId
+	 * @param ids
+	 * @return
+	 * @throws DatastoreException
+	 * @throws UnauthorizedException
+	 * @throws NotFoundException
+	 */
+	public ListWrapper<UserProfile> listUserProfiles(Long userId, IdList ids)
+			throws DatastoreException, UnauthorizedException, NotFoundException;
+
 
 	/**
 	 * Get a user profile
@@ -195,49 +213,24 @@ public interface UserProfileService {
 	public PaginatedResults<EntityHeader> getFavorites(Long userId, int limit, int offset) throws DatastoreException, InvalidModelException, NotFoundException;
 
 	/**
-	 * Retrieve sorted list of the users projects, paginated
+	 * Retrieve sorted list of projects, paginated
 	 * 
 	 * @param userId
-	 * @param userIdToFetch
+	 * @param otherUserId optional other user id required when retrieving projects of other user
+	 * @param teamId optional team id required when retrieving projects for a team
+	 * @param type type of project list
+	 * @param sortColumn optional sort column. default sort by last activity
+	 * @param sortDirection optional sort direction. default sort descending
 	 * @param limit
 	 * @param offset
 	 * @return
-	 * @throws DatastoreException
-	 * @throws InvalidModelException
 	 * @throws NotFoundException
+	 * @throws InvalidModelException
+	 * @throws DatastoreException
 	 */
-	public PaginatedResults<ProjectHeader> getMyProjects(Long userId, int limit, int offset) throws DatastoreException,
+	public PaginatedResults<ProjectHeader> getProjects(Long userId, Long otherUserId, Long teamId, ProjectListType type,
+			ProjectListSortColumn sortColumn, SortDirection sortDirection, Integer limit, Integer offset) throws DatastoreException,
 			InvalidModelException, NotFoundException;
-
-	/**
-	 * Retrieve sorted list of another users projects, paginated
-	 * 
-	 * @param userId
-	 * @param userIdToFetch
-	 * @param limit
-	 * @param offset
-	 * @return
-	 * @throws DatastoreException
-	 * @throws InvalidModelException
-	 * @throws NotFoundException
-	 */
-	public PaginatedResults<ProjectHeader> getProjectsForUser(Long userId, Long userIdToFetch, int limit, int offset)
-			throws DatastoreException, InvalidModelException, NotFoundException;
-
-	/**
-	 * Retrieve sorted list of team projects, paginated
-	 * 
-	 * @param userId
-	 * @param userIdToFetch
-	 * @param limit
-	 * @param offset
-	 * @return
-	 * @throws DatastoreException
-	 * @throws InvalidModelException
-	 * @throws NotFoundException
-	 */
-	public PaginatedResults<ProjectHeader> getProjectsForTeam(Long userId, Long teamIdToFetch, int limit, int offset)
-			throws DatastoreException, InvalidModelException, NotFoundException;
 
 	public void setPrincipalAlaisDAO(PrincipalAliasDAO mockPrincipalAlaisDAO);
 

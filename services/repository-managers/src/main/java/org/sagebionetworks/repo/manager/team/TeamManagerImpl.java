@@ -337,7 +337,7 @@ public class TeamManagerImpl implements TeamManager {
 	}
 
 	@Override
-	public ListWrapper<Team> list(Set<Long> ids) throws DatastoreException, NotFoundException {
+	public ListWrapper<Team> list(List<Long> ids) throws DatastoreException, NotFoundException {
 		return teamDAO.list(ids);
 	}
 
@@ -356,9 +356,9 @@ public class TeamManagerImpl implements TeamManager {
 	}
 	
 	@Override
-	public ListWrapper<TeamMember> listMembers(Long teamId, Set<Long> memberIds)
+	public ListWrapper<TeamMember> listMembers(List<Long> teamIds, List<Long> memberIds)
 			throws DatastoreException, NotFoundException {
-		return teamDAO.listMembers(teamId, memberIds);
+		return teamDAO.listMembers(teamIds, memberIds);
 	}
 	
 

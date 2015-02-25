@@ -1,5 +1,6 @@
 package org.sagebionetworks.repo.web.service;
 
+import java.util.List;
 import java.util.Set;
 
 import org.sagebionetworks.repo.model.DatastoreException;
@@ -195,16 +196,16 @@ public interface TeamService {
 	 * @throws DatastoreException
 	 * @throws NotFoundException 
 	 */
-	ListWrapper<Team> list(Set<Long> ids) throws DatastoreException, NotFoundException;
+	ListWrapper<Team> list(List<Long> ids) throws DatastoreException, NotFoundException;
 	
 	/**
 	 * 
-	 * @param teamId
+	 * @param teamIds
 	 * @param memberIds
 	 * @return
 	 * @throws NotFoundException 
 	 * @throws DatastoreException 
 	 */
-	public ListWrapper<TeamMember> listTeamMembers(Long teamId, Set<Long> memberIds) throws DatastoreException, NotFoundException;
+	public ListWrapper<TeamMember> listTeamMembers(List<Long> teamIds, List<Long> memberIds) throws DatastoreException, NotFoundException;
 	
 }

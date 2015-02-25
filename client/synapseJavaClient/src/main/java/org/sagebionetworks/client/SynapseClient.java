@@ -20,6 +20,7 @@ import org.sagebionetworks.evaluation.model.Evaluation;
 import org.sagebionetworks.evaluation.model.Participant;
 import org.sagebionetworks.evaluation.model.Submission;
 import org.sagebionetworks.evaluation.model.SubmissionBundle;
+import org.sagebionetworks.evaluation.model.SubmissionContributor;
 import org.sagebionetworks.evaluation.model.SubmissionStatus;
 import org.sagebionetworks.evaluation.model.SubmissionStatusBatch;
 import org.sagebionetworks.evaluation.model.SubmissionStatusEnum;
@@ -57,6 +58,8 @@ import org.sagebionetworks.repo.model.ObjectType;
 import org.sagebionetworks.repo.model.PaginatedIds;
 import org.sagebionetworks.repo.model.PaginatedResults;
 import org.sagebionetworks.repo.model.ProjectHeader;
+import org.sagebionetworks.repo.model.ProjectListSortColumn;
+import org.sagebionetworks.repo.model.ProjectListType;
 import org.sagebionetworks.repo.model.Reference;
 import org.sagebionetworks.repo.model.RestrictableObjectDescriptor;
 import org.sagebionetworks.repo.model.ServiceConstants.AttachmentType;
@@ -83,6 +86,7 @@ import org.sagebionetworks.repo.model.dao.WikiPageKey;
 import org.sagebionetworks.repo.model.doi.Doi;
 import org.sagebionetworks.repo.model.entity.query.EntityQuery;
 import org.sagebionetworks.repo.model.entity.query.EntityQueryResults;
+import org.sagebionetworks.repo.model.entity.query.SortDirection;
 import org.sagebionetworks.repo.model.file.ChunkRequest;
 import org.sagebionetworks.repo.model.file.ChunkResult;
 import org.sagebionetworks.repo.model.file.ChunkedFileToken;
@@ -442,6 +446,8 @@ public interface SynapseClient extends BaseClient {
 
 	public PaginatedResults<UserProfile> getUsers(int offset, int limit)
 			throws SynapseException;
+	
+	public List<UserProfile> listUserProfiles(List<Long> userIds) throws SynapseException;
 
 	public PaginatedResults<UserGroup> getGroups(int offset, int limit)
 			throws SynapseException;
@@ -468,9 +474,6 @@ public interface SynapseClient extends BaseClient {
 
 	public ACTAccessRequirement createLockAccessRequirement(String entityId)
 			throws SynapseException;
-
-	public VariableContentPaginatedResults<AccessRequirement> getUnmetAccessRequirements(
-			RestrictableObjectDescriptor subjectId) throws SynapseException;
 
 	public VariableContentPaginatedResults<AccessRequirement> getUnmetAccessRequirements(
 			RestrictableObjectDescriptor subjectId, ACCESS_TYPE accessType) throws SynapseException;
@@ -1086,6 +1089,14 @@ public interface SynapseClient extends BaseClient {
 
 	public Submission createTeamSubmission(Submission sub, String etag, String submissionEligibilityHash)
 			throws SynapseException;
+	
+	/**
+	 * Add a contributor to an existing submission.  This is available to Synapse administrators only.
+	 * @param submissionId
+	 * @param contributor
+	 * @return
+	 */
+	public SubmissionContributor addSubmissionContributor(String submissionId, SubmissionContributor contributor) throws SynapseException ;
 
 	public Submission getSubmission(String subId) throws SynapseException;
 
@@ -1169,11 +1180,23 @@ public interface SynapseClient extends BaseClient {
 	public PaginatedResults<EntityHeader> getFavorites(Integer limit, Integer offset)
 			throws SynapseException;
 
+	@Deprecated
 	public PaginatedResults<ProjectHeader> getMyProjects(Integer limit, Integer offset) throws SynapseException;
 
+	@Deprecated
 	public PaginatedResults<ProjectHeader> getProjectsFromUser(Long userId, Integer limit, Integer offset) throws SynapseException;
 
+	@Deprecated
 	public PaginatedResults<ProjectHeader> getProjectsForTeam(Long teamId, Integer limit, Integer offset) throws SynapseException;
+
+	public PaginatedResults<ProjectHeader> getMyProjects(ProjectListType type, ProjectListSortColumn sortColumn, SortDirection sortDirection,
+			Integer limit, Integer offset) throws SynapseException;
+
+	public PaginatedResults<ProjectHeader> getProjectsFromUser(Long userId, ProjectListSortColumn sortColumn, SortDirection sortDirection,
+			Integer limit, Integer offset) throws SynapseException;
+
+	public PaginatedResults<ProjectHeader> getProjectsForTeam(Long teamId, ProjectListSortColumn sortColumn, SortDirection sortDirection,
+			Integer limit, Integer offset) throws SynapseException;
 
 	public void createEntityDoi(String entityId) throws SynapseException;
 
@@ -1514,7 +1537,7 @@ public interface SynapseClient extends BaseClient {
 	 * @return
 	 * @throws SynapseException
 	 */
-	public List<Team> listTeams(Set<Long> ids) throws SynapseException;
+	public List<Team> listTeams(List<Long> ids) throws SynapseException;
 	
 	/**
 	 * 
@@ -1591,15 +1614,27 @@ public interface SynapseClient extends BaseClient {
 	/**
 	 * Return a TeamMember list for a given Team and list of member IDs.
 	 * 
-	 * Note: Invalid IDs in the list are ignored:  The results list is simply
-	 * smaller than the set of IDs passed in.
+	 * Note: Any invalid ID causes a 404 NOT FOUND
 	 * 
 	 * @param teamId
 	 * @param ids
 	 * @return
 	 * @throws SynapseException
 	 */
-	public List<TeamMember> listTeamMembers(String teamId, Set<Long> ids) throws SynapseException;
+	public List<TeamMember> listTeamMembers(String teamId, List<Long> ids) throws SynapseException;
+
+	
+	/**
+	 * Return a TeamMember list for a set of Team IDs and a given user
+	 * 
+	 * Note: Any invalid ID causes a 404 NOT FOUND
+	 * 
+	 * @param teamIds
+	 * @param userId
+	 * @return
+	 * @throws SynapseException
+	 */
+	public List<TeamMember> listTeamMembers(List<Long> teamIds, String userId) throws SynapseException;
 
 	/**
 	 * 
@@ -1973,6 +2008,16 @@ public interface SynapseClient extends BaseClient {
 	 * @throws SynapseException
 	 */
 	Challenge createChallenge(Challenge challenge) throws SynapseException;
+
+	/**
+	 * Returns the Challenge given its ID.  Caller must
+	 * have READ permission on the associated Project.
+	 * 
+	 * @param challengeId
+	 * @return
+	 * @throws SynapseException
+	 */
+	Challenge getChallenge(String challengeId) throws SynapseException;
 
 	/**
 	 * Returns the Challenge for a given project.  Caller must

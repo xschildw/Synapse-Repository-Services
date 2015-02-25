@@ -1160,12 +1160,12 @@ public class ServletTestHelper {
 	}
 
 	public PaginatedResults<AccessRequirement> getUnmetEntityAccessRequirements(
-			HttpServlet dispatchServlet, String id, Long userId)
+			HttpServlet dispatchServlet, String id, Long userId, ACCESS_TYPE accessType)
 			throws Exception {
 		MockHttpServletRequest request = ServletTestHelperUtils
 				.initRequest(HTTPMODE.GET, "/entity/" + id
 						+ "/accessRequirementUnfulfilled", userId, null);
-
+		request.setParameter("accessType", accessType.name());
 		MockHttpServletResponse response = ServletTestHelperUtils
 				.dispatchRequest(dispatchServlet, request, HttpStatus.OK);
 
@@ -1174,11 +1174,12 @@ public class ServletTestHelper {
 	}
 
 	public PaginatedResults<AccessRequirement> getUnmetEvaluationAccessRequirements(
-			HttpServlet dispatchServlet, String id, Long userId)
+			HttpServlet dispatchServlet, String id, Long userId, ACCESS_TYPE accessType)
 			throws Exception {
 		MockHttpServletRequest request = ServletTestHelperUtils.initRequest(
 				HTTPMODE.GET, "/evaluation/" + id
 						+ "/accessRequirementUnfulfilled", userId, null);
+		request.setParameter("accessType", accessType.name());
 
 		MockHttpServletResponse response = ServletTestHelperUtils
 				.dispatchRequest(dispatchServlet, request, HttpStatus.OK);
@@ -1588,9 +1589,9 @@ public class ServletTestHelper {
 				.readValue(response.getContentAsString(), Team.class);
 	}
 	
-	public List<Team> listTeams(HttpServlet dispatchServlet, IdSet idSet) throws Exception {
+	public List<Team> listTeams(HttpServlet dispatchServlet, IdList idList) throws Exception {
 		MockHttpServletRequest request = ServletTestHelperUtils.initRequest(
-				HTTPMODE.POST, UrlHelpers.TEAM_LIST, userId, idSet);
+				HTTPMODE.POST, UrlHelpers.TEAM_LIST, userId, idList);
 
 		MockHttpServletResponse response = ServletTestHelperUtils
 				.dispatchRequest(dispatchServlet, request, HttpStatus.OK);

@@ -4,12 +4,13 @@
 package org.sagebionetworks.repo.web.controller;
 
 import java.io.IOException;
+import java.util.Collections;
 
 import javax.servlet.http.HttpServletResponse;
 
 import org.sagebionetworks.repo.model.AuthorizationConstants;
 import org.sagebionetworks.repo.model.DatastoreException;
-import org.sagebionetworks.repo.model.IdSet;
+import org.sagebionetworks.repo.model.IdList;
 import org.sagebionetworks.repo.model.ListWrapper;
 import org.sagebionetworks.repo.model.PaginatedResults;
 import org.sagebionetworks.repo.model.ServiceConstants;
@@ -150,9 +151,9 @@ public class TeamController extends BaseController {
 	@RequestMapping(value = UrlHelpers.TEAM_LIST, method = RequestMethod.POST)
 	public @ResponseBody
 	ListWrapper<Team> listTeams(
-			@RequestBody IdSet ids
+			@RequestBody IdList ids
 			) throws DatastoreException, NotFoundException {
-		ListWrapper<Team> result = serviceProvider.getTeamService().list(ids.getSet());
+		ListWrapper<Team> result = serviceProvider.getTeamService().list(ids.getList());
 		return result;
 	}
 	
@@ -337,11 +338,33 @@ public class TeamController extends BaseController {
 	@ResponseStatus(HttpStatus.OK)
 	@RequestMapping(value = UrlHelpers.TEAM_MEMBER_LIST, method = RequestMethod.POST)
 	public @ResponseBody
-	ListWrapper<TeamMember> listTeamMembers(
+	ListWrapper<TeamMember> listTeamMembersGivenTeamandUserList(
 			@PathVariable Long id,
-			@RequestBody IdSet ids
+			@RequestBody IdList ids
 			) throws DatastoreException, NotFoundException {
-		return serviceProvider.getTeamService().listTeamMembers(id, ids.getSet());
+		return serviceProvider.getTeamService().listTeamMembers(Collections.singletonList(id), ids.getList());
+	}
+	
+	/**
+	 * Returns the TeamMember info for a user and a given list of Team IDs.
+	 * 
+	 * Invalid IDs in the list are ignored:  The results list is simply
+	 * smaller than the list of IDs passed in.
+	 *
+	 * @param id user's ID
+	 * @param ids Team IDs
+	 * @return
+	 * @throws DatastoreException
+	 * @throws NotFoundException
+	 */
+	@ResponseStatus(HttpStatus.OK)
+	@RequestMapping(value = UrlHelpers.USER_TEAM_MEMBER_LIST, method = RequestMethod.POST)
+	public @ResponseBody
+	ListWrapper<TeamMember> listTeamMembersGivenUserandTeamList(
+			@PathVariable Long id,
+			@RequestBody IdList ids
+			) throws DatastoreException, NotFoundException {
+		return serviceProvider.getTeamService().listTeamMembers(ids.getList(), Collections.singletonList(id));
 	}
 	
 	/**
