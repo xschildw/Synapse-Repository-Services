@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -59,9 +60,8 @@ public class UserPreferencesController extends BaseController {
 	public @ResponseBody 
 		UserPreferences createUserPreferences(
 			@RequestParam(value = AuthorizationConstants.USER_ID_PARAM) Long userId,
-			@RequestHeader HttpHeaders header,
-			HttpServletRequest request) throws NotFoundException, IOException {
-		return serviceProvider.getUserPreferencesService().createUserPreferences(userId, header, request);
+			@RequestBody UserPreferences userPreferences) throws NotFoundException, IOException {
+		return serviceProvider.getUserPreferencesService().createUserPreferences(userId, userPreferences);
 	}
 
 	/**
@@ -78,9 +78,8 @@ public class UserPreferencesController extends BaseController {
 	public @ResponseBody 
 		UserPreferences updateUserPreferences(
 			@RequestParam(value = AuthorizationConstants.USER_ID_PARAM) Long userId,
-			@RequestHeader HttpHeaders header,
-			HttpServletRequest request) throws NotFoundException, IOException {
-		return serviceProvider.getUserPreferencesService().updateUserPreferences(userId, header, request);
+			@RequestBody UserPreferences userPreferences) throws NotFoundException, IOException {
+		return serviceProvider.getUserPreferencesService().updateUserPreferences(userId, userPreferences);
 	}
 
 	/**

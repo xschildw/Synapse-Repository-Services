@@ -26,7 +26,9 @@ public interface UserPreferencesService {
 	 * @throws NotFoundException 
 	 * @throws IOException 
 	 */
-	public UserPreferences createUserPreferences(Long userId, HttpHeaders header, HttpServletRequest request) throws NotFoundException, IOException;
+	UserPreferences createUserPreferences(Long userId, UserPreferences userPreferences)
+			throws NotFoundException, IOException;
+
 	
 	/**
 	 * Update user preferences for specified user
@@ -36,7 +38,8 @@ public interface UserPreferencesService {
 	 * @throws NotFoundException 
 	 * @throws IOException 
 	 */
-	public UserPreferences updateUserPreferences(Long userId, HttpHeaders header, HttpServletRequest request) throws NotFoundException, IOException;
+	UserPreferences updateUserPreferences(Long userId, UserPreferences userPreferences)
+			throws NotFoundException, IOException;
 	
 	/**
 	 * Delete user preferences for specified user
@@ -44,5 +47,6 @@ public interface UserPreferencesService {
 	 * @throws NotFoundException 
 	 */
 	public void deleteUserPreferences(Long userId) throws NotFoundException;
+
 
 }

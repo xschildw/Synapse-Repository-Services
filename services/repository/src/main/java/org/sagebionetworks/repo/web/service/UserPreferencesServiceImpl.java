@@ -37,18 +37,16 @@ public class UserPreferencesServiceImpl implements UserPreferencesService {
 
 	@Override
 	public UserPreferences createUserPreferences(Long userId,
-			HttpHeaders header, HttpServletRequest request) throws NotFoundException, IOException {
+			UserPreferences userPreferences) throws NotFoundException, IOException {
 		UserInfo userInfo = userManager.getUserInfo(userId);
-		UserPreferences prefs = (UserPreferences) objectTypeSerializer.deserialize(request.getInputStream(), header, UserPreferences.class, header.getContentType());
-		return userPreferencesManager.createUserPreferences(userInfo, prefs);
+		return userPreferencesManager.createUserPreferences(userInfo, userPreferences);
 	}
 
 	@Override
 	public UserPreferences updateUserPreferences(Long userId,
-			HttpHeaders header, HttpServletRequest request) throws NotFoundException, IOException {
+			UserPreferences userPreferences) throws NotFoundException, IOException {
 		UserInfo userInfo = userManager.getUserInfo(userId);
-		UserPreferences prefs = (UserPreferences) objectTypeSerializer.deserialize(request.getInputStream(), header, UserPreferences.class, header.getContentType());
-		return userPreferencesManager.updateUserPreferences(userInfo, prefs);
+		return userPreferencesManager.updateUserPreferences(userInfo, userPreferences);
 	}
 
 	@Override
