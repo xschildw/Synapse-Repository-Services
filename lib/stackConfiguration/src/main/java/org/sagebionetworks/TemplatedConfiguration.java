@@ -73,6 +73,12 @@ public interface TemplatedConfiguration {
 	 *         properties
 	 */
 	public String getPropertyOverridesFileURL();
+	
+	/**
+	 * The location of the parameterized file that overrides
+	 * configuration properties
+	 */
+	public String getParamaterizedPropertyOverridesFileURL();
 
 	/**
 	 * The encryption key used to read passwords in the configuration property

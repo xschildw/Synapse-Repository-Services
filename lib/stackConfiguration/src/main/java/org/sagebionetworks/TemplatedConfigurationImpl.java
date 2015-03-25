@@ -26,6 +26,7 @@ public class TemplatedConfigurationImpl implements TemplatedConfiguration {
 	private Properties stackPropertyOverrides = null;
 	private Properties requiredProperties = null;
 	private String propertyFileUrl = null;
+	private String parameterizedPropertyFileUrl = null;
 
 	/**
 	 * Pass in the default location for the properties file and also the
@@ -60,35 +61,48 @@ public class TemplatedConfigurationImpl implements TemplatedConfiguration {
 		String stack = getStack();
 		String stackInstance = getStackInstance();
 
+		parameterizedPropertyFileUrl = getParamaterizedPropertyOverridesFileURL();
+		if ((null != parameterizedPropertyFileUrl) && (0 < parameterizedPropertyFileUrl.length())) {
+			// Validate the property file
+			StackUtils.validateStackProperty(stack + stackInstance,
+					StackConstants.STACK_PARAM_PROPERTY_FILE_URL, parameterizedPropertyFileUrl);
+			
+			validateOverridesFile(stack, stackInstance, parameterizedPropertyFileUrl);
+		}
+		
 		propertyFileUrl = getPropertyOverridesFileURL();
 		if ((null != propertyFileUrl) && (0 < propertyFileUrl.length())) {
 			// Validate the property file
 			StackUtils.validateStackProperty(stack + stackInstance,
 					StackConstants.STACK_PROPERTY_FILE_URL, propertyFileUrl);
-
-			// If we have IAM id and key the load the properties using the
-			// Amazon
-			// client, else the URL should be public.
-			String iamId = getIAMUserId();
-			String iamKey = getIAMUserKey();
-			if (propertyFileUrl
-					.startsWith(StackConstants.S3_PROPERTY_FILENAME_PREFIX)
-					&& iamId != null && iamKey != null) {
-				try {
-					S3PropertyFileLoader.loadPropertiesFromS3(propertyFileUrl,
-							iamId, iamKey, stackPropertyOverrides);
-				} catch (IOException e) {
-					throw new RuntimeException(e);
-				}
-			} else {
-				loadPropertiesFromURL(propertyFileUrl, stackPropertyOverrides);
-			}
-			// Validate the required properties
-			StackUtils.validateRequiredProperties(requiredProperties,
-					stackPropertyOverrides, stack, stackInstance);
+			
+			validateOverridesFile(stack, stackInstance, propertyFileUrl);
 		}
 	}
 
+	private void validateOverridesFile(String stack, String stackInstance, String fileUrl) {
+		// If we have IAM id and key the load the properties using the
+		// Amazon
+		// client, else the URL should be public.
+		String iamId = getIAMUserId();
+		String iamKey = getIAMUserKey();
+		if (fileUrl
+				.startsWith(StackConstants.S3_PROPERTY_FILENAME_PREFIX)
+				&& iamId != null && iamKey != null) {
+			try {
+				S3PropertyFileLoader.loadPropertiesFromS3(fileUrl,
+						iamId, iamKey, stackPropertyOverrides);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+		} else {
+			loadPropertiesFromURL(fileUrl, stackPropertyOverrides);
+		}
+		// Validate the required properties
+		StackUtils.validateRequiredProperties(requiredProperties,
+				stackPropertyOverrides, stack, stackInstance);
+	}
+	
 	@Override
 	public String getProperty(String propertyName) {
 		return getProperty(propertyName, true);
@@ -237,6 +251,12 @@ public class TemplatedConfigurationImpl implements TemplatedConfiguration {
 		String url = System.getProperty(StackConstants.PARAM1);
 		if (url == null)
 			url = System.getProperty(StackConstants.STACK_PROPERTY_FILE_URL);
+		return url;
+	}
+	
+	@Override
+	public String getParamaterizedPropertyOverridesFileURL() {
+		String url = System.getProperty(StackConstants.STACK_PARAM_PROPERTY_FILE_URL);
 		return url;
 	}
 
