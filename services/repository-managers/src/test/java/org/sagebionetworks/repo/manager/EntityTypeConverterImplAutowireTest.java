@@ -26,6 +26,8 @@ import org.sagebionetworks.repo.model.Annotations;
 import org.sagebionetworks.repo.model.AuthorizationConstants.BOOTSTRAP_PRINCIPAL;
 import org.sagebionetworks.repo.model.Data;
 import org.sagebionetworks.repo.model.DatastoreException;
+import org.sagebionetworks.repo.model.EntityGroup;
+import org.sagebionetworks.repo.model.EntityGroupRecord;
 import org.sagebionetworks.repo.model.EntityType;
 import org.sagebionetworks.repo.model.FileEntity;
 import org.sagebionetworks.repo.model.Folder;
@@ -36,13 +38,15 @@ import org.sagebionetworks.repo.model.Locationable;
 import org.sagebionetworks.repo.model.LocationableTypeConversionResult;
 import org.sagebionetworks.repo.model.ObjectType;
 import org.sagebionetworks.repo.model.Project;
+import org.sagebionetworks.repo.model.Reference;
 import org.sagebionetworks.repo.model.S3Token;
 import org.sagebionetworks.repo.model.Study;
+import org.sagebionetworks.repo.model.Summary;
 import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.attachment.AttachmentData;
-import org.sagebionetworks.repo.model.attachment.PreviewState;
 import org.sagebionetworks.repo.model.auth.NewUser;
+import org.sagebionetworks.repo.model.dao.FileHandleDao;
 import org.sagebionetworks.repo.model.file.ExternalFileHandle;
 import org.sagebionetworks.repo.model.file.FileHandle;
 import org.sagebionetworks.repo.model.file.S3FileHandle;
@@ -74,6 +78,8 @@ public class EntityTypeConverterImplAutowireTest {
 	@Autowired
 	private FileHandleManager fileHandleManager;
 	@Autowired
+	private FileHandleDao fileHandleDao;
+	@Autowired
 	private EntityTypeConverter entityTypeConverter;
 	@Autowired
 	V2WikiManager wikiManager;
@@ -83,7 +89,9 @@ public class EntityTypeConverterImplAutowireTest {
 	
 	private UserInfo adminUserInfo;
 	private UserInfo userInfo;
+	private UserInfo userInfo2;;
 	private Long userId;
+	private Long userId2;
 	String sampleMD5;
 	String externalPath;
 	private Project project;
@@ -97,6 +105,13 @@ public class EntityTypeConverterImplAutowireTest {
 		userId = userManager.createUser(nu);
 		userInfo = userManager.getUserInfo(userId);
 		userInfo.getGroups().add(BOOTSTRAP_PRINCIPAL.CERTIFIED_USERS.getPrincipalId());
+		
+		nu = new NewUser();
+		nu.setUserName("test2");
+		nu.setEmail("just.2.test@sagebase.org");
+		userId2 = userManager.createUser(nu);
+		userInfo2 = userManager.getUserInfo(userId2);
+		userInfo2.getGroups().add(BOOTSTRAP_PRINCIPAL.CERTIFIED_USERS.getPrincipalId());
 		toDelete = new ArrayList<String>();
 		fileHandlesToDelete = new ArrayList<String>();
 		
@@ -128,6 +143,9 @@ public class EntityTypeConverterImplAutowireTest {
 		}
 		if (userId!=null) {
 			userManager.deletePrincipal(adminUserInfo, userId);
+		}
+		if(userId2 != null){
+			userManager.deletePrincipal(adminUserInfo, userId2);
 		}
 	}
 	
@@ -304,7 +322,7 @@ public class EntityTypeConverterImplAutowireTest {
 	
 	
 	@Test
-	public void testPLFM_3229() throws DatastoreException, InvalidModelException, UnauthorizedException, NotFoundException{
+	public void testPLFM_3229() throws Exception {
 		Data data = new Data();
 		data.setName("DataFile");
 		data.setParentId(project.getId());
@@ -381,7 +399,8 @@ public class EntityTypeConverterImplAutowireTest {
 		String userId = adminUserInfo.getId().toString();
 		Date createdOn = new Date(System.currentTimeMillis());
 		// Create an attachment for the wiki
-		AttachmentData ad = createAttachment("attachment data",userId, createdOn);
+		String fileName = "Sample.txt";
+		AttachmentData ad = fileHandleManager.createAttachmentInS3("attachment data", fileName, userId, data.getId(), createdOn);
 		assertNotNull(ad);
 		data.setAttachments(new LinkedList<AttachmentData>());
 		data.getAttachments().add(ad);
@@ -405,6 +424,9 @@ public class EntityTypeConverterImplAutowireTest {
 		assertNotNull(page.getAttachmentFileHandleIds());
 		// There should be one attachment.
 		assertEquals(1, page.getAttachmentFileHandleIds().size());
+		S3FileHandle attachmentHandle = (S3FileHandle) fileHandleDao.get(page.getAttachmentFileHandleIds().get(0));
+		assertNotNull(attachmentHandle);
+		assertEquals(fileName, attachmentHandle.getFileName());
 	}
 	
 	/**
@@ -446,7 +468,7 @@ public class EntityTypeConverterImplAutowireTest {
 		String userId = adminUserInfo.getId().toString();
 		Date createdOn = new Date(System.currentTimeMillis());
 		// Create an attachment for the wiki
-		AttachmentData ad = createAttachment("attachment data",userId, createdOn);
+		AttachmentData ad = fileHandleManager.createAttachmentInS3("attachment data", "Sample.txt", userId, data.getId(), createdOn);
 		assertNotNull(ad);
 		data.setAttachments(new LinkedList<AttachmentData>());
 		data.getAttachments().add(ad);
@@ -470,6 +492,196 @@ public class EntityTypeConverterImplAutowireTest {
 		assertNotNull(page.getAttachmentFileHandleIds());
 		// There should be one attachment.
 		assertEquals(1, page.getAttachmentFileHandleIds().size());
+	}
+	
+	/**
+	 * See PLFM-3263. There are two operation that the migration process
+	 * attempts to do on behalf of the original creator: create new files
+	 * entities and create wiki pages. These can fail if the the user either is
+	 * not certified or if the user no longer has permission to create.
+	 * 
+	 * @throws IOException
+	 * @throws NotFoundException
+	 * @throws UnsupportedEncodingException
+	 * @throws InvalidModelException
+	 * @throws UnauthorizedException
+	 * @throws Exception
+	 */
+	@Test
+	public void testPLFM_3263() throws Exception{
+		Study data = new Study();
+		data.setName("DataFile");
+		data.setParentId(project.getId());
+		data.setDescription("This will become a wiki");
+		data.setVersionComment("v1 comments");
+		data.setVersionLabel("v1");
+		LocationData ld = new LocationData();
+
+		ld.setPath(externalPath);
+		ld.setType(LocationTypeNames.external);
+		data.setContentType("text/plain");
+		data.setMd5(sampleMD5);
+		data.setLocations(Arrays.asList(ld));
+		// This user does not really have permission to create this entity but we let them
+		// act as a admin
+		UserInfo userAsAdmin = new UserInfo(true, userInfo2.getId());
+		userAsAdmin.setGroups(userInfo2.getGroups());
+		String id = entityManager.createEntity(userAsAdmin, data, null);
+		data = entityManager.getEntity(userAsAdmin, id, Study.class);
+		// Since this user does not have permission to create entities or wikis, the type
+		// Conversion must execute the creates as an admin.
+		LocationableTypeConversionResult resutls = entityTypeConverter.convertOldTypeToNew(adminUserInfo, data.getId());
+		assertTrue(resutls.getSuccess());
+		
+		// Get the wiki page for the file
+		V2WikiPage page = wikiManager.getRootWikiPage(adminUserInfo, data.getId(), ObjectType.ENTITY);
+		assertNotNull(page);
+		assertNotNull(page.getMarkdownFileHandleId());
+		// This should have one child.
+		List<FileEntity> children = entityManager.getEntityChildren(adminUserInfo, data.getId(), FileEntity.class);
+		assertNotNull(children);
+		assertEquals(1, children.size());
+	}
+	
+	/**
+	 * See PLFM-3266. Handle the case where the locations do not exist in S3.
+	 * Locations might not exist and attachments might not exist.  This tests for both cases.
+	 * @throws NotFoundException 
+	 * @throws UnauthorizedException 
+	 * @throws InvalidModelException 
+	 * @throws Exception 
+	 */
+	@Test
+	public void testPLFM_3266() throws Exception {
+		Data data = new Data();
+		data.setName("DataFile");
+		data.setDescription("Should end up in a wiki");
+		data.setParentId(project.getId());
+		LocationData ld = new LocationData();
+
+		// location that does not exist.
+		String pathDoesNotExist = "/"+adminUserInfo.getId()+"/"+UUID.randomUUID().toString()+"/archive.zip";
+		ld.setPath(pathDoesNotExist);
+		ld.setType(LocationTypeNames.awss3);
+		data.setContentType("text/plain");
+		data.setMd5(sampleMD5);
+		data.setLocations(Arrays.asList(ld));
+		
+		// Add an attachment that does not exist
+		String pathDoesNotExistTwo = adminUserInfo.getId()+"/"+UUID.randomUUID().toString()+"/archive.zip";
+		AttachmentData ad = new AttachmentData();
+		ad.setContentType("text/plain");
+		ad.setMd5(sampleMD5);
+		ad.setTokenId(pathDoesNotExistTwo);
+		data.setAttachments(new LinkedList<AttachmentData>());
+		data.getAttachments().add(ad);
+		String id = entityManager.createEntity(adminUserInfo, data, null);
+		data = entityManager.getEntity(adminUserInfo, id, Data.class);
+		// Convert should handle the case where the files are missing.
+		LocationableTypeConversionResult resutls = entityTypeConverter.convertOldTypeToNew(adminUserInfo, data.getId());
+		assertTrue(resutls.getSuccess());
+		// should have a wiki
+		V2WikiPage page = wikiManager.getRootWikiPage(adminUserInfo, data.getId(), ObjectType.ENTITY);
+		assertNotNull(page);
+		assertNotNull(page.getMarkdownFileHandleId());
+		assertNotNull(page.getAttachmentFileHandleIds());
+		// There should be one attachment.
+		assertEquals(1, page.getAttachmentFileHandleIds().size());
+	}
+	
+	/**
+	 * Test to convert a summary to a folder.
+	 */
+	@Test
+	public void testPLFM_3304() throws DatastoreException, InvalidModelException, UnauthorizedException, NotFoundException{
+		Summary summary = createSummary();
+		LocationableTypeConversionResult resutls = entityTypeConverter.convertOldTypeToNew(adminUserInfo, summary.getId());
+		assertTrue(resutls.getSuccess());
+	}
+	
+	/**
+	 * Create a summary with multiple entities to point to.
+	 * @return
+	 * @throws DatastoreException
+	 * @throws InvalidModelException
+	 * @throws UnauthorizedException
+	 * @throws NotFoundException
+	 */
+	private Summary createSummary() throws DatastoreException, InvalidModelException, UnauthorizedException, NotFoundException{
+		Summary summary = new Summary();
+		summary.setDescription("This text is from the original description of the entity.");
+		summary.setParentId(project.getId());
+		summary.setName("A summary");
+		// Create some groups to link to.
+		summary.setGroups(new LinkedList<EntityGroup>());
+		for(int i=0; i<6; i++){
+			summary.getGroups().add(createGroup(i));
+		}
+		String id = entityManager.createEntity(adminUserInfo, summary, null);
+		return (Summary) entityManager.getEntity(adminUserInfo, id);
+	}
+	
+	private EntityGroup createGroup(int groupIndex) throws DatastoreException, InvalidModelException, UnauthorizedException, NotFoundException{
+		EntityGroup group = new EntityGroup();
+		String decription = null;
+		if(groupIndex % 3 == 0){
+			decription = "Group description: "+groupIndex;
+		}
+		group.setDescription(decription);
+		String name = null;
+		if(groupIndex % 2 == 0){
+			name = "Group Name: "+groupIndex;
+		}
+		group.setName(name);
+		group.setRecords(new LinkedList<EntityGroupRecord>());
+		for(int recordIndex=0; recordIndex<3; recordIndex++){
+			group.getRecords().add(createRecord(groupIndex, recordIndex));
+		}
+		return group;
+	}
+	
+	private EntityGroupRecord createRecord(int groupIndex, int recordIndex) throws DatastoreException, InvalidModelException, UnauthorizedException, NotFoundException{
+		EntityGroupRecord record = new EntityGroupRecord();
+		String note = null;
+		if(recordIndex % 2 == 0){
+			note = "note for group: "+groupIndex+" record: "+recordIndex;
+		}
+		record.setNote(note);
+		// Create a file to link to.
+		FileEntity file = new FileEntity();
+		file.setName("g"+groupIndex+"r"+recordIndex);
+		file.setParentId(project.getId());
+		//handle
+		ExternalFileHandle efh = new ExternalFileHandle();
+		efh.setContentType("text/plain");
+		efh.setExternalURL("https://www.google.com/");
+		efh.setFileName(file.getName());
+		efh.setCreatedBy(""+adminUserInfo.getId());
+		efh.setCreatedOn(new Date());
+		efh = fileHandleDao.createFile(efh);
+		// file
+		file.setDataFileHandleId(efh.getId());
+		String fileId = entityManager.createEntity(adminUserInfo, file, null);
+		file = (FileEntity) entityManager.getEntity(adminUserInfo, fileId);
+		Reference ref = new Reference();
+		ref.setTargetId(file.getId());
+		
+		if(recordIndex % 2 == 0){
+			// create a second version
+			efh = new ExternalFileHandle();
+			efh.setContentType("text/plain");
+			efh.setExternalURL("https://www.google.com/2");
+			efh.setFileName(file.getName()+"2");
+			efh.setCreatedBy(""+adminUserInfo.getId());
+			efh.setCreatedOn(new Date());
+			efh = fileHandleDao.createFile(efh);
+			file.setDataFileHandleId(efh.getId());
+			file.setVersionLabel("v2");
+			entityManager.updateEntity(adminUserInfo, file, true, null);
+			ref.setTargetVersionNumber(1L);
+		}
+		record.setEntityReference(ref);
+		return record;
 	}
 	
 	/**
@@ -563,28 +775,6 @@ public class EntityTypeConverterImplAutowireTest {
 		data.setVersionComment("v2 Comments");
 		entityManager.updateEntity(adminUserInfo, data, true, null);
 		return entityManager.getEntity(adminUserInfo, id, Study.class);
-	}
-	
-	/**
-	 * Create an attachment data back by a file in S3.
-	 * @param fileContents
-	 * @param userId
-	 * @param createdOn
-	 * @return
-	 * @throws UnsupportedEncodingException
-	 * @throws IOException
-	 */
-	private AttachmentData createAttachment(String fileContents, String userId, Date createdOn) throws UnsupportedEncodingException, IOException{
-		S3FileHandle handle = fileHandleManager.createCompressedFileFromString(userId, createdOn, fileContents);
-		// Create an attachment from the filehandle
-		AttachmentData ad = new AttachmentData();
-		ad.setContentType(handle.getContentType());
-		ad.setMd5(handle.getContentMd5());
-		ad.setName(handle.getFileName());
-		ad.setPreviewId(handle.getKey());
-		ad.setTokenId(handle.getKey());
-		ad.setPreviewState(PreviewState.PREVIEW_EXISTS);
-		return ad;
 	}
 	
 	/**

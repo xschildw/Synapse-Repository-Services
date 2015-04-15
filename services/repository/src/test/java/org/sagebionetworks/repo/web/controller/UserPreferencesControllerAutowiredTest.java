@@ -41,8 +41,6 @@ public class UserPreferencesControllerAutowiredTest extends AbstractAutowiredCon
 
 	@Test
 	public void testUserPreferencesCRUD() {
-		
-		UserPreferences prefs = servletTestHelper
 	}
 
 }

@@ -22,7 +22,6 @@ import javax.annotation.PostConstruct;
 
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.commons.lang.ObjectUtils;
-import org.apache.commons.lang.StringUtils;
 import org.joda.time.DateTime;
 import org.sagebionetworks.ids.IdGenerator;
 import org.sagebionetworks.ids.IdGenerator.TYPE;
@@ -41,6 +40,7 @@ import org.sagebionetworks.repo.model.jdo.KeyFactory;
 import org.sagebionetworks.repo.model.message.ChangeType;
 import org.sagebionetworks.repo.model.message.TransactionalMessenger;
 import org.sagebionetworks.repo.model.query.jdo.QueryUtils;
+import org.sagebionetworks.repo.transactions.MandatoryWriteTransaction;
 import org.sagebionetworks.repo.web.NotFoundException;
 import org.sagebionetworks.util.ValidateArgument;
 import org.springframework.beans.factory.InitializingBean;
@@ -51,8 +51,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
+
+import org.sagebionetworks.repo.transactions.WriteTransaction;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -98,7 +98,9 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 		"select count(*) from (" + 
 			" select distinct n." + COL_NODE_PROJECT_ID + " from (";
 	private static final String SELECT_PROJECTS_SQL1 =
-		"select n." + COL_NODE_ID + ", n." + COL_NODE_NAME + ", n." + COL_NODE_TYPE + ", " + LAST_ACCESSED_OR_CREATED + " as " + COL_PROJECT_STAT_LAST_ACCESSED +
+		"select n." + COL_NODE_ID + ", n." + COL_NODE_NAME + ", n." + COL_NODE_TYPE +
+				", " + LAST_ACCESSED_OR_CREATED + " as " + COL_PROJECT_STAT_LAST_ACCESSED +
+				", r." + COL_REVISION_MODIFIED_BY + ", r." + COL_REVISION_MODIFIED_ON +
 		" from (" +
 			" select distinct n." + COL_NODE_PROJECT_ID +
 				" from ( ";
@@ -106,20 +108,18 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 		" ) acls" +
 			" join " + TABLE_NODE + " n on n." + COL_NODE_BENEFACTOR_ID + " = acls." + COL_ACL_ID +
 			" where n." + COL_NODE_PROJECT_ID + " is not null" +
-				" and n." + COL_NODE_BENEFACTOR_ID + " = n." + COL_NODE_ID;
+				" and n." + COL_NODE_BENEFACTOR_ID + " = n." + COL_NODE_ID +
+		" ) pids" +
+		" join " + TABLE_NODE + " n on n." + COL_NODE_ID + " = pids." + COL_NODE_PROJECT_ID +
+		" join " + TABLE_REVISION + " r on n." + COL_NODE_ID + " = r." + COL_REVISION_OWNER_NODE + " and r." + COL_REVISION_NUMBER + " = n." + COL_CURRENT_REV;
+
 	private static final String SELECT_CREATED =
 		"   and n." + COL_NODE_CREATED_BY + " = ";
 	private static final String SELECT_NOT_CREATED =
 		"   and n." + COL_NODE_CREATED_BY + " <> ";
 
-	private static final String SELECT_PROJECTS_SQL4 =
-		" ) pids" +
-		" join " + TABLE_NODE + " n on n." + COL_NODE_ID + " = pids." + COL_NODE_PROJECT_ID;
 	private static final String SELECT_PROJECTS_SQL_JOIN_STATS =
 		" left join " + TABLE_PROJECT_STAT + " ps on n." + COL_NODE_ID + " = ps." + COL_PROJECT_STAT_PROJECT_ID + " and ps." + COL_PROJECT_STAT_USER_ID + " = :" + USER_ID_PARAM_NAME;
-
-	private static final String SELECT_ONLY_PROJECTS_GROUPS =
-		"   n." + COL_NODE_BENEFACTOR_ID + " in ( :" + GROUP_IDS_PARAM_NAME + ")";
 
 	private static final String SELECT_PROJECTS_ORDER =
 		" order by " + LAST_ACCESSED_OR_CREATED;
@@ -202,7 +202,7 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 		PROJECT_ENTITY_TYPE = EntityType.getNodeTypeForClass(Project.class);
 	}
 
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	@WriteTransaction
 	@Override
 	public String createNew(Node dto) throws NotFoundException, DatastoreException, InvalidModelException {
 		if(dto == null) throw new IllegalArgumentException("Node cannot be null");
@@ -286,7 +286,7 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 		throw e;
 	}
 	
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	@WriteTransaction
 	@Override
 	public Long createNewVersion(Node newVersion) throws NotFoundException, DatastoreException, InvalidModelException {
 		if(newVersion == null) throw new IllegalArgumentException("New version node cannot be null");
@@ -336,9 +336,9 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 		return NodeUtils.copyFromJDO(jdo, rev);
 	}
 
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	@WriteTransaction
 	@Override
-	public boolean delete(String id) throws NotFoundException, DatastoreException {
+	public boolean delete(String id) throws DatastoreException {
 		if(id == null) throw new IllegalArgumentException("NodeId cannot be null");
 		Long longId = KeyFactory.stringToKey(id);
 		MapSqlParameterSource prams = getNodeParameters(longId);
@@ -347,7 +347,7 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 		return dboBasicDao.deleteObjectByPrimaryKey(DBONode.class, prams);
 	}
 	
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	@WriteTransaction
 	@Override
 	public void deleteVersion(String nodeId, Long versionNumber) throws NotFoundException, DatastoreException {
 		// Get the version in question
@@ -548,7 +548,7 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 	 * @throws NotFoundException 
 	 * @throws DatastoreException 
 	 */
-	@Transactional(readOnly = false, propagation = Propagation.MANDATORY)
+	@MandatoryWriteTransaction
 	@Override
 	public String lockNodeAndIncrementEtag(String id, String eTag)
 			throws NotFoundException, ConflictingUpdateException, DatastoreException {
@@ -560,7 +560,7 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 	 * @throws NotFoundException 
 	 * @throws DatastoreException 
 	 */
-	@Transactional(readOnly = false, propagation = Propagation.MANDATORY)
+	@MandatoryWriteTransaction
 	@Override
 	public String lockNodeAndIncrementEtag(String id, String eTag, ChangeType changeType)
 			throws NotFoundException, ConflictingUpdateException, DatastoreException {
@@ -603,7 +603,7 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 		return currentTag;
 	}
 
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	@WriteTransaction
 	@Override
 	public void updateNode(Node updatedNode) throws NotFoundException, DatastoreException, InvalidModelException {
 		if(updatedNode == null) throw new IllegalArgumentException("Node to update cannot be null");
@@ -625,7 +625,7 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 		dboBasicDao.update(revToUpdate);
 	}
 
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	@WriteTransaction
 	@Override
 	public void updateAnnotations(String nodeId, NamedAnnotations updatedAnnos) throws NotFoundException, DatastoreException {
 
@@ -660,7 +660,7 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 		return list;
 	}
 
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	@WriteTransaction
 	@Override
 	public void replaceVersion(String nodeId, Long versionNumber, NamedAnnotations updatedAnnos, String fileHandleId)
 			throws NotFoundException, DatastoreException {
@@ -684,7 +684,7 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 		
 	}
 
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	@WriteTransaction
 	@Override
 	public void changeNodeType(String nodeId, String newEtag, String newType) throws DatastoreException, NotFoundException {
 		Long nodeIdLong = KeyFactory.stringToKey(nodeId);
@@ -767,7 +767,7 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 		return queryResults;
 	}
 
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	@WriteTransaction
 	@Override
 	public void afterPropertiesSet() throws Exception {
 
@@ -778,25 +778,23 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 	 * This must occur in its own transaction.
 	 * @throws DatastoreException 
 	 */
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	@WriteTransaction
 	@Override
 	public void boostrapAllNodeTypes() throws DatastoreException {
 		// Make sure all of the known types are there
 		EntityType[] types = EntityType.values();
-		for(EntityType type: types){
-			try{
-				// Try to get the type.
-				// If the type does not already exist then an exception will be thrown
-				@SuppressWarnings("unused")
-				DBONodeType jdo = getNodeType(type);
-			}catch(NotFoundException e){
+		for (EntityType type : types) {
+			// Try to get the type.
+			// If the type does not already exist then an exception will be thrown
+			DBONodeType jdo = getNodeType(type);
+			if (jdo == null) {
 				// The type does not exist so create it.
-				DBONodeType jdo = new DBONodeType();
+				jdo = new DBONodeType();
 				jdo.setId(type.getId());
 				jdo.setName(type.name());
 				dboBasicDao.createNew(jdo);
 				// Create the aliases for this type.
-				for(String aliasString: type.getAllAliases()){
+				for (String aliasString : type.getAllAliases()) {
 					DBONodeTypeAlias alias = new DBONodeTypeAlias();
 					alias.setTypeOwner(type.getId());
 					alias.setAlias(aliasString);
@@ -806,11 +804,11 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 		}
 	}
 
-	private DBONodeType getNodeType(EntityType type) throws DatastoreException, NotFoundException {
+	private DBONodeType getNodeType(EntityType type) throws DatastoreException {
 		MapSqlParameterSource params = new MapSqlParameterSource();
 		params.addValue("id", type.getId());
 		params.addValue("name", type.name());
-		return dboBasicDao.getObjectByPrimaryKey(DBONodeType.class, params);
+		return dboBasicDao.getObjectByPrimaryKeyIfExists(DBONodeType.class, params);
 	}
 
 	@Override
@@ -953,7 +951,7 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 		try {
 			row = jdbcTemplate.queryForMap(nodeAncestorSQL(depth), nodeId);
 		} catch (EmptyResultDataAccessException e) {
-			throw new NotFoundException("Entity "+nodeId+" is not found.", e);
+			throw new NotFoundException("Entity " + nodeId + " is not found.");
 		}
 		List<ParentTypeName> result = new ArrayList<ParentTypeName>();
 		for (int i=0; i<depth; i++) {
@@ -1177,9 +1175,10 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 		return toReturn;
 	}
 	
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	@WriteTransaction
 	@Override
-	public boolean changeNodeParent(String nodeId, String newParentId) throws NumberFormatException, NotFoundException, DatastoreException{
+	public boolean changeNodeParent(String nodeId, String newParentId, boolean isMoveToTrash) throws NumberFormatException,
+			NotFoundException, DatastoreException {
 		DBONode node = getNodeById(KeyFactory.stringToKey(nodeId));
 		//if node's parentId is null it is a root and can't have
 		//it's parentId altered
@@ -1194,11 +1193,18 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 		DBONode newParentNode = getNodeById(KeyFactory.stringToKey(newParentId));
 		//make the update 
 		node.setParentId(newParentNode.getId());
+
+		Long desiredProjectId = newParentNode.getProjectId();
+		if (desiredProjectId == null && !isMoveToTrash && node.getNodeType().equals(PROJECT_ENTITY_TYPE.getId())) {
+			// we are our own project
+			desiredProjectId = node.getId();
+		}
+
 		// also update the project, since that might have changed too
-		if (!ObjectUtils.equals(node.getProjectId(), newParentNode.getProjectId())) {
-			node.setProjectId(newParentNode.getProjectId());
+		if (!ObjectUtils.equals(node.getProjectId(), desiredProjectId)) {
+			node.setProjectId(desiredProjectId);
 			// this means we need to update all the children also
-			updateProjectForAllChildren(node, newParentNode.getProjectId());
+			updateProjectForAllChildren(node, desiredProjectId);
 		}
 		dboBasicDao.update(node);
 		return true;
@@ -1447,9 +1453,9 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 			whereClause2 = " where " + auth2;
 		}
 
-		String selectSql = SELECT_PROJECTS_SQL1 + authForLookup + SELECT_PROJECTS_SQL3 + SELECT_PROJECTS_SQL4 + whereClause
+		String selectSql = SELECT_PROJECTS_SQL1 + authForLookup + SELECT_PROJECTS_SQL3 + whereClause
 				+ SELECT_PROJECTS_SQL_JOIN_STATS + whereClause2 + sortOrder + " " + sortDirection.name() + " " + pagingSql;
-		String countSql = COUNT_PROJECTS_SQL1 + authForLookup + SELECT_PROJECTS_SQL3 + SELECT_PROJECTS_SQL4 + whereClause + whereClause2;
+		String countSql = COUNT_PROJECTS_SQL1 + authForLookup + SELECT_PROJECTS_SQL3 + whereClause + whereClause2;
 
 		return getProjectHeaders(parameters, selectSql, countSql);
 	}
@@ -1466,6 +1472,8 @@ public class NodeDAOImpl implements NodeDAO, InitializingBean {
 				if (!rs.wasNull()) {
 					header.setLastActivity(new Date(lastActivity));
 				}
+				header.setModifiedBy(rs.getLong(COL_REVISION_MODIFIED_BY));
+				header.setModifiedOn(new Date(rs.getLong(COL_REVISION_MODIFIED_ON)));
 				return header;
 			}
 		});

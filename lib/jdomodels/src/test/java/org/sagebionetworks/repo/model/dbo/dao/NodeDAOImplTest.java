@@ -1412,7 +1412,7 @@ public class NodeDAOImplTest {
 		assertEquals(parentProjectId, oldNode.getParentId());
 		
 		//change child's parent to newProject
-		boolean changeReturn = nodeDao.changeNodeParent(childId, newParentId);
+		boolean changeReturn = nodeDao.changeNodeParent(childId, newParentId, false);
 		assertTrue(changeReturn);
 		
 		Node changedNode = nodeDao.getNode(childId);
@@ -1473,7 +1473,7 @@ public class NodeDAOImplTest {
 		assertEquals(parentProjectId, oldNode.getParentId());
 
 		// change child's parent to newProject
-		boolean changeReturn = nodeDao.changeNodeParent(childId, newParentId);
+		boolean changeReturn = nodeDao.changeNodeParent(childId, newParentId, false);
 		assertTrue(changeReturn);
 
 		// make sure all project ids are set to new project
@@ -1483,7 +1483,7 @@ public class NodeDAOImplTest {
 		}
 
 		// change to trash (no project) and back
-		nodeDao.changeNodeParent(childId, StackConfiguration.getTrashFolderEntityIdStatic());
+		nodeDao.changeNodeParent(childId, StackConfiguration.getTrashFolderEntityIdStatic(), true);
 
 		// make sure all project ids are set to new project
 		assertNull(nodeDao.getNode(childId).getProjectId());
@@ -1491,7 +1491,7 @@ public class NodeDAOImplTest {
 			assertNull(nodeDao.getNode(childChilds[i]).getProjectId());
 		}
 
-		nodeDao.changeNodeParent(childId, newParentId);
+		nodeDao.changeNodeParent(childId, newParentId, false);
 
 		// make sure all project ids are set to new project
 		assertEquals(newParentId, nodeDao.getNode(childId).getProjectId());
@@ -1523,7 +1523,7 @@ public class NodeDAOImplTest {
 		
 		Node parent = nodeDao.getNode(rootId);
 		assertNull(parent.getParentId());
-		nodeDao.changeNodeParent(rootId, newParentId);
+		nodeDao.changeNodeParent(rootId, newParentId, false);
 	}
 	
 	/**
@@ -1555,7 +1555,7 @@ public class NodeDAOImplTest {
 		assertEquals(parentProjectId, oldNode.getParentId());
 		
 		//make the parentChange update
-		boolean updateReturn = nodeDao.changeNodeParent(childId, parentProjectId);
+		boolean updateReturn = nodeDao.changeNodeParent(childId, parentProjectId, false);
 		assertFalse(updateReturn);
 		
 		//check new state of node
@@ -2145,6 +2145,14 @@ public class NodeDAOImplTest {
 		ProjectStat projectStat = new ProjectStat(KeyFactory.stringToKey(owned), KeyFactory.stringToKey(user1), new Date());
 		projectStatsDAO.update(projectStat);
 
+		Thread.sleep(2);
+
+		ownedProject.setModifiedByPrincipalId(Long.parseLong(user2));
+		ownedProject.setModifiedOn(new Date());
+		nodeDao.updateNode(ownedProject);
+		projectStat = new ProjectStat(KeyFactory.stringToKey(owned), KeyFactory.stringToKey(user2), new Date());
+		projectStatsDAO.update(projectStat);
+
 		PaginatedResults<ProjectHeader> projectHeadersAfter = nodeDao.getProjectHeaders(user1Info, user1Info, null,
 				ProjectListType.MY_PROJECTS, ProjectListSortColumn.LAST_ACTIVITY, SortDirection.DESC, 100, 0);
 		assertEquals(1, projectHeadersAfter.getTotalNumberOfResults());
@@ -2152,6 +2160,9 @@ public class NodeDAOImplTest {
 		assertEquals(ownedProject.getName(), headerAfter.getName());
 		assertEquals(owned, headerAfter.getId());
 		assertNotNull(headerAfter.getLastActivity());
+
+		assertEquals(user2, headerAfter.getModifiedBy().toString());
+		assertTrue(headerAfter.getModifiedOn().after(headerAfter.getLastActivity()));
 
 		Thread.sleep(2);
 		Date after = new Date();

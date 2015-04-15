@@ -180,6 +180,8 @@ public class UrlHelpers {
 	 */
 	public static final String ENTITY_ID	= ENTITY+ID;
 	public static final String USER_PROFILE_ID		= USER_PROFILE+PROFILE_ID;
+	public static final String USER_PROFILE_IMAGE = USER_PROFILE_ID+"/image";
+	public static final String USER_PROFILE_IMAGE_PREVIEW = USER_PROFILE_IMAGE+"/preview";
 
 	public static final String ENTITY_MD5 = ENTITY + "/md5" + "/{md5}";
 
@@ -221,13 +223,10 @@ public class UrlHelpers {
 	 * The url used to get an attachment URL.
 	 */
 	public static final String ENTITY_ATTACHMENT_URL = ENTITY_ID+ATTACHMENT_URL;
-	
-	/**
-	 * The url used to get a user profile attachment URL.
-	 */
-	public static final String USER_PROFILE_ATTACHMENT_URL = USER_PROFILE_ID+ATTACHMENT_URL;
 
 	// project settings
+	public static final String STORAGE_LOCATION = "/storageLocation";
+	public static final String STORAGE_LOCATION_BY_ID = "/storageLocation" + ID;
 	public static final String PROJECT_SETTINGS = "/projectSettings";
 	public static final String PROJECT_SETTINGS_BY_ID = "/projectSettings" + ID;
 	public static final String PROJECT_SETTINGS_BY_PROJECT_ID_AND_TYPE = "/projectSettings/{projectId}/type/{type}";
@@ -611,6 +610,7 @@ public class UrlHelpers {
 
 	// Wiki URL
 	public static final String WIKI = "/wiki";
+	public static final String WIKI_KEY = "/wikikey";
 	public static final String WIKI_HEADER_TREE = "/wikiheadertree";
 	public static final String ATTACHMENT = "/attachment";
 	public static final String ATTACHMENT_PREVIEW = "/attachmentpreview";
@@ -619,6 +619,7 @@ public class UrlHelpers {
 	// Entity
 	public static final String ENTITY_OWNER_ID = ENTITY+"/{ownerId}";
 	public static final String ENTITY_WIKI = ENTITY_OWNER_ID + WIKI;
+	public static final String ENTITY_WIKI_KEY = ENTITY_OWNER_ID + WIKI_KEY;
 	public static final String ENTITY_WIKI_TREE = ENTITY_OWNER_ID + WIKI_HEADER_TREE;
 	public static final String ENTITY_WIKI_ID = ENTITY_OWNER_ID + WIKI_WITH_ID;
 	public static final String ENTITY_WIKI_ID_ATTCHMENT_HANDLE = ENTITY_OWNER_ID + WIKI_WITH_ID+ATTACHMENT_HANDLES;
@@ -627,11 +628,18 @@ public class UrlHelpers {
 	// Evaluation
 	public static final String EVALUATION_OWNER_ID = EVALUATION+"/{ownerId}";
 	public static final String EVALUATION_WIKI = EVALUATION_OWNER_ID+ WIKI;
+	public static final String EVALUATION_WIKI_KEY = EVALUATION_OWNER_ID+ WIKI_KEY;
 	public static final String EVALUATION_WIKI_TREE = EVALUATION_OWNER_ID + WIKI_HEADER_TREE;
 	public static final String EVALUATION_WIKI_ID =EVALUATION_OWNER_ID + WIKI_WITH_ID;
 	public static final String EVALUATION_WIKI_ID_ATTCHMENT_HANDLE =EVALUATION_OWNER_ID + WIKI_WITH_ID+ATTACHMENT_HANDLES;
 	public static final String EVALUATION_WIKI_ID_ATTCHMENT_FILE =EVALUATION_OWNER_ID + WIKI_WITH_ID+ATTACHMENT;
-	public static final String EVALUATION_WIKI_ID_ATTCHMENT_FILE_PREVIEW =EVALUATION_OWNER_ID + WIKI_WITH_ID+ATTACHMENT_PREVIEW;	
+	public static final String EVALUATION_WIKI_ID_ATTCHMENT_FILE_PREVIEW =EVALUATION_OWNER_ID + WIKI_WITH_ID+ATTACHMENT_PREVIEW;
+	// Access Requirement
+	public static final String ACCESS_REQUIREMENT_OWNER_ID = "/access_requirement/{ownerId}";
+	public static final String ACCESS_REQUIREMENT_WIKI = ACCESS_REQUIREMENT_OWNER_ID+ WIKI;
+	public static final String ACCESS_REQUIREMENT_WIKI_ID = ACCESS_REQUIREMENT_OWNER_ID+ WIKI_WITH_ID;
+	public static final String ACCESS_REQUIREMENT_WIKI_KEY = ACCESS_REQUIREMENT_OWNER_ID+ WIKI_KEY;
+	
 
 	// V2 Wiki URL
 	public static final String WIKI_V2 = "/wiki2";
@@ -730,9 +738,6 @@ public class UrlHelpers {
 	public static final String ENTITY_TABLE_DOWNLOAD_CSV = ENTITY_TABLE + "/download/csv";
 	public static final String ENTITY_TABLE_DOWNLOAD_CSV_ASYNC_START = ENTITY_TABLE_DOWNLOAD_CSV + ASYNC_START_REQUEST;
 	public static final String ENTITY_TABLE_DOWNLOAD_CSV_ASYNC_GET = ENTITY_TABLE_DOWNLOAD_CSV + ASYNC_GET_REQUEST;
-	public static final String ENTITY_TABLE_UPLOAD_CSV_PREVIEW = ENTITY_TABLE + "/upload/csv/preview";
-	public static final String ENTITY_TABLE_UPLOAD_CSV_PREVIEW_ASYNC_START = ENTITY_TABLE_UPLOAD_CSV_PREVIEW + ASYNC_START_REQUEST;
-	public static final String ENTITY_TABLE_UPLOAD_CSV_PREVIEW_ASYNC_GET = ENTITY_TABLE_UPLOAD_CSV_PREVIEW + ASYNC_GET_REQUEST;
 	public static final String ENTITY_TABLE_UPLOAD_CSV = ENTITY_TABLE + "/upload/csv";
 	public static final String ENTITY_TABLE_UPLOAD_CSV_ASYNC_START = ENTITY_TABLE_UPLOAD_CSV + ASYNC_START_REQUEST;
 	public static final String ENTITY_TABLE_UPLOAD_CSV_ASYNC_GET = ENTITY_TABLE_UPLOAD_CSV + ASYNC_GET_REQUEST;
@@ -758,7 +763,6 @@ public class UrlHelpers {
 	public static final String TEAM_ID_MEMBER_ID_PERMISSION = TEAM_ID_MEMBER+PRINCIPAL_ID+"/permission";
 	public static final String TEAM_PERMISSION_REQUEST_PARAMETER = "isAdmin";
 	public static final String TEAM_ID_MEMBER_ID_MEMBERSHIP_STATUS = TEAM_ID_MEMBER+PRINCIPAL_ID+"/membershipStatus";
-	public static final String TEAM_UPDATE_SEARCH_CACHE = "/updateTeamSearchCache";
 	// 	Team URIs for JSONP
 	public static final String TEAMS = "/teams";
 	public static final String TEAM_MEMBERS_ID = "/teamMembers"+ID;
@@ -852,6 +856,10 @@ public class UrlHelpers {
 	public static final String AUTH_SECRET_KEY = "/secretKey";
 	public static final String AUTH_OPEN_ID_CALLBACK = "/openIdCallback";
 	
+	public static final String AUTH_OAUTH_2 = "/oauth2";
+	public static final String AUTH_OAUTH_2_AUTH_URL = AUTH_OAUTH_2+"/authurl";
+	public static final String AUTH_OAUTH_2_SESSION = AUTH_OAUTH_2+"/session";
+	
 	/**
 	 * API for creating integration test users
 	 */
@@ -868,6 +876,11 @@ public class UrlHelpers {
 	 */
 	public static final String ADMIN_WAIT = ADMIN + "/wait";
 	
+	/**
+	 * API for testing exception handling
+	 */
+	public static final String ADMIN_EXCEPTION = ADMIN + "/exception";
+
 	static {
 		@SuppressWarnings("rawtypes")
 		Map<Class, String> property2urlsuffix = new HashMap<Class, String>();

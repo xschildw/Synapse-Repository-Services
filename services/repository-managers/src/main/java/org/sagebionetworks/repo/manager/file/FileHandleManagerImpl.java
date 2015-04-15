@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
+import org.apache.commons.collections.keyvalue.TiedMapEntry;
 import org.apache.commons.fileupload.FileItemIterator;
 import org.apache.commons.fileupload.FileItemStream;
 import org.apache.commons.fileupload.FileUploadException;
@@ -30,54 +31,45 @@ import org.sagebionetworks.repo.manager.AuthorizationManager;
 import org.sagebionetworks.repo.manager.AuthorizationManagerUtil;
 import org.sagebionetworks.repo.manager.NodeManager;
 import org.sagebionetworks.repo.manager.ProjectSettingsManager;
+import org.sagebionetworks.repo.manager.S3TokenManagerImpl;
 import org.sagebionetworks.repo.manager.file.transfer.FileTransferStrategy;
 import org.sagebionetworks.repo.manager.file.transfer.TransferRequest;
 import org.sagebionetworks.repo.manager.file.transfer.TransferUtils;
 import org.sagebionetworks.repo.model.DatastoreException;
 import org.sagebionetworks.repo.model.EntityHeader;
+import org.sagebionetworks.repo.model.StorageLocationDAO;
 import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.attachment.AttachmentData;
+import org.sagebionetworks.repo.model.attachment.PreviewState;
 import org.sagebionetworks.repo.model.dao.FileHandleDao;
 import org.sagebionetworks.repo.model.dao.UploadDaemonStatusDao;
-import org.sagebionetworks.repo.model.file.ChunkRequest;
-import org.sagebionetworks.repo.model.file.ChunkResult;
-import org.sagebionetworks.repo.model.file.ChunkedFileToken;
-import org.sagebionetworks.repo.model.file.CompleteAllChunksRequest;
-import org.sagebionetworks.repo.model.file.CompleteChunkedFileRequest;
-import org.sagebionetworks.repo.model.file.CreateChunkedFileTokenRequest;
-import org.sagebionetworks.repo.model.file.ExternalFileHandle;
-import org.sagebionetworks.repo.model.file.ExternalUploadDestination;
-import org.sagebionetworks.repo.model.file.FileHandle;
-import org.sagebionetworks.repo.model.file.FileHandleResults;
-import org.sagebionetworks.repo.model.file.HasPreviewId;
-import org.sagebionetworks.repo.model.file.S3FileHandle;
-import org.sagebionetworks.repo.model.file.S3FileHandleInterface;
-import org.sagebionetworks.repo.model.file.S3UploadDestination;
-import org.sagebionetworks.repo.model.file.State;
-import org.sagebionetworks.repo.model.file.UploadDaemonStatus;
-import org.sagebionetworks.repo.model.file.UploadDestination;
-import org.sagebionetworks.repo.model.file.UploadType;
-import org.sagebionetworks.repo.model.project.ExternalUploadDestinationSetting;
-import org.sagebionetworks.repo.model.project.S3UploadDestinationSetting;
+import org.sagebionetworks.repo.model.dbo.dao.DBOStorageLocationDAOImpl;
+import org.sagebionetworks.repo.model.file.*;
+import org.sagebionetworks.repo.model.project.ExternalS3StorageLocationSetting;
+import org.sagebionetworks.repo.model.project.ExternalStorageLocationSetting;
+import org.sagebionetworks.repo.model.project.ProjectSettingsType;
+import org.sagebionetworks.repo.model.project.S3StorageLocationSetting;
+import org.sagebionetworks.repo.model.project.StorageLocationSetting;
 import org.sagebionetworks.repo.model.project.UploadDestinationListSetting;
-import org.sagebionetworks.repo.model.project.UploadDestinationSetting;
 import org.sagebionetworks.repo.model.util.ContentTypeUtils;
 import org.sagebionetworks.repo.web.NotFoundException;
 import org.sagebionetworks.repo.web.ServiceUnavailableException;
+import org.sagebionetworks.util.AmazonErrorCodes;
 import org.sagebionetworks.util.ValidateArgument;
 import org.sagebionetworks.utils.MD5ChecksumHelper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
+import org.sagebionetworks.repo.transactions.WriteTransaction;
+
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.HttpMethod;
+import com.amazonaws.event.ProgressListener;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.BucketCrossOriginConfiguration;
 import com.amazonaws.services.s3.model.CORSRule;
 import com.amazonaws.services.s3.model.CORSRule.AllowedMethods;
 import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.ProgressListener;
 import com.amazonaws.util.BinaryUtils;
 import com.google.common.collect.Lists;
 
@@ -91,6 +83,17 @@ public class FileHandleManagerImpl implements FileHandleManager {
 
 	public static final long PRESIGNED_URL_EXPIRE_TIME_MS = 30 * 1000; // 30
 																		// secs
+
+	/**
+	 * Used as the file contents for old locationables and attachments that were never
+	 * successfully uploaded by the original user.  See PLFM-3266.
+	 */
+	static private String NEVER_UPLOADED_CONTENTS = "Placeholder for a file that has not been uploaded.";
+	/**
+	 * Used as the file name for old locationables and attachments that were never
+	 * successfully uploaded by the original user.  See PLFM-3266.
+	 */
+	private static final String PLACEHOLDER_SUFFIX = "_placeholder.txt";
 
 	static private Log log = LogFactory.getLog(FileHandleManagerImpl.class);
 
@@ -121,6 +124,9 @@ public class FileHandleManagerImpl implements FileHandleManager {
 
 	@Autowired
 	ProjectSettingsManager projectSettingsManager;
+	
+	@Autowired
+	StorageLocationDAO storageLocationDAO;
 
 	@Autowired
 	NodeManager nodeManager;
@@ -198,7 +204,7 @@ public class FileHandleManagerImpl implements FileHandleManager {
 		this.fallbackStrategy = fallbackStrategy;
 	}
 
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	@WriteTransaction
 	@Override
 	public FileUploadResults uploadfiles(UserInfo userInfo,
 			Set<String> expectedParams, FileItemIterator itemIterator)
@@ -268,7 +274,7 @@ public class FileHandleManagerImpl implements FileHandleManager {
 	 * @throws IOException
 	 * @throws ServiceUnavailableException
 	 */
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	@WriteTransaction
 	public S3FileHandle uploadFile(String userId, FileItemStream fis)
 			throws IOException, ServiceUnavailableException {
 		// Create a token for this file
@@ -340,7 +346,7 @@ public class FileHandleManagerImpl implements FileHandleManager {
 		return handle;
 	}
 
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	@WriteTransaction
 	@Override
 	public void deleteFileHandle(UserInfo userInfo, String handleId)
 			throws DatastoreException {
@@ -453,7 +459,7 @@ public class FileHandleManagerImpl implements FileHandleManager {
 		return fileHandleDao.getAllFileHandlesBatch(idsList);
 	}
 
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	@WriteTransaction
 	@Override
 	public ExternalFileHandle createExternalFileHandle(UserInfo userInfo,
 			ExternalFileHandle fileHandle) {
@@ -538,19 +544,16 @@ public class FileHandleManagerImpl implements FileHandleManager {
 	}
 
 	@Override
-	public ChunkedFileToken createChunkedFileUploadToken(UserInfo userInfo,
-			CreateChunkedFileTokenRequest ccftr) {
+	public ChunkedFileToken createChunkedFileUploadToken(UserInfo userInfo, CreateChunkedFileTokenRequest ccftr) throws DatastoreException,
+			NotFoundException {
 		if (userInfo == null)
 			throw new IllegalArgumentException("UserInfo cannot be null");
 		String userId = getUserId(userInfo);
-		String bucket = StackConfiguration.getS3Bucket();
-		return this.multipartManager.createChunkedFileUploadToken(ccftr,
-				bucket, userId);
+		return this.multipartManager.createChunkedFileUploadToken(ccftr, ccftr.getStorageLocationId(), userId);
 	}
 
 	@Override
-	public URL createChunkedFileUploadPartURL(UserInfo userInfo,
-			ChunkRequest cpr) {
+	public URL createChunkedFileUploadPartURL(UserInfo userInfo, ChunkRequest cpr) throws DatastoreException, NotFoundException {
 		if (cpr == null)
 			throw new IllegalArgumentException(
 					"ChunkedPartRequest cannot be null");
@@ -561,14 +564,13 @@ public class FileHandleManagerImpl implements FileHandleManager {
 			throw new IllegalArgumentException(
 					"ChunkedPartRequest.chunkNumber cannot be null");
 		ChunkedFileToken token = cpr.getChunkedFileToken();
-		String bucket = StackConfiguration.getS3Bucket();
 		// first validate the token
 		validateChunkedFileToken(userInfo, token);
-		return multipartManager.createChunkedFileUploadPartURL(cpr, bucket);
+		return multipartManager.createChunkedFileUploadPartURL(cpr, token.getStorageLocationId());
 	}
 
 	@Override
-	public ChunkResult addChunkToFile(UserInfo userInfo, ChunkRequest cpr) {
+	public ChunkResult addChunkToFile(UserInfo userInfo, ChunkRequest cpr) throws DatastoreException, NotFoundException {
 		if (cpr == null)
 			throw new IllegalArgumentException(
 					"ChunkedPartRequest cannot be null");
@@ -587,31 +589,27 @@ public class FileHandleManagerImpl implements FileHandleManager {
 		if (partNumber < 1)
 			throw new IllegalArgumentException(
 					"partNumber cannot be less than one");
-		String bucket = StackConfiguration.getS3Bucket();
-		ChunkResult result = this.multipartManager.copyPart(token, partNumber,
-				bucket);
+		ChunkResult result = this.multipartManager.copyPart(token, partNumber, token.getStorageLocationId());
 		// Now delete the original file since we now have a copy
-		String partkey = this.multipartManager.getChunkPartKey(token,
-				partNumber);
+		String partkey = this.multipartManager.getChunkPartKey(token, partNumber);
+		String bucket = this.multipartManager.getBucket(token.getStorageLocationId());
 		s3Client.deleteObject(bucket, partkey);
 		return result;
 	}
 
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	@WriteTransaction
 	@Override
-	public S3FileHandle completeChunkFileUpload(UserInfo userInfo,
-			CompleteChunkedFileRequest ccfr) {
+	public S3FileHandle completeChunkFileUpload(UserInfo userInfo, CompleteChunkedFileRequest ccfr) throws DatastoreException,
+			NotFoundException {
 		if (ccfr == null)
 			throw new IllegalArgumentException(
 					"CompleteChunkedFileRequest cannot be null");
 		ChunkedFileToken token = ccfr.getChunkedFileToken();
 		// first validate the token
 		validateChunkedFileToken(userInfo, token);
-		String bucket = StackConfiguration.getS3Bucket();
 		String userId = getUserId(userInfo);
 		// Complete the multi-part
-		return this.multipartManager.completeChunkFileUpload(ccfr, bucket,
-				userId);
+		return this.multipartManager.completeChunkFileUpload(ccfr, token.getStorageLocationId(), userId);
 	}
 
 	/**
@@ -635,9 +633,11 @@ public class FileHandleManagerImpl implements FileHandleManager {
 		if (token.getContentType() == null)
 			throw new IllegalArgumentException(
 					"ChunkedFileToken.getFileContentType cannot be null");
-		// The token key must start with the User's id
+		// The token key must start with the User's id (and the baseKey if any)
 		String userId = getUserId(userInfo);
-		if (!token.getKey().startsWith(userId))
+		if (!token.getKey().startsWith(userId)
+				&& token.getKey().indexOf(
+						MultipartManagerImpl.FILE_TOKEN_TEMPLATE_SEPARATOR + userId + MultipartManagerImpl.FILE_TOKEN_TEMPLATE_SEPARATOR) == -1)
 			throw new UnauthorizedException("The ChunkedFileToken: " + token
 					+ " does not belong to User: " + userId);
 	}
@@ -650,7 +650,6 @@ public class FileHandleManagerImpl implements FileHandleManager {
 			throw new IllegalArgumentException(
 					"CompleteAllChunksRequest cannot be null");
 		validateChunkedFileToken(userInfo, cacf.getChunkedFileToken());
-		String bucket = StackConfiguration.getS3Bucket();
 		String userId = getUserId(userInfo);
 		// Start the daemon
 		UploadDaemonStatus status = new UploadDaemonStatus();
@@ -660,10 +659,8 @@ public class FileHandleManagerImpl implements FileHandleManager {
 		status.setState(State.PROCESSING);
 		status = uploadDaemonStatusDao.create(status);
 		// Create a worker and add it to the pool.
-		CompleteUploadWorker worker = new CompleteUploadWorker(
-				uploadDaemonStatusDao, uploadFileDaemonThreadPoolSecondary,
-				status, cacf, multipartManager, bucket,
-				multipartUploadDaemonTimeoutMS, userId);
+		CompleteUploadWorker worker = new CompleteUploadWorker(uploadDaemonStatusDao, uploadFileDaemonThreadPoolSecondary, status, cacf,
+				multipartManager, multipartUploadDaemonTimeoutMS, userId);
 		// Get a new copy of the status so we are not returning the same
 		// instance that we passed to the worker.
 		status = uploadDaemonStatusDao.get(status.getDaemonId());
@@ -676,9 +673,8 @@ public class FileHandleManagerImpl implements FileHandleManager {
 	@Override
 	public S3FileHandle multipartUploadLocalFile(UserInfo userInfo,
 			File fileToUpload, String contentType, ProgressListener listener) {
-		String bucket = StackConfiguration.getS3Bucket();
 		String userId = getUserId(userInfo);
-		return multipartManager.multipartUploadLocalFile(bucket, userId,
+		return multipartManager.multipartUploadLocalFile(null, userId,
 				fileToUpload, contentType, listener);
 	}
 
@@ -719,80 +715,106 @@ public class FileHandleManagerImpl implements FileHandleManager {
 	}
 
 	@Override
-	public List<UploadDestination> getUploadDestinations(UserInfo userInfo,
-			String parentId) throws DatastoreException, UnauthorizedException,
-			NotFoundException {
-		UploadDestinationListSetting uploadDestinationsSettings = projectSettingsManager
-				.getProjectSettingForParent(userInfo, parentId, "upload",
-						UploadDestinationListSetting.class);
+	@Deprecated
+	public List<UploadDestination> getUploadDestinations(UserInfo userInfo, String parentId) throws DatastoreException,
+			UnauthorizedException, NotFoundException {
+		List<UploadDestinationLocation> uploadDestinationLocations = getUploadDestinationLocations(userInfo, parentId);
 
-		// make sure there is always one entry
-		if (uploadDestinationsSettings == null
-				|| uploadDestinationsSettings.getDestinations() == null
-				|| uploadDestinationsSettings.getDestinations().isEmpty()) {
-			uploadDestinationsSettings = new UploadDestinationListSetting();
-			S3UploadDestinationSetting s3UploadDestinationSetting = new S3UploadDestinationSetting();
-			s3UploadDestinationSetting.setUploadType(UploadType.S3);
-			uploadDestinationsSettings
-					.setDestinations(Collections
-							.<UploadDestinationSetting> singletonList(s3UploadDestinationSetting));
+		List<UploadDestination> destinations = Lists.newArrayListWithExpectedSize(4);
+		for (UploadDestinationLocation uploadDestinationLocation : uploadDestinationLocations) {
+			destinations.add(getUploadDestination(userInfo, parentId, uploadDestinationLocation.getStorageLocationId()));
 		}
-
-		List<UploadDestination> destinations = Lists
-				.newArrayListWithExpectedSize(4);
-
-		// generate random file name
-		String filename = UUID.randomUUID().toString();
-		for (UploadDestinationSetting uploadDestinationSetting : uploadDestinationsSettings
-				.getDestinations()) {
-			UploadDestination uploadDestination;
-
-			switch (uploadDestinationSetting.getUploadType()) {
-			case HTTPS:
-			case SFTP:
-				List<EntityHeader> nodePath = nodeManager.getNodePath(userInfo,
-						parentId);
-				uploadDestination = createExternalUploadDestination(
-						uploadDestinationSetting, nodePath, filename);
-				break;
-			default:
-			case S3:
-				uploadDestination = createS3UploadDestination(uploadDestinationSetting);
-				break;
-			}
-
-			uploadDestination.setUploadType(uploadDestinationSetting
-					.getUploadType());
-			uploadDestination.setBanner(uploadDestinationSetting.getBanner());
-			destinations.add(uploadDestination);
-		}
-
 		return destinations;
 	}
 
-	private UploadDestination createS3UploadDestination(
-			UploadDestinationSetting uploadDestinationSetting) {
-		S3UploadDestinationSetting s3UploadDestinationSetting = (S3UploadDestinationSetting) uploadDestinationSetting;
-		S3UploadDestination s3UploadDestination = new S3UploadDestination();
-		return s3UploadDestination;
+	@Override
+	public List<UploadDestinationLocation> getUploadDestinationLocations(UserInfo userInfo, String parentId) throws DatastoreException,
+			NotFoundException {
+		UploadDestinationListSetting uploadDestinationsSettings = projectSettingsManager.getProjectSettingForParent(userInfo, parentId,
+				ProjectSettingsType.upload, UploadDestinationListSetting.class);
+
+		// make sure there is always one entry
+		if (uploadDestinationsSettings == null || uploadDestinationsSettings.getLocations() == null
+				|| uploadDestinationsSettings.getLocations().isEmpty()) {
+			UploadDestinationLocation uploadDestinationLocation = new UploadDestinationLocation();
+			uploadDestinationLocation.setStorageLocationId(DBOStorageLocationDAOImpl.DEFAULT_STORAGE_LOCATION_ID);
+			uploadDestinationLocation.setUploadType(UploadType.S3);
+			return Collections.<UploadDestinationLocation> singletonList(uploadDestinationLocation);
+		} else {
+			return projectSettingsManager.getUploadDestinationLocations(userInfo, uploadDestinationsSettings.getLocations());
+		}
 	}
 
-	private UploadDestination createExternalUploadDestination(
-			UploadDestinationSetting uploadDestinationSetting,
+	@Override
+	public UploadDestination getUploadDestination(UserInfo userInfo, String parentId, Long storageLocationId) throws DatastoreException,
+			NotFoundException {
+		// handle default case
+		if (storageLocationId.equals(DBOStorageLocationDAOImpl.DEFAULT_STORAGE_LOCATION_ID)) {
+			return DBOStorageLocationDAOImpl.getDefaultUploadDestination();
+		}
+
+		StorageLocationSetting storageLocationSetting = storageLocationDAO.get(storageLocationId);
+
+		UploadDestination uploadDestination;
+
+		if (storageLocationSetting instanceof S3StorageLocationSetting) {
+			uploadDestination = new S3UploadDestination();
+		} else if (storageLocationSetting instanceof ExternalS3StorageLocationSetting) {
+			ExternalS3StorageLocationSetting externalS3StorageLocationSetting = (ExternalS3StorageLocationSetting) storageLocationSetting;
+			ExternalS3UploadDestination externalS3UploadDestination = new ExternalS3UploadDestination();
+			externalS3UploadDestination.setBucket(externalS3StorageLocationSetting.getBucket());
+			externalS3UploadDestination.setBaseKey(externalS3StorageLocationSetting.getBaseKey());
+			externalS3UploadDestination.setEndpointUrl(externalS3StorageLocationSetting.getEndpointUrl());
+			uploadDestination = externalS3UploadDestination;
+		} else if (storageLocationSetting instanceof ExternalStorageLocationSetting) {
+			String filename = UUID.randomUUID().toString();
+			List<EntityHeader> nodePath = nodeManager.getNodePath(userInfo, parentId);
+			uploadDestination = createExternalUploadDestination((ExternalStorageLocationSetting) storageLocationSetting,
+					nodePath, filename);
+		} else {
+			throw new IllegalArgumentException("Cannot handle upload destination location setting of type: "
+					+ storageLocationSetting.getClass().getName());
+		}
+
+		uploadDestination.setStorageLocationId(storageLocationId);
+		uploadDestination.setUploadType(storageLocationSetting.getUploadType());
+		uploadDestination.setBanner(storageLocationSetting.getBanner());
+		return uploadDestination;
+	}
+
+	@Override
+	public UploadDestination getDefaultUploadDestination(UserInfo userInfo, String parentId) throws DatastoreException, NotFoundException {
+		UploadDestinationListSetting uploadDestinationsSettings = projectSettingsManager.getProjectSettingForParent(userInfo, parentId,
+				ProjectSettingsType.upload, UploadDestinationListSetting.class);
+
+		// make sure there is always one entry
+		Long storageLocationId;
+		if (uploadDestinationsSettings == null || uploadDestinationsSettings.getLocations() == null
+				|| uploadDestinationsSettings.getLocations().isEmpty()) {
+			storageLocationId = DBOStorageLocationDAOImpl.DEFAULT_STORAGE_LOCATION_ID;
+		} else {
+			storageLocationId = uploadDestinationsSettings.getLocations().get(0);
+		}
+		return getUploadDestination(userInfo, parentId, storageLocationId);
+	}
+
+	private UploadDestination createExternalUploadDestination(ExternalStorageLocationSetting externalUploadDestinationSetting,
 			List<EntityHeader> nodePath, String filename) {
-		ExternalUploadDestinationSetting externalUploadDestinationSetting = (ExternalUploadDestinationSetting) uploadDestinationSetting;
-		StringBuilder url = new StringBuilder(
-				externalUploadDestinationSetting.getUrl());
+		return createExternalUploadDestination(externalUploadDestinationSetting.getUrl(),
+				externalUploadDestinationSetting.getSupportsSubfolders(), nodePath, filename);
+	}
+
+	private UploadDestination createExternalUploadDestination(String baseUrl, Boolean supportsSubfolders, List<EntityHeader> nodePath,
+			String filename) {
+		StringBuilder url = new StringBuilder(baseUrl);
 		if (url.length() == 0) {
-			throw new IllegalArgumentException(
-					"The url for the external upload destination setting is empty");
+			throw new IllegalArgumentException("The url for the external upload destination setting is empty");
 		}
 		if (url.charAt(url.length() - 1) != '/') {
 			url.append('/');
 		}
 		// need to add subfolders here if supported
-		if (BooleanUtils.isTrue(externalUploadDestinationSetting
-				.getSupportsSubfolders())) {
+		if (BooleanUtils.isTrue(supportsSubfolders)) {
 			if (nodePath.size() > 0) {
 				// the first path in the node path is always "root". We don't
 				// want that to show up in the file path
@@ -803,9 +825,7 @@ public class FileHandleManagerImpl implements FileHandleManager {
 					// we need to url encode, but r client does not like '+' for
 					// space. So encode with java encoder and
 					// then replace '+' with %20
-					url.append(
-							URLEncoder.encode(node.getName(), "UTF-8").replace(
-									"+", "%20")).append('/');
+					url.append(URLEncoder.encode(node.getName(), "UTF-8").replace("+", "%20")).append('/');
 				} catch (UnsupportedEncodingException e) {
 					// shouldn't happen
 					throw new IllegalArgumentException(e.getMessage(), e);
@@ -820,11 +840,15 @@ public class FileHandleManagerImpl implements FileHandleManager {
 
 	/*
 	 * (non-Javadoc)
-	 * @see org.sagebionetworks.repo.manager.file.FileHandleManager#createFileHandleFromAttachment(java.lang.String, java.util.Date, org.sagebionetworks.repo.model.attachment.AttachmentData)
+	 * 
+	 * @see
+	 * org.sagebionetworks.repo.manager.file.FileHandleManager#createFileHandleFromAttachmentifExists(java.lang.String,
+	 * java.util.Date, org.sagebionetworks.repo.model.attachment.AttachmentData)
 	 */
+	@WriteTransaction
 	@Override
-	public S3FileHandle createFileHandleFromAttachment(String createdBy, Date createdOn,
-			AttachmentData attachment) {
+	public S3FileHandle createFileHandleFromAttachmentIfExists(String entityId, String createdBy, Date createdOn, AttachmentData attachment)
+			throws NotFoundException {
 		if (attachment == null) {
 			throw new IllegalArgumentException("AttachmentData cannot be null");
 		}
@@ -832,10 +856,10 @@ public class FileHandleManagerImpl implements FileHandleManager {
 			throw new IllegalArgumentException("AttachmentData.tokenId cannot be null");
 		}
 		// The keys do not start with "/"
-		String key = attachment.getTokenId();
-		String bucket = StackConfiguration.getS3Bucket();
+		String key = S3TokenManagerImpl.createAttachmentPathNoSlash(entityId, attachment.getTokenId());
 		// Can we find this object with the key?
 		try {
+			String bucket = StackConfiguration.getS3Bucket();
 			ObjectMetadata meta = s3Client.getObjectMetadata(bucket, key);
 			S3FileHandle handle = new S3FileHandle();
 			handle.setBucketName(bucket);
@@ -857,8 +881,13 @@ public class FileHandleManagerImpl implements FileHandleManager {
 			handle.setCreatedOn(createdOn);
 			handle = fileHandleDao.createFile(handle);
 			return handle;
-		} catch (Exception e) {
-			throw new IllegalArgumentException(e);
+		} catch (AmazonServiceException e) {
+			if (AmazonErrorCodes.S3_NOT_FOUND.equals(e.getErrorCode()) || AmazonErrorCodes.S3_KEY_NOT_FOUND.equals(e.getErrorCode())) {
+				return null;
+			} else {
+				log.error("Unknown S3 error, handling as not found: " + e.getMessage(), e);
+				return null;
+			}
 		}
 	}
 
@@ -883,6 +912,7 @@ public class FileHandleManagerImpl implements FileHandleManager {
 	 * (non-Javadoc)
 	 * @see org.sagebionetworks.repo.manager.file.FileHandleManager#createCompressedFileFromString(java.lang.String, java.util.Date, java.lang.String)
 	 */
+	@WriteTransaction
 	@Override
 	public S3FileHandle createCompressedFileFromString(String createdBy,
 			Date modifiedOn, String fileContents) throws UnsupportedEncodingException, IOException {
@@ -900,7 +930,7 @@ public class FileHandleManagerImpl implements FileHandleManager {
 		meta.setContentMD5(hexMd5);
 		meta.setContentLength(compressedBytes.length);
 		meta.setContentDisposition(TransferUtils.getContentDispositionValue(fileName));
-		String key = MultipartManagerImpl.createNewKey(createdBy, fileName);
+		String key = MultipartManagerImpl.createNewKey(createdBy, fileName, null);
 		String bucket = StackConfiguration.getS3Bucket();
 		s3Client.putObject(bucket, key, in, meta);
 		// Create the file handle
@@ -914,5 +944,75 @@ public class FileHandleManagerImpl implements FileHandleManager {
 		handle.setCreatedBy(createdBy);
 		handle.setCreatedOn(modifiedOn);
 		return fileHandleDao.createFile(handle, true);
+	}
+
+	@WriteTransaction
+	@Override
+	public S3FileHandle createNeverUploadedPlaceHolderFileHandle(
+			String createdBy, Date modifiedOn, String name) throws IOException {
+		if(name == null){
+			name = "no-name";
+		}
+		// This will be the contents of the file.
+		byte[] bytes = NEVER_UPLOADED_CONTENTS.getBytes("UTF-8");
+		String fileName = name.replaceAll("\\.", "_")+PLACEHOLDER_SUFFIX;
+		ByteArrayInputStream in = new ByteArrayInputStream(bytes);
+		String md5 = MD5ChecksumHelper.getMD5ChecksumForByteArray(bytes);
+		String hexMd5 = BinaryUtils.toBase64(BinaryUtils.fromHex(md5));
+		// Upload the file to S3
+		ObjectMetadata meta = new ObjectMetadata();
+		meta.setContentType("text/plain");
+		meta.setContentMD5(hexMd5);
+		meta.setContentLength(bytes.length);
+		meta.setContentDisposition(TransferUtils.getContentDispositionValue(fileName));
+		String key = MultipartManagerImpl.createNewKey(createdBy, fileName, null);
+		String bucket = StackConfiguration.getS3Bucket();
+		s3Client.putObject(bucket, key, in, meta);
+		// Create the file handle
+		S3FileHandle handle = new S3FileHandle();
+		handle.setBucketName(bucket);
+		handle.setKey(key);
+		handle.setContentMd5(md5);
+		handle.setContentType(meta.getContentType());
+		handle.setContentSize(meta.getContentLength());
+		handle.setFileName(fileName);
+		handle.setCreatedBy(createdBy);
+		handle.setCreatedOn(modifiedOn);
+		return fileHandleDao.createFile(handle, true);
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see org.sagebionetworks.repo.manager.file.FileHandleManager#createAttachmentInS3(java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.util.Date)
+	 */
+	@Override
+	public AttachmentData createAttachmentInS3(String fileContents,
+			String fileName, String userId, String entityId, Date createdOn)
+			throws UnsupportedEncodingException, IOException {
+		String tokenId = S3TokenManagerImpl.createTokenId(Long.parseLong(userId), fileName);
+		String key = S3TokenManagerImpl.createAttachmentPathNoSlash(entityId, tokenId);
+		byte[] bytes = fileContents.getBytes("UTF-8");
+		ByteArrayInputStream in = new ByteArrayInputStream(bytes);
+		String md5 = MD5ChecksumHelper.getMD5ChecksumForByteArray(bytes);
+		String hexMd5 = BinaryUtils.toBase64(BinaryUtils.fromHex(md5));
+		// Upload the file to S3
+
+		ObjectMetadata meta = new ObjectMetadata();
+		meta.setContentType("text/plain");
+		meta.setContentMD5(hexMd5);
+		meta.setContentLength(bytes.length);
+		meta.setContentDisposition(TransferUtils.getContentDispositionValue(fileName));
+		String bucket = StackConfiguration.getS3Bucket();
+		s3Client.putObject(bucket, key, in, meta);
+		// Create the file handle
+		// Create an attachment from the filehandle
+		AttachmentData ad = new AttachmentData();
+		ad.setContentType(meta.getContentType());
+		ad.setMd5(md5);
+		ad.setName(fileName);
+		ad.setPreviewId(tokenId);
+		ad.setTokenId(tokenId);
+		ad.setPreviewState(PreviewState.PREVIEW_EXISTS);
+		return ad;
 	}
 }

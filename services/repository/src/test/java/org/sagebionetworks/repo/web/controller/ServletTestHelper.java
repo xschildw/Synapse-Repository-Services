@@ -1165,7 +1165,7 @@ public class ServletTestHelper {
 		MockHttpServletRequest request = ServletTestHelperUtils
 				.initRequest(HTTPMODE.GET, "/entity/" + id
 						+ "/accessRequirementUnfulfilled", userId, null);
-		request.setParameter("accessType", accessType.name());
+		if (accessType!=null) request.setParameter("accessType", accessType.name());
 		MockHttpServletResponse response = ServletTestHelperUtils
 				.dispatchRequest(dispatchServlet, request, HttpStatus.OK);
 
@@ -1179,7 +1179,7 @@ public class ServletTestHelper {
 		MockHttpServletRequest request = ServletTestHelperUtils.initRequest(
 				HTTPMODE.GET, "/evaluation/" + id
 						+ "/accessRequirementUnfulfilled", userId, null);
-		request.setParameter("accessType", accessType.name());
+		if (accessType!=null) request.setParameter("accessType", accessType.name());
 
 		MockHttpServletResponse response = ServletTestHelperUtils
 				.dispatchRequest(dispatchServlet, request, HttpStatus.OK);

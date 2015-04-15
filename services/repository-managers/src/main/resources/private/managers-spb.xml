@@ -35,6 +35,22 @@
 	<bean id="activityManager" class="org.sagebionetworks.repo.manager.ActivityManagerImpl" />
 	
 	<bean id="principalManager" class="org.sagebionetworks.repo.manager.principal.PrincipalManagerImpl" />
+	
+	<bean id="googleOAuth2Provider" class="org.sagebionetworks.repo.manager.oauth.GoogleOAuth2Provider">
+		<constructor-arg ref="stackConfiguration.oAuth2GoogleClientId" index="0" />
+		<constructor-arg ref="stackConfiguration.oAuth2GoogleClientSecret" index="1" />
+	</bean>
+
+	<bean id="oAuthManager" class="org.sagebionetworks.repo.manager.oauth.OAuthManagerImpl">
+		<property name="providerMap">
+			<map>
+				<entry
+					key="GOOGLE_OAUTH_2_0"
+					value-ref="googleOAuth2Provider" />
+			</map>
+		</property>
+
+	</bean>
 
 	<!-- Trash manager -->
 	<bean id="trashManager" class="org.sagebionetworks.repo.manager.trash.TrashManagerImpl" />
@@ -180,6 +196,7 @@
         <property name="migrationListeners" >
             <list>
 				<bean id="tableCacheInvalidationMigrationListener" class="org.sagebionetworks.repo.manager.migration.TableCacheInvalidationMigrationListener" />
+				<bean id="nodeWithProjectIdMigrationListener" class="org.sagebionetworks.repo.manager.migration.NodeWithProjectIdMigrationListener" />
             </list>
         </property>
     </bean>
@@ -195,8 +212,9 @@
 		class="org.sagebionetworks.repo.manager.ontology.ConceptManagerImpl"
 		scope="singleton" />
 
-	<bean id="s3TokenManager" class="org.sagebionetworks.repo.manager.S3TokenManagerImpl"
-		scope="singleton" />
+	<bean id="s3TokenManager" class="org.sagebionetworks.repo.manager.S3TokenManagerImpl" scope="singleton">
+		<property name="allowCreationOfOldAttachments" ref="stackConfiguration.allowCreationOfOldAttachments"></property>
+	</bean>
 
 	<bean id="s3Utility" class="org.sagebionetworks.repo.manager.AmazonS3UtilityImpl"
 		scope="singleton" />
@@ -332,10 +350,6 @@
         <bean class="org.sagebionetworks.repo.model.principal.BootstrapTeam">
             <property name="id" value="464532" />
             <property name="name" value="Synapse Access and Compliance Team" />
-        </bean>
-        <bean class="org.sagebionetworks.repo.model.principal.BootstrapTeam">
-            <property name="id" value="3320020" />
-            <property name="name" value="BridgeAdministrators" />
         </bean>
         <bean class="org.sagebionetworks.repo.model.principal.BootstrapTeam">
             <property name="id" value="4" />
