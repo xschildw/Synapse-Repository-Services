@@ -6,6 +6,8 @@ import org.sagebionetworks.repo.model.InvalidModelException;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.UserPreferences;
 import org.sagebionetworks.repo.model.UserPreferencesDAO;
+import org.sagebionetworks.repo.model.message.Settings;
+import org.sagebionetworks.repo.transactions.WriteTransaction;
 import org.sagebionetworks.repo.web.NotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -27,14 +29,29 @@ public class UserPreferencesManagerImpl implements UserPreferencesManager {
 	}
 
 	@Override
-	public UserPreferences getUserPreferences(UserInfo usrInfo) throws DatastoreException, NotFoundException {
+	public UserPreferences getUserPreferences(UserInfo usrInfo) throws DatastoreException {
 		if (usrInfo == null) { 
 			throw new IllegalArgumentException("usrInfo cannot be null.");
 		}
-		UserPreferences p = userPreferencesDAO.get(usrInfo.getId().toString());
+		// If user does not have preferences record yet, return default
+		UserPreferences p = null;
+		try {
+			p = userPreferencesDAO.get(usrInfo.getId().toString());
+		} catch (NotFoundException e) {
+			UserPreferences prefs = new UserPreferences();
+			prefs.setOwnerId(usrInfo.getId().toString());
+			Settings s = new Settings();
+			s.setMarkEmailedMessagesAsRead(false);
+			s.setSendEmailNotifications(false);
+			prefs.setNotificationSettings(s);
+			prefs.setUri(null);
+			prefs.setEtag(null);
+			p = prefs;
+		}
 		return p;
 	}
 
+	@WriteTransaction
 	@Override
 	public UserPreferences createUserPreferences(UserInfo usrInfo,
 			UserPreferences prefs) throws DatastoreException, NotFoundException {
@@ -47,6 +64,7 @@ public class UserPreferencesManagerImpl implements UserPreferencesManager {
 		return cPrefs;
 	}
 
+	@WriteTransaction
 	@Override
 	public UserPreferences updateUserPreferences(UserInfo usrInfo,
 			UserPreferences prefs) throws DatastoreException, InvalidModelException, ConflictingUpdateException, NotFoundException {
@@ -54,7 +72,7 @@ public class UserPreferencesManagerImpl implements UserPreferencesManager {
 			throw new IllegalArgumentException("usrInfo cannot be null.");
 		}
 		UserPreferences uPrefs = userPreferencesDAO.update(prefs);
-		return null;
+		return uPrefs;
 	}
 
 	@Override

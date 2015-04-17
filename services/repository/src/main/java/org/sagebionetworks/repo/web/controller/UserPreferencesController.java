@@ -38,7 +38,7 @@ public class UserPreferencesController extends BaseController {
 	 * @throws NotFoundException
 	 */
 	@ResponseStatus(HttpStatus.OK)
-	@RequestMapping(value = UrlHelpers.USER_PROFILE, method = RequestMethod.GET)
+	@RequestMapping(value = UrlHelpers.USER_PREFERENCES, method = RequestMethod.GET)
 	public @ResponseBody 
 		UserPreferences getUserPreferences(
 			@RequestParam(value = AuthorizationConstants.USER_ID_PARAM) Long userId, 
@@ -56,7 +56,7 @@ public class UserPreferencesController extends BaseController {
 	 * @throws IOException
 	 */
 	@ResponseStatus(HttpStatus.CREATED)
-	@RequestMapping(value = UrlHelpers.USER_PROFILE, method = RequestMethod.POST)
+	@RequestMapping(value = UrlHelpers.USER_PREFERENCES, method = RequestMethod.POST)
 	public @ResponseBody 
 		UserPreferences createUserPreferences(
 			@RequestParam(value = AuthorizationConstants.USER_ID_PARAM) Long userId,
@@ -74,7 +74,7 @@ public class UserPreferencesController extends BaseController {
 	 * @throws IOException
 	 */
 	@ResponseStatus(HttpStatus.OK)
-	@RequestMapping(value = UrlHelpers.USER_PROFILE, method = RequestMethod.PUT)
+	@RequestMapping(value = UrlHelpers.USER_PREFERENCES, method = RequestMethod.PUT)
 	public @ResponseBody 
 		UserPreferences updateUserPreferences(
 			@RequestParam(value = AuthorizationConstants.USER_ID_PARAM) Long userId,
@@ -89,7 +89,7 @@ public class UserPreferencesController extends BaseController {
 	 * @throws NotFoundException
 	 */
 	@ResponseStatus(HttpStatus.NO_CONTENT)
-	@RequestMapping(value = UrlHelpers.USER_PROFILE, method = RequestMethod.DELETE)
+	@RequestMapping(value = UrlHelpers.USER_PREFERENCES, method = RequestMethod.DELETE)
 	public @ResponseBody 
 		void deleteUserPreferences(
 			@RequestParam(value = AuthorizationConstants.USER_ID_PARAM) Long userId, 

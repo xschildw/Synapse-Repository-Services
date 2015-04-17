@@ -85,6 +85,10 @@
 	<bean id="userProfileService"
 		class="org.sagebionetworks.repo.web.service.UserProfileServiceImpl" />
 
+	<!-- The UserPreferences Service -->
+	<bean id="userPreferencesService"
+		class="org.sagebionetworks.repo.web.service.UserPreferencesServiceImpl" />
+
 	<!-- The UserGroup Service -->
 	<bean id="userGroupService"
 		class="org.sagebionetworks.repo.web.service.UserGroupServiceImpl" />
