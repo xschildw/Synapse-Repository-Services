@@ -11,6 +11,7 @@ import org.sagebionetworks.repo.manager.UserPreferencesManager;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.UserPreferences;
 import org.sagebionetworks.repo.model.UserProfile;
+import org.sagebionetworks.repo.transactions.WriteTransaction;
 import org.sagebionetworks.repo.web.NotFoundException;
 import org.sagebionetworks.repo.web.controller.ObjectTypeSerializer;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +36,7 @@ public class UserPreferencesServiceImpl implements UserPreferencesService {
 		return userPreferencesManager.getUserPreferences(userInfo);
 	}
 
+	@WriteTransaction
 	@Override
 	public UserPreferences createUserPreferences(Long userId,
 			UserPreferences userPreferences) throws NotFoundException, IOException {
@@ -42,6 +44,7 @@ public class UserPreferencesServiceImpl implements UserPreferencesService {
 		return userPreferencesManager.createUserPreferences(userInfo, userPreferences);
 	}
 
+	@WriteTransaction
 	@Override
 	public UserPreferences updateUserPreferences(Long userId,
 			UserPreferences userPreferences) throws NotFoundException, IOException {
@@ -49,6 +52,7 @@ public class UserPreferencesServiceImpl implements UserPreferencesService {
 		return userPreferencesManager.updateUserPreferences(userInfo, userPreferences);
 	}
 
+	@WriteTransaction
 	@Override
 	public void deleteUserPreferences(Long userId) throws NotFoundException {
 		UserInfo userInfo = userManager.getUserInfo(userId);

@@ -13,6 +13,7 @@ import org.sagebionetworks.repo.model.dbo.SinglePrimaryKeySqlParameterSource;
 import org.sagebionetworks.repo.model.dbo.persistence.DBOUserPreferences;
 import org.sagebionetworks.repo.model.message.ChangeType;
 import org.sagebionetworks.repo.model.message.TransactionalMessenger;
+import org.sagebionetworks.repo.transactions.WriteTransaction;
 import org.sagebionetworks.repo.web.NotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Propagation;
@@ -27,7 +28,7 @@ public class DBOUserPreferencesDAOImpl implements UserPreferencesDAO {
 	private TransactionalMessenger transactionalMessenger;
 	
 
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	@WriteTransaction
 	@Override
 	public String create(UserPreferences dto) throws DatastoreException {
 		DBOUserPreferences dbo = new DBOUserPreferences();
@@ -47,7 +48,7 @@ public class DBOUserPreferencesDAOImpl implements UserPreferencesDAO {
 		return dto;
 	}
 
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	@WriteTransaction
 	@Override
 	public UserPreferences update(UserPreferences dto)
 			throws DatastoreException, InvalidModelException,
@@ -71,7 +72,7 @@ public class DBOUserPreferencesDAOImpl implements UserPreferencesDAO {
 		
 	}
 
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	@WriteTransaction
 	@Override
 	public void delete(String id) throws DatastoreException, NotFoundException {
 		basicDao.deleteObjectByPrimaryKey(DBOUserPreferences.class,

@@ -75,6 +75,7 @@ public class UserPreferencesManagerImpl implements UserPreferencesManager {
 		return uPrefs;
 	}
 
+	@WriteTransaction
 	@Override
 	public void deleteUserPreferences(UserInfo usrInfo) throws DatastoreException, NotFoundException {
 		if (usrInfo == null) { 
