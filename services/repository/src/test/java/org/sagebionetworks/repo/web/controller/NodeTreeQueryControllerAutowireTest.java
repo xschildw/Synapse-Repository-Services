@@ -130,9 +130,7 @@ public class NodeTreeQueryControllerAutowireTest extends AbstractAutowiredContro
 		Assert.assertEquals(parent.getId(), id.getId());
 
 		// Get descendants
-		idList = servletTestHelper.getDescendants(adminUserId, root);
-
-		idIterator = idList.getIdList().iterator();
+		idIterator = waitForDescendants(root, null);
 		id = idIterator.next();
 		Assert.assertEquals(parent.getId(), id.getId());
 		id = idIterator.next();
@@ -140,9 +138,7 @@ public class NodeTreeQueryControllerAutowireTest extends AbstractAutowiredContro
 		Assert.assertFalse(idIterator.hasNext());
 
 		// Get descendants with generation
-		idList = servletTestHelper.getDescendantsWithGeneration(adminUserId, root, 2);
-		
-		idIterator = idList.getIdList().iterator();
+		idIterator = waitForDescendants(root, 2);
 		id = idIterator.next();
 		Assert.assertEquals(child.getId(), id.getId());
 		Assert.assertFalse(idIterator.hasNext());
@@ -154,4 +150,31 @@ public class NodeTreeQueryControllerAutowireTest extends AbstractAutowiredContro
 		Assert.assertEquals(parent.getId(), id.getId());
 		Assert.assertFalse(idIterator.hasNext());
 	}
+	
+	private Iterator<EntityId> waitForDescendants(String root, Integer gen) throws Exception {
+		int MAX_RETRY = 5;
+		int SLEEP_TIME_MS = 1000;
+		int nRetry = 0;
+		EntityIdList l = servletTestHelper.getDescendants(adminUserId, root);
+		Iterator<EntityId> it = null;
+		while (nRetry < MAX_RETRY) {
+			if (gen == null) {
+				l = servletTestHelper.getDescendants(adminUserId, root);
+			} else {
+				l = servletTestHelper.getDescendantsWithGeneration(adminUserId, root, gen);
+			}
+			it = l.getIdList().iterator();
+			if (! it.hasNext()) {
+				break;
+			}
+			Thread.sleep(SLEEP_TIME_MS);
+			nRetry += 1;
+		}
+		if (nRetry >= MAX_RETRY) {
+			throw new RuntimeException("Could not get descendants within 5 secs");
+		}
+		return it;
+	}
+	
 }
+
