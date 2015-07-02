@@ -108,7 +108,7 @@ public class StackConfigurationTest {
 	@Test
 	public void testGetS3Bucket() {
 		StackConfiguration conf = new StackConfiguration();
-		assertEquals(StackConfiguration.getStack()+"data.sagebase.org", conf.getS3Bucket());
+		assertEquals(conf.getStack()+"data.sagebase.org", conf.getS3Bucket());
 	}
 	
 }
