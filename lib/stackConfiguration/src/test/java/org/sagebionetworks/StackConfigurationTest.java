@@ -105,4 +105,10 @@ public class StackConfigurationTest {
 		}
 	}
 	
+	@Test
+	public void testGetS3Bucket() {
+		StackConfiguration conf = new StackConfiguration();
+		assertEquals(StackConfiguration.getStack()+"data.s3.bucket", conf.getS3Bucket());
+	}
+	
 }
