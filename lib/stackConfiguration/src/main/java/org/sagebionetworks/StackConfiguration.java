@@ -288,7 +288,7 @@ public class StackConfiguration {
 	 * This is the bucket for Synapse data.
 	 */
 	public static String getS3Bucket() {
-		return configuration.getStack() + "data.s3.bucket";
+		return configuration.getStack() + "data.sagebase.org";
 	}
 
 	public static Integer getS3ReadAccessExpiryHours() {
