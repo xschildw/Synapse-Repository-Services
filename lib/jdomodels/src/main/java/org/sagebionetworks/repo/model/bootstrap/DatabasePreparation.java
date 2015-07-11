@@ -53,6 +53,8 @@ public class DatabasePreparation {
 					// Close the connection.
 					ds.close();
 				}
+			} else {
+				throw new RuntimeException("The database schema cannot be dropped on a production stack!!!");
 			}
 		}
 		
@@ -64,10 +66,7 @@ public class DatabasePreparation {
 	 * @return
 	 */
 	public static boolean isNonProductionStack(String stack){
-		if("bamboo".equals(stack)) return true;
-		if("dev".equals(stack)) return true;
-		if("hudson".equals(stack)) return true;
-		if("hud".equals(stack)) return true;
+		if (! "prod".equals(stack)) return true;
 		return false;
 	}
 
