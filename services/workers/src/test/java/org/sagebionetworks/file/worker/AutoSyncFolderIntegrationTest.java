@@ -9,6 +9,7 @@ import javax.annotation.Resource;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.sagebionetworks.StackConfiguration;
@@ -51,6 +52,7 @@ import com.google.common.collect.Sets;
  */
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(locations = { "classpath:test-context.xml" })
+@Ignore
 public class AutoSyncFolderIntegrationTest {
 
 	private static final String DESTINATION_TEST_BUCKET = "dev.test.destination.bucket.sagebase.org";
