@@ -54,7 +54,7 @@ import com.google.common.collect.Sets;
 public class AutoSyncFolderIntegrationTest {
 
 	private static final String DESTINATION_TEST_BUCKET = "dev.test.destination.bucket.sagebase.org";
-	public static final long MAX_WAIT = 60 * 1000; // 30 seconds
+	public static final long MAX_WAIT = 120 * 1000; // 120 seconds
 
 	@Autowired
 	AsynchJobStatusManager asynchJobStatusManager;
