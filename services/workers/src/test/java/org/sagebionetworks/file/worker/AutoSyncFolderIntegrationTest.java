@@ -55,6 +55,7 @@ public class AutoSyncFolderIntegrationTest {
 
 	private static final String DESTINATION_TEST_BUCKET = "dev.test.destination.bucket.sagebase.org";
 	public static final long MAX_WAIT = 120 * 1000; // 120 seconds
+	public static final long CHECK_INTERVAL = 1000;
 
 	@Autowired
 	AsynchJobStatusManager asynchJobStatusManager;
@@ -153,7 +154,7 @@ public class AutoSyncFolderIntegrationTest {
 
 		// force update message
 		projectSettingsManager.updateProjectSetting(adminUserInfo, syncSetting);
-		TimedAssert.waitForAssert(MAX_WAIT, 100, new Runnable() {
+		TimedAssert.waitForAssert(MAX_WAIT, CHECK_INTERVAL, new Runnable() {
 			@Override
 			public void run() {
 				assertEquals(1, nodeDao.getChildrenIds(projectId).size());
@@ -171,7 +172,7 @@ public class AutoSyncFolderIntegrationTest {
 
 		// force update message
 		projectSettingsManager.updateProjectSetting(adminUserInfo, syncSetting);
-		TimedAssert.waitForAssert(MAX_WAIT, 100, new Runnable() {
+		TimedAssert.waitForAssert(MAX_WAIT, CHECK_INTERVAL, new Runnable() {
 			@Override
 			public void run() {
 				assertEquals(1, nodeDao.getChildrenIds(projectId).size());
@@ -184,7 +185,7 @@ public class AutoSyncFolderIntegrationTest {
 		// force update message
 		syncSetting = projectSettingsManager.getProjectSetting(adminUserInfo, syncSetting.getId());
 		projectSettingsManager.updateProjectSetting(adminUserInfo, syncSetting);
-		TimedAssert.waitForAssert(MAX_WAIT, 100, new Runnable() {
+		TimedAssert.waitForAssert(MAX_WAIT, CHECK_INTERVAL, new Runnable() {
 			@Override
 			public void run() {
 				assertEquals(1, nodeDao.getChildrenIds(projectId).size());
@@ -205,7 +206,7 @@ public class AutoSyncFolderIntegrationTest {
 
 		// force update message
 		projectSettingsManager.updateProjectSetting(adminUserInfo, syncSetting);
-		TimedAssert.waitForAssert(MAX_WAIT, 100, new Runnable() {
+		TimedAssert.waitForAssert(MAX_WAIT, CHECK_INTERVAL, new Runnable() {
 			@Override
 			public void run() {
 				List<Folder> folders = entityManager.getEntityChildren(adminUserInfo, projectId, Folder.class);
