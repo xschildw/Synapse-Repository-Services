@@ -50,6 +50,7 @@ import com.google.common.collect.Sets;
  * 
  * 
  */
+@Ignore // PLFM-3482
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(locations = { "classpath:test-context.xml" })
 @Ignore

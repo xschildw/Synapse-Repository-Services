@@ -10,19 +10,22 @@ import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.COL_REVISION
 import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.COL_REVISION_MODIFIED_ON;
 import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.COL_REVISION_NUMBER;
 import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.COL_REVISION_OWNER_NODE;
-import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.COL_REVISION_REFS_BLOB;
+import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.COL_REVISION_REF_BLOB;
 import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.DDL_FILE_REVISION;
 import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.TABLE_REVISION;
 
+import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 
+import org.sagebionetworks.repo.model.Reference;
 import org.sagebionetworks.repo.model.dbo.FieldColumn;
 import org.sagebionetworks.repo.model.dbo.MigratableDatabaseObject;
 import org.sagebionetworks.repo.model.dbo.TableMapping;
 import org.sagebionetworks.repo.model.dbo.migration.MigratableTableTranslation;
+import org.sagebionetworks.repo.model.jdo.JDOSecondaryPropertyUtils;
 import org.sagebionetworks.repo.model.migration.MigrationType;
 
 /**
@@ -46,7 +49,7 @@ public class DBORevision implements MigratableDatabaseObject<DBORevision, DBORev
 		new FieldColumn("fileHandleId", COL_REVISION_FILE_HANDLE_ID),
 		new FieldColumn("columnModelIds", COL_REVISION_COLUMN_MODEL_IDS),
 		new FieldColumn("annotations", COL_REVISION_ANNOS_BLOB),
-		new FieldColumn("references", COL_REVISION_REFS_BLOB),
+		new FieldColumn("reference", COL_REVISION_REF_BLOB),
 		};
 
 	@Override
@@ -71,9 +74,9 @@ public class DBORevision implements MigratableDatabaseObject<DBORevision, DBORev
 				if(blob != null){
 					rev.setAnnotations(blob.getBytes(1, (int) blob.length()));
 				}
-				blob = rs.getBlob(COL_REVISION_REFS_BLOB);
+				blob = rs.getBlob(COL_REVISION_REF_BLOB);
 				if(blob != null){
-					rev.setReferences(blob.getBytes(1, (int) blob.length()));
+					rev.setReference(blob.getBytes(1, (int) blob.length()));
 				}
 				blob = rs.getBlob(COL_REVISION_COLUMN_MODEL_IDS);
 				if(blob != null){
@@ -113,8 +116,19 @@ public class DBORevision implements MigratableDatabaseObject<DBORevision, DBORev
 	private Long fileHandleId;
 	private byte[] columnModelIds;
 	private byte[] annotations;
+	private byte[] reference;
+	// used for migration only
+	@Deprecated
 	private byte[] references;
 
+	@Deprecated
+	public byte[] getReferences() {
+		return references;
+	}
+	@Deprecated
+	public void setReferences(byte[] references) {
+		this.references = references;
+	}
 	public Long getOwner() {
 		return owner;
 	}
@@ -157,11 +171,11 @@ public class DBORevision implements MigratableDatabaseObject<DBORevision, DBORev
 	public void setAnnotations(byte[] annotations) {
 		this.annotations = annotations;
 	}
-	public byte[] getReferences() {
-		return references;
+	public byte[] getReference() {
+		return reference;
 	}
-	public void setReferences(byte[] references) {
-		this.references = references;
+	public void setReference(byte[] reference) {
+		this.reference = reference;
 	}	
 	public Long getActivityId() {
 		return activityId;
@@ -194,6 +208,17 @@ public class DBORevision implements MigratableDatabaseObject<DBORevision, DBORev
 
 			@Override
 			public DBORevision createDatabaseObjectFromBackup(DBORevision backup) {
+				if (backup.getReference() == null) {
+					try {
+						// Retrieve the historical reference from a blob
+						Reference ref = DBORevisionUtils.convertBlobToReference(backup.getReferences());
+						byte[] blob = JDOSecondaryPropertyUtils.compressReference(ref);
+						backup.setReference(blob);
+						backup.setReferences(null);
+					} catch (IOException e) {
+						throw new RuntimeException(e);
+					}
+				}
 				return backup;
 			}
 
@@ -232,7 +257,7 @@ public class DBORevision implements MigratableDatabaseObject<DBORevision, DBORev
 		result = prime * result
 				+ ((modifiedOn == null) ? 0 : modifiedOn.hashCode());
 		result = prime * result + ((owner == null) ? 0 : owner.hashCode());
-		result = prime * result + Arrays.hashCode(references);
+		result = prime * result + Arrays.hashCode(reference);
 		result = prime * result
 				+ ((revisionNumber == null) ? 0 : revisionNumber.hashCode());
 		return result;
@@ -283,7 +308,7 @@ public class DBORevision implements MigratableDatabaseObject<DBORevision, DBORev
 				return false;
 		} else if (!owner.equals(other.owner))
 			return false;
-		if (!Arrays.equals(references, other.references))
+		if (!Arrays.equals(reference, other.reference))
 			return false;
 		if (revisionNumber == null) {
 			if (other.revisionNumber != null)
@@ -300,7 +325,7 @@ public class DBORevision implements MigratableDatabaseObject<DBORevision, DBORev
 				+ ", modifiedOn=" + modifiedOn + ", fileHandleId="
 				+ fileHandleId + ", annotations="
 				+ Arrays.toString(annotations) + ", references="
-				+ Arrays.toString(references) + "]";
+				+ Arrays.toString(reference) + "]";
 	}
 	
 }
