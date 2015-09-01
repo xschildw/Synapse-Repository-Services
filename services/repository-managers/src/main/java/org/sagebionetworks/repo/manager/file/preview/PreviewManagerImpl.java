@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 
+import javax.naming.OperationNotSupportedException;
+
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -126,37 +128,46 @@ public class PreviewManagerImpl implements  PreviewManager {
 		}
 		ContentType contentType = ContentType.parse(metadata.getContentType());
 		String extension = PreviewGeneratorUtils.findExtension(metadata.getFileName());
-		final PreviewGenerator generator = findPreviewGenerator(contentType.getMimeType(), extension);
+		final PreviewGenerator gen = findPreviewGenerator(contentType.getMimeType(), extension);
 		// there is nothing to do if we do not have a generator for this type
-		if(generator == null){
+		if(gen == null){
 			log.info("No preview generator found for contentType:"+metadata.getContentType());
 			return null;
 		}
-		// First determine how much memory will be need to generate this preview
-		String mimeType = ContentType.parse(metadata.getContentType()).getMimeType();
-		long memoryNeededBytes = generator.calculateNeededMemoryBytesForPreview(mimeType, metadata.getContentSize());
-		if(memoryNeededBytes > maxPreviewMemory){
-			log.info(String.format("Preview cannot be generated.  Memory needed: '%1$s' (bytes) exceed preview memory pool size: '%2$s' (bytes). Metadata: %3$s", memoryNeededBytes, maxPreviewMemory, metadata.toString())); ;
-			return null;
-		}
-		// If here then the preview memory pool size is large enough for this file.
-		// Attempt to generate a preview
-		try{
-			// Attempt to allocate the memory needed for this process.  This will fail-fast
-			// it there is not enough memory available.
-			return resourceTracker.allocateAndUseResources(new Callable<PreviewFileHandle>(){
-				@Override
-				public PreviewFileHandle call() {
-					// This is where we do all of the work.
-					return generatePreview(generator, metadata);
-				}}, memoryNeededBytes);
-			// 
-		}catch(TemporarilyUnavailableException temp){
-			log.info("There is not enough memory to at this time to create a preview for this file. It will be placed back on the queue and retried at a later time.  S3FileMetadata: "+metadata);
-			throw temp;
-		}catch(ExceedsMaximumResources e){
-			log.info(String.format("Preview cannot be generated.  Memory needed: '%1$s' (bytes) exceed preview memory pool size: '%2$s' (bytes). Metadata: %3$s", memoryNeededBytes, maxPreviewMemory, metadata.toString())); ;
-			return null;
+
+		if (gen.isLocal()) {
+			if (! (gen instanceof LocalPreviewGenerator)) {
+				throw new RuntimeException("Mistmach between isLocal() and actual generator type.");
+			}
+			final LocalPreviewGenerator generator = (LocalPreviewGenerator)gen;
+			// First determine how much memory will be need to generate this preview
+			String mimeType = ContentType.parse(metadata.getContentType()).getMimeType();
+			long memoryNeededBytes = generator.calculateNeededMemoryBytesForPreview(mimeType, metadata.getContentSize());
+			if(memoryNeededBytes > maxPreviewMemory){
+				log.info(String.format("Preview cannot be generated.  Memory needed: '%1$s' (bytes) exceed preview memory pool size: '%2$s' (bytes). Metadata: %3$s", memoryNeededBytes, maxPreviewMemory, metadata.toString())); ;
+				return null;
+			}
+			// If here then the preview memory pool size is large enough for this file.
+			// Attempt to generate a preview
+			try{
+				// Attempt to allocate the memory needed for this process.  This will fail-fast
+				// it there is not enough memory available.
+				return resourceTracker.allocateAndUseResources(new Callable<PreviewFileHandle>(){
+					@Override
+					public PreviewFileHandle call() {
+						// This is where we do all of the work.
+						return generateLocalPreview(generator, metadata);
+					}}, memoryNeededBytes);
+				// 
+			}catch(TemporarilyUnavailableException temp){
+				log.info("There is not enough memory to at this time to create a preview for this file. It will be placed back on the queue and retried at a later time.  S3FileMetadata: "+metadata);
+				throw temp;
+			}catch(ExceedsMaximumResources e){
+				log.info(String.format("Preview cannot be generated.  Memory needed: '%1$s' (bytes) exceed preview memory pool size: '%2$s' (bytes). Metadata: %3$s", memoryNeededBytes, maxPreviewMemory, metadata.toString())); ;
+				return null;
+			}
+		} else {
+			throw new OperationNotSupportedException("Not implemented yet...");
 		}
 	}
 		
@@ -167,7 +178,7 @@ public class PreviewManagerImpl implements  PreviewManager {
 	 * @param metadata
 	 * @throws IOException 
 	 */
-	private PreviewFileHandle generatePreview(PreviewGenerator generator, S3FileHandle metadata){
+	private PreviewFileHandle generateLocalPreview(LocalPreviewGenerator generator, S3FileHandle metadata){
 		File tempUpload = null;
 		S3ObjectInputStream in = null;
 		OutputStream out = null;

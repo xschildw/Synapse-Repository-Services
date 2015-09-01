@@ -55,7 +55,7 @@ import com.sun.star.util.XCloseable;
  * @author John
  * 
  */
-public class OfficePreviewGenerator implements PreviewGenerator {
+public class OfficePreviewGenerator implements LocalPreviewGenerator {
 
 	private static Log log = LogFactory.getLog(OfficePreviewGenerator.class);
 
@@ -390,5 +390,10 @@ public class OfficePreviewGenerator implements PreviewGenerator {
 		}
 		throw new FileNotFoundException("Path to office executable not found in "
 				+ StringUtils.join(OPENOFFICE_PATHS, File.pathSeparatorChar));
+	}
+
+	@Override
+	public boolean isLocal() {
+		return true;
 	}
 }

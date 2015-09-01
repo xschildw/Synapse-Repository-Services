@@ -20,7 +20,7 @@ import org.sagebionetworks.StackConfiguration;
  * @author John
  *
  */
-public class ImagePreviewGenerator implements PreviewGenerator {
+public class ImagePreviewGenerator implements LocalPreviewGenerator {
 	
 	public static final String IMAGE_BMP 	= "image/bmp";
 	public static final String IMAGE_PJPEG	= "image/pjpeg";
@@ -97,5 +97,10 @@ public class ImagePreviewGenerator implements PreviewGenerator {
 		double multiplier = SUPPORTED_CONTENT_TYPES.get(mimeType);
 		long memoryNeededBytes = (long) Math.ceil((((double) contentSize) * multiplier));
 		return memoryNeededBytes;
+	}
+
+	@Override
+	public boolean isLocal() {
+		return true;
 	}
 }

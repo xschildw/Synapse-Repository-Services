@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableSet;
  * Generates previews for pdfs.
  * 
  */
-public class PdfPreviewGenerator implements PreviewGenerator {
+public class PdfPreviewGenerator implements LocalPreviewGenerator {
 
 	public static final String ENCODING = "UTF-8";
 
@@ -67,5 +67,10 @@ public class PdfPreviewGenerator implements PreviewGenerator {
 	public long calculateNeededMemoryBytesForPreview(String mimeType, long contentSize) {
 		// whole file is read into memory pretty much
 		return contentSize * 2;
+	}
+
+	@Override
+	public boolean isLocal() {
+		return true;
 	}
 }

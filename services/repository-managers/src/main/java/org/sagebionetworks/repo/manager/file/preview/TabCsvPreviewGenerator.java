@@ -18,7 +18,7 @@ import com.google.common.collect.Sets;
  * @author Jay
  *
  */
-public class TabCsvPreviewGenerator implements PreviewGenerator {
+public class TabCsvPreviewGenerator implements LocalPreviewGenerator {
 	
 	public static final String TEXT_CSV_SEPARATED_VALUES = "text/csv";
 
@@ -208,5 +208,9 @@ public class TabCsvPreviewGenerator implements PreviewGenerator {
 			return true;
 		}
 		return false;
+	}
+	@Override
+	public boolean isLocal() {
+		return true;
 	}
 }

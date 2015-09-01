@@ -19,14 +19,14 @@ public class PreviewGeneratorUtils {
 	 * @throws IllegalAccessException 
 	 * @throws InstantiationException 
 	 */
-	public static void calculateMemoryRequirments(File toRead, Class<? extends PreviewGenerator> generatorClass) throws IOException,
+	public static void calculateMemoryRequirments(File toRead, Class<? extends LocalPreviewGenerator> generatorClass) throws IOException,
 			FileNotFoundException, InterruptedException, InstantiationException, IllegalAccessException {
 		double startFreeMB = freeMegaBytes();
 		File tempOut = File.createTempFile(generatorClass.getName(), "tmp");
 		FileOutputStream fos = new FileOutputStream(tempOut);
 		FileInputStream fis = new FileInputStream(toRead);
 		try{
-			PreviewGenerator gen = generatorClass.newInstance();
+			LocalPreviewGenerator gen = generatorClass.newInstance();
 			gen.generatePreview(fis, fos);
 			double peakFreeMB = freeMegaBytes();
 			// see how much we can reclaim

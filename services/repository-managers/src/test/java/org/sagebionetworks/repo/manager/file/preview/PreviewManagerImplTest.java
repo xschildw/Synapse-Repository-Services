@@ -47,7 +47,7 @@ public class PreviewManagerImplTest {
 	@Mock
 	private TempFileProvider mockFileProvider;
 	@Mock
-	private PreviewGenerator mockPreviewGenerator;
+	private LocalPreviewGenerator mockPreviewGenerator;
 	@Mock
 	private File mockUploadFile;
 	@Mock
@@ -71,6 +71,7 @@ public class PreviewManagerImplTest {
 		when(mockFileProvider.createFileOutputStream(mockUploadFile)).thenReturn(mockOutputStream);
 		when(mockS3Client.getObject(any(GetObjectRequest.class))).thenReturn(mockS3Object);
 		when(mockS3Object.getObjectContent()).thenReturn(mockS3ObjectInputStream);
+		when(mockPreviewGenerator.isLocal()).thenReturn(true);
 		when(mockPreviewGenerator.supportsContentType(testContentType, "txt")).thenReturn(true);
 		when(mockPreviewGenerator.calculateNeededMemoryBytesForPreview(testContentType, maxPreviewSize + 1)).thenReturn(maxPreviewSize + 1);
 		when(mockPreviewGenerator.generatePreview(mockS3ObjectInputStream, mockOutputStream)).thenReturn(previewContentType);

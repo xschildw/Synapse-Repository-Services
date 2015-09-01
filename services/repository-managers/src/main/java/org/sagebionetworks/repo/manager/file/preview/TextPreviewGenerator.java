@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableSet;
  * @author Jay
  *
  */
-public class TextPreviewGenerator implements PreviewGenerator {
+public class TextPreviewGenerator implements LocalPreviewGenerator {
 	
 	public static final String TEXT_PLAIN 	= "text/plain";
 	public static final Set<String> TEXT_MIME_TYPES = ImmutableSet.<String> builder()
@@ -69,6 +69,11 @@ public class TextPreviewGenerator implements PreviewGenerator {
 			File toRead = new File(filePath);
 			PreviewGeneratorUtils.calculateMemoryRequirments(toRead, TextPreviewGenerator.class);
 		}
+	}
+
+	@Override
+	public boolean isLocal() {
+		return true;
 	}
 
 

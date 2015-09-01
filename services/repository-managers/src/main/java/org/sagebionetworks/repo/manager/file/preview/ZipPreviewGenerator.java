@@ -15,7 +15,7 @@ import org.apache.commons.io.IOUtils;
  * @author Jay
  *
  */
-public class ZipPreviewGenerator implements PreviewGenerator {
+public class ZipPreviewGenerator implements LocalPreviewGenerator {
 	
 	public static final String APPLICATION_ZIP 	= "application/zip";
 	public static final String TEXT_CSV 	= "text/csv";
@@ -57,5 +57,10 @@ public class ZipPreviewGenerator implements PreviewGenerator {
 			File toRead = new File(filePath);
 			PreviewGeneratorUtils.calculateMemoryRequirments(toRead, ZipPreviewGenerator.class);
 		}
+	}
+
+	@Override
+	public boolean isLocal() {
+		return true;
 	}
 }
