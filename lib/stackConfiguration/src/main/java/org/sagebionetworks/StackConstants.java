@@ -132,4 +132,7 @@ public class StackConstants {
 	 * External S3 location test bucket.
 	 */
 	public static final String EXTERNAL_S3_TEST_BUCKET = "%1$s.external.s3.test.sagebase.org";
+
+	public static final String REMOTE_FILEPREVIEW_GENERATOR_QUEUE_NAME = "remote-filepreview-generator-queue";
+	public static final String REMOTE_FILEPREVIEW_GENERATOR_DEAD_LETTER_QUEUE_NAME = REMOTE_FILEPREVIEW_GENERATOR_QUEUE_NAME + "-dl";
 }

@@ -116,6 +116,9 @@ public class PreviewManagerImpl implements  PreviewManager {
 		if(metadata == null) throw new IllegalArgumentException("metadata cannot be null");
 		if(metadata.getContentType() == null) throw new IllegalArgumentException("metadata.getContentType() cannot be null");
 		if(metadata.getContentSize() == null) throw new IllegalArgumentException("metadata.getContentSize() cannot be null");
+
+		PreviewFileHandle fhRes = null;
+
 		// there is nothing to do if the file is empty
 		if (metadata.getContentSize() == 0L) {
 			log.info("Cannot generate preview of empty file");
@@ -145,30 +148,35 @@ public class PreviewManagerImpl implements  PreviewManager {
 			long memoryNeededBytes = generator.calculateNeededMemoryBytesForPreview(mimeType, metadata.getContentSize());
 			if(memoryNeededBytes > maxPreviewMemory){
 				log.info(String.format("Preview cannot be generated.  Memory needed: '%1$s' (bytes) exceed preview memory pool size: '%2$s' (bytes). Metadata: %3$s", memoryNeededBytes, maxPreviewMemory, metadata.toString())); ;
-				return null;
+				return fhRes;
 			}
 			// If here then the preview memory pool size is large enough for this file.
 			// Attempt to generate a preview
 			try{
 				// Attempt to allocate the memory needed for this process.  This will fail-fast
 				// it there is not enough memory available.
-				return resourceTracker.allocateAndUseResources(new Callable<PreviewFileHandle>(){
+				fhRes = resourceTracker.allocateAndUseResources(new Callable<PreviewFileHandle>(){
 					@Override
 					public PreviewFileHandle call() {
 						// This is where we do all of the work.
 						return generateLocalPreview(generator, metadata);
 					}}, memoryNeededBytes);
 				// 
-			}catch(TemporarilyUnavailableException temp){
+			} catch (TemporarilyUnavailableException temp){
 				log.info("There is not enough memory to at this time to create a preview for this file. It will be placed back on the queue and retried at a later time.  S3FileMetadata: "+metadata);
 				throw temp;
-			}catch(ExceedsMaximumResources e){
+			} catch (ExceedsMaximumResources e){
 				log.info(String.format("Preview cannot be generated.  Memory needed: '%1$s' (bytes) exceed preview memory pool size: '%2$s' (bytes). Metadata: %3$s", memoryNeededBytes, maxPreviewMemory, metadata.toString())); ;
 				return null;
 			}
 		} else {
-			throw new OperationNotSupportedException("Not implemented yet...");
+			if (! (gen instanceof RemotePreviewGenerator)) {
+				throw new RuntimeException("Mistmach between isLocal() and actual generator type.");
+			}
+			final RemotePreviewGenerator generator = (RemotePreviewGenerator)gen;
+			fhRes = generateRemotePreview(generator, metadata);
 		}
+		return fhRes;
 	}
 		
 	/**
@@ -224,6 +232,19 @@ public class PreviewManagerImpl implements  PreviewManager {
 			}
 		}
 
+	}
+	
+	private PreviewFileHandle generateRemotePreview(RemotePreviewGenerator generator, S3FileHandle metadata) throws Exception {
+		//throw new OperationNotSupportedException("Not implemented yet...");
+		S3FileHandle out = new S3FileHandle();
+		out.setBucketName(metadata.getBucketName());
+		out.setFileName("preview.png");
+		out.setKey(metadata.getCreatedBy() + UUID.randomUUID().toString());
+		
+		PreviewFileHandle pf = new PreviewFileHandle();
+		
+		
+		return pf;
 	}
 
 	/**

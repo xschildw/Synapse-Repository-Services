@@ -998,6 +998,14 @@ public class StackConfiguration {
 				singleton().getStack(),
 				StackConfiguration.getStackInstance());
 	}
+	
+	public String getRemoteFilePreviewGeneratorQueueName() {
+		return StackConstants.REMOTE_FILEPREVIEW_GENERATOR_QUEUE_NAME;
+	}
+	
+	public String getRemoteFilePreviewGeneratorDeadLetterQueueName() {
+		return StackConstants.REMOTE_FILEPREVIEW_GENERATOR_DEAD_LETTER_QUEUE_NAME;
+	}
 
 	/**
 	 * The name of the AWS SQS where file updates are pushed.
