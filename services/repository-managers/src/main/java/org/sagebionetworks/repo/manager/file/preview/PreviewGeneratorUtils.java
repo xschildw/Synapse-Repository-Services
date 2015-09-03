@@ -6,6 +6,16 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
+import org.sagebionetworks.repo.model.file.RemoteFilePreviewGenerationRequest;
+import org.sagebionetworks.repo.model.file.S3FileHandle;
+import org.sagebionetworks.schema.adapter.JSONObjectAdapter;
+import org.sagebionetworks.schema.adapter.JSONObjectAdapterException;
+import org.sagebionetworks.schema.adapter.org.json.JSONObjectAdapterImpl;
+
+import com.amazonaws.services.sqs.AmazonSQSClient;
+import com.amazonaws.services.sqs.model.GetQueueUrlResult;
+import com.amazonaws.services.sqs.model.SendMessageRequest;
+
 public class PreviewGeneratorUtils {
 
 	public static final float ONE_MEGA_BYTE = (float) Math.pow(2, 20.0);
@@ -61,5 +71,31 @@ public class PreviewGeneratorUtils {
 			}
 		}
 		return "noextension";
+	}
+	
+	public static void sendRemoteFilePreviewGenerationRequest(AmazonSQSClient sqsClient, String queueName, S3FileHandle src, S3FileHandle dest) throws JSONObjectAdapterException {
+		String queueUrl = getQueueUrlFromQueueName(sqsClient, queueName);
+		JSONObjectAdapter joa = createRemoteFilePreviewGenerationRequestAsJSONObjectAdapter(
+				src, dest);
+		SendMessageRequest req = new SendMessageRequest().withQueueUrl(queueUrl).withMessageBody(joa.toJSONString());
+		sqsClient.sendMessage(req);
+	}
+
+	private static JSONObjectAdapter createRemoteFilePreviewGenerationRequestAsJSONObjectAdapter(
+			S3FileHandle src, S3FileHandle dest)
+			throws JSONObjectAdapterException {
+		RemoteFilePreviewGenerationRequest rfpgReq = new RemoteFilePreviewGenerationRequest();
+		rfpgReq.setSource(src);
+		rfpgReq.setDestination(dest);
+		JSONObjectAdapter joa = new JSONObjectAdapterImpl();
+		rfpgReq.writeToJSONObject(joa);
+		return joa;
+	}
+
+	private static String getQueueUrlFromQueueName(AmazonSQSClient sqsClient,
+			String queueName) {
+		GetQueueUrlResult res = sqsClient.getQueueUrl(queueName);
+		String queueUrl = res.getQueueUrl();
+		return queueUrl;
 	}
 }

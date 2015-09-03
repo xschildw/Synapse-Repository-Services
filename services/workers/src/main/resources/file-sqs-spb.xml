@@ -3,10 +3,10 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop"
 	xmlns:tx="http://www.springframework.org/schema/tx" xmlns:util="http://www.springframework.org/schema/util"
 	xsi:schemaLocation="
-       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
-       http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-3.0.xsd
-       http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-3.0.xsd
-       http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+		http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-3.0.xsd
+		http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-3.0.xsd
+		http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
 
 	<!-- Turn on Spring's autoproxy using AspectJ's @Aspect annotations. -->
 	<aop:aspectj-autoproxy />
@@ -14,34 +14,34 @@
 	<bean id="remoteFilePreviewGeneratorQueue"
 		class="org.sagebionetworks.workers.utils.aws.message.MessageQueueImpl"
 		depends-on="stackConfiguration" >
-        <constructor-arg index="0" ref="awsSQSClient" />
-        <constructor-arg index="1" ref="awsSNSClient" />
-        <constructor-arg index="2">
-                <bean
-                        class="org.sagebionetworks.workers.util.aws.message.MessageQueueConfiguration">
-                        <property name="queueName"
- 							ref="stackConfiguration.RemoteFilePreviewGeneratorQueueName" />
-                        <property name="defaultMessageVisibilityTimeoutSec" value="6000" />
-                        <property name="deadLetterQueueName"
-                        	ref="stackConfiguration.RemoteFilePreviewGeneratorDeadLetterQueueName" />
-                        <property name="maxFailureCount" value="3" />
-                </bean>
-        </constructor-arg>
+		<constructor-arg index="0" ref="awsSQSClient" />
+		<constructor-arg index="1" ref="awsSNSClient" />
+		<constructor-arg index="2">
+				<bean
+						class="org.sagebionetworks.workers.util.aws.message.MessageQueueConfiguration">
+						<property name="queueName"
+ 							ref="stackConfiguration.remoteFilePreviewGeneratorQueueName" />
+						<property name="defaultMessageVisibilityTimeoutSec" value="6000" />
+						<property name="deadLetterQueueName"
+							ref="stackConfiguration.remoteFilePreviewGeneratorDeadLetterQueueName" />
+						<property name="maxFailureCount" value="3" />
+				</bean>
+		</constructor-arg>
 	</bean>
 	
 	<bean id="remoteFilePreviewGeneratorDeadLetterQueue"
 		class="org.sagebionetworks.workers.utils.aws.message.MessageQueueImpl"
 		depends-on="stackConfiguration" >
-        <constructor-arg index="0" ref="awsSQSClient" />
-        <constructor-arg index="1" ref="awsSNSClient" />
-        <constructor-arg index="2">
-                <bean
-                        class="org.sagebionetworks.workers.util.aws.message.MessageQueueConfiguration">
-                        <property name="queueName"
-                                ref="stackConfiguration.RemoteFilePreviewGeneratorDeadLetterQueueName" />
-                        <property name="defaultMessageVisibilityTimeoutSec" value="6000" />
-                </bean>
-        </constructor-arg>
+		<constructor-arg index="0" ref="awsSQSClient" />
+		<constructor-arg index="1" ref="awsSNSClient" />
+		<constructor-arg index="2">
+				<bean
+						class="org.sagebionetworks.workers.util.aws.message.MessageQueueConfiguration">
+						<property name="queueName"
+								ref="stackConfiguration.remoteFilePreviewGeneratorDeadLetterQueueName" />
+						<property name="defaultMessageVisibilityTimeoutSec" value="6000" />
+				</bean>
+		</constructor-arg>
 	</bean>
 	
 	<bean id="fileQueueMessageReveiverTrigger" class="org.springframework.scheduling.quartz.SimpleTriggerBean"

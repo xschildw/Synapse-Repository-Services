@@ -37,6 +37,7 @@ import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
+import com.amazonaws.services.sqs.AmazonSQSClient;
 
 public class PreviewManagerImplTest {
 	
@@ -44,6 +45,8 @@ public class PreviewManagerImplTest {
 	FileHandleDao stubFileMetadataDao;
 	@Mock
 	private AmazonS3Client mockS3Client;
+	@Mock
+	private AmazonSQSClient mockSQSClient;
 	@Mock
 	private TempFileProvider mockFileProvider;
 	@Mock
@@ -62,6 +65,7 @@ public class PreviewManagerImplTest {
 	PreviewOutputMetadata previewContentType = new PreviewOutputMetadata("application/zip", ".zip");
 	S3FileHandle testMetadata;
 	Long resultPreviewSize = 15l;
+	String remoteFilePreviewGeneratorQueueName = "queueName";
 	
 	@Before
 	public void before() throws IOException{
@@ -79,7 +83,7 @@ public class PreviewManagerImplTest {
 		List<PreviewGenerator> genList = new LinkedList<PreviewGenerator>();
 		genList.add(mockPreviewGenerator);
 		
-		previewManager = new PreviewManagerImpl(stubFileMetadataDao, mockS3Client, mockFileProvider, genList, maxPreviewSize);
+		previewManager = new PreviewManagerImpl(stubFileMetadataDao, mockS3Client, mockSQSClient, mockFileProvider, genList, maxPreviewSize, remoteFilePreviewGeneratorQueueName);
 		
 		// This is a test file metadata
 		testMetadata = new S3FileHandle();

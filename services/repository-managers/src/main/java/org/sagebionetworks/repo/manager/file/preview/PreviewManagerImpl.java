@@ -33,6 +33,7 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
+import com.amazonaws.services.sqs.AmazonSQSClient;
 /**
  * The preview manager tracks memory allocation and bridges preview generators with
  * Actual file data.
@@ -53,6 +54,9 @@ public class PreviewManagerImpl implements  PreviewManager {
 	@Autowired
 	TempFileProvider tempFileProvider;
 	
+	@Autowired
+	AmazonSQSClient sqsClient;
+	
 	ResourceTracker resourceTracker;
 	
 	List<PreviewGenerator> generatorList;
@@ -61,6 +65,8 @@ public class PreviewManagerImpl implements  PreviewManager {
 	 * Injected.
 	 */
 	private Long maxPreviewMemory;
+	
+	private String remoteFilePreviewGeneratorQueueName;
 
 	/**
 	 * Default used by Spring.
@@ -73,20 +79,26 @@ public class PreviewManagerImpl implements  PreviewManager {
 	 * 
 	 * @param fileMetadataDao
 	 * @param s3Client
+	 * @param sqsClient
 	 * @param tempFileProvider
 	 * @param resourceTracker
 	 * @param generatorList
 	 * @param maxPreviewMemory
+	 * @param remoteFilePreviewGeneratorQueueName
 	 */
 	public PreviewManagerImpl(FileHandleDao fileMetadataDao,
-			AmazonS3Client s3Client, TempFileProvider tempFileProvider,
-			List<PreviewGenerator> generatorList, Long maxPreviewMemory) {
+			AmazonS3Client s3Client, AmazonSQSClient sqsClient,
+			TempFileProvider tempFileProvider,
+			List<PreviewGenerator> generatorList, Long maxPreviewMemory,
+			String remoteFilePreviewGeneratorQName) {
 		super();
 		this.fileMetadataDao = fileMetadataDao;
 		this.s3Client = s3Client;
+		this.sqsClient = sqsClient;
 		this.tempFileProvider = tempFileProvider;
 		this.generatorList = generatorList;
 		this.maxPreviewMemory = maxPreviewMemory;
+		this.remoteFilePreviewGeneratorQueueName = remoteFilePreviewGeneratorQName;
 		initialize();
 	}
 
@@ -104,6 +116,10 @@ public class PreviewManagerImpl implements  PreviewManager {
 	 */
 	public void setGeneratorList(List<PreviewGenerator> generatorList){
 		this.generatorList = generatorList;
+	}
+	
+	public void setRemoteFilePreviewGeneratorQueueName(String qName) {
+		this.remoteFilePreviewGeneratorQueueName = qName;
 	}
 
 	@Override
@@ -235,17 +251,16 @@ public class PreviewManagerImpl implements  PreviewManager {
 	}
 	
 	private PreviewFileHandle generateRemotePreview(RemotePreviewGenerator generator, S3FileHandle metadata) throws Exception {
-		//throw new OperationNotSupportedException("Not implemented yet...");
 		S3FileHandle out = new S3FileHandle();
 		out.setBucketName(metadata.getBucketName());
 		out.setFileName("preview.png");
 		out.setKey(metadata.getCreatedBy() + UUID.randomUUID().toString());
+		PreviewGeneratorUtils.sendRemoteFilePreviewGenerationRequest(sqsClient, remoteFilePreviewGeneratorQueueName, metadata, out);
 		
-		PreviewFileHandle pf = new PreviewFileHandle();
-		
-		
-		return pf;
+		throw new OperationNotSupportedException("Not implemented yet...");
 	}
+	
+	
 
 	/**
 	 * Find
