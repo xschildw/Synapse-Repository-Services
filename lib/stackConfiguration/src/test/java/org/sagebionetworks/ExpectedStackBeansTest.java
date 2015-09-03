@@ -79,7 +79,10 @@ public class ExpectedStackBeansTest {
 			"stackConfiguration.repositoryChangeTopic[WIKI]",
 			"stackConfiguration.repositoryChangeTopic[TABLE]",
 			"stackConfiguration.repositoryChangeTopic[TEAM_MEMBER]",
-			"stackConfiguration.repositoryChangeTopic[PROJECT_SETTING]"
+			"stackConfiguration.repositoryChangeTopic[PROJECT_SETTING]",
+			
+			"stackConfiguration.remoteFilePreviewGeneratorQueueName",
+			"stackConfiguration.remoteFilePreviewGeneratorDeadLetterQueueName"
 	};
 	
 	@Before
