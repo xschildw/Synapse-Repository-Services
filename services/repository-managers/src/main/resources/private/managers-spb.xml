@@ -155,6 +155,7 @@
 	    </property>
 	    <!-- The maximum amount of memory to uses -->
 	   	<property name="maxPreviewMemory" ref="stackConfiguration.maxFilePreviewMemoryPoolBytes"/>
+	
 	   	<property name="remoteFilePreviewGeneratorQueueName" ref="stackConfiguration.remoteFilePreviewGeneratorQueueName" />
 	</bean>
 	
