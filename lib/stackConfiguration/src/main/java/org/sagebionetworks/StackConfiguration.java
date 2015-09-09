@@ -1000,11 +1000,13 @@ public class StackConfiguration {
 	}
 	
 	public String getRemoteFilePreviewGeneratorQueueName() {
-		return StackConstants.REMOTE_FILEPREVIEW_GENERATOR_QUEUE_NAME;
+		return String.format(StackConstants.REMOTE_FILEPREVIEW_GENERATOR_QUEUE_NAME_TEMPLATE,
+			singleton.getStack());
 	}
 	
 	public String getRemoteFilePreviewGeneratorDeadLetterQueueName() {
-		return StackConstants.REMOTE_FILEPREVIEW_GENERATOR_DEAD_LETTER_QUEUE_NAME;
+		return String.format(StackConstants.REMOTE_FILEPREVIEW_GENERATOR_DEAD_LETTER_QUEUE_NAME_TEMPLATE,
+			singleton.getStack());
 	}
 
 	/**
