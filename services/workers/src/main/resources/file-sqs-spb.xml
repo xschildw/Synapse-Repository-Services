@@ -29,21 +29,6 @@
 		</constructor-arg>
 	</bean>
 	
-	<bean id="remoteFilePreviewGeneratorDeadLetterQueue"
-		class="org.sagebionetworks.workers.utils.aws.message.MessageQueueImpl"
-		depends-on="stackConfiguration" >
-		<constructor-arg index="0" ref="awsSQSClient" />
-		<constructor-arg index="1" ref="awsSNSClient" />
-		<constructor-arg index="2">
-				<bean
-						class="org.sagebionetworks.workers.util.aws.message.MessageQueueConfiguration">
-						<property name="queueName"
-								ref="stackConfiguration.remoteFilePreviewGeneratorDeadLetterQueueName" />
-						<property name="defaultMessageVisibilityTimeoutSec" value="6000" />
-				</bean>
-		</constructor-arg>
-	</bean>
-	
 	<bean id="fileQueueMessageReveiverTrigger" class="org.springframework.scheduling.quartz.SimpleTriggerBean"
 		scope="singleton">
 		<property name="jobDetail">

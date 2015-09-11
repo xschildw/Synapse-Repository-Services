@@ -11,6 +11,7 @@ import org.sagebionetworks.repo.model.file.S3FileHandle;
 import org.sagebionetworks.schema.adapter.JSONObjectAdapter;
 import org.sagebionetworks.schema.adapter.JSONObjectAdapterException;
 import org.sagebionetworks.schema.adapter.org.json.JSONObjectAdapterImpl;
+import org.sagebionetworks.workers.util.aws.message.MessageQueue;
 
 import com.amazonaws.services.sqs.AmazonSQSClient;
 import com.amazonaws.services.sqs.model.GetQueueUrlResult;
@@ -73,8 +74,8 @@ public class PreviewGeneratorUtils {
 		return "noextension";
 	}
 	
-	public static void sendRemoteFilePreviewGenerationRequest(AmazonSQSClient sqsClient, String queueName, S3FileHandle src, S3FileHandle dest) throws JSONObjectAdapterException {
-		String queueUrl = getQueueUrlFromQueueName(sqsClient, queueName);
+	public static void sendRemoteFilePreviewGenerationRequest(AmazonSQSClient sqsClient, MessageQueue queue, S3FileHandle src, S3FileHandle dest) throws JSONObjectAdapterException {
+		String queueUrl = queue.getQueueUrl();
 		JSONObjectAdapter joa = createRemoteFilePreviewGenerationRequestAsJSONObjectAdapter(
 				src, dest);
 		SendMessageRequest req = new SendMessageRequest().withQueueUrl(queueUrl).withMessageBody(joa.toJSONString());
@@ -92,10 +93,4 @@ public class PreviewGeneratorUtils {
 		return joa;
 	}
 
-	private static String getQueueUrlFromQueueName(AmazonSQSClient sqsClient,
-			String queueName) {
-		GetQueueUrlResult res = sqsClient.getQueueUrl(queueName);
-		String queueUrl = res.getQueueUrl();
-		return queueUrl;
-	}
 }

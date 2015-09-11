@@ -70,6 +70,11 @@
 			<scope>test</scope>
 		</dependency>
 		
+		<dependency>
+			<groupId>org.sagebionetworks</groupId>
+			<artifactId>worker-utilities</artifactId>
+		</dependency>
+		
 		<!-- Oauth support -->
 		<dependency>
 			<groupId>org.scribe</groupId>

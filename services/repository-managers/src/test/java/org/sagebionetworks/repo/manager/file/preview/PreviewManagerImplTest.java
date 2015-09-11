@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -31,12 +32,15 @@ import org.sagebionetworks.repo.util.ResourceTracker;
 import org.sagebionetworks.repo.util.ResourceTracker.ExceedsMaximumResources;
 import org.sagebionetworks.repo.util.TempFileProvider;
 import org.sagebionetworks.repo.web.TemporarilyUnavailableException;
+import org.sagebionetworks.workers.util.aws.message.MessageQueueConfiguration;
+import org.sagebionetworks.workers.util.aws.message.MessageQueueImpl;
 
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
+import com.amazonaws.services.sns.AmazonSNSClient;
 import com.amazonaws.services.sqs.AmazonSQSClient;
 
 public class PreviewManagerImplTest {
@@ -47,6 +51,8 @@ public class PreviewManagerImplTest {
 	private AmazonS3Client mockS3Client;
 	@Mock
 	private AmazonSQSClient mockSQSClient;
+	@Mock
+	private AmazonSNSClient mockSNSClient;
 	@Mock
 	private TempFileProvider mockFileProvider;
 	@Mock
@@ -65,7 +71,7 @@ public class PreviewManagerImplTest {
 	PreviewOutputMetadata previewContentType = new PreviewOutputMetadata("application/zip", ".zip");
 	S3FileHandle testMetadata;
 	Long resultPreviewSize = 15l;
-	String remoteFilePreviewGeneratorQueueName = "queueName";
+	private MessageQueueImpl mockMsgQueue;
 	
 	@Before
 	public void before() throws IOException{
@@ -83,7 +89,7 @@ public class PreviewManagerImplTest {
 		List<PreviewGenerator> genList = new LinkedList<PreviewGenerator>();
 		genList.add(mockPreviewGenerator);
 		
-		previewManager = new PreviewManagerImpl(stubFileMetadataDao, mockS3Client, mockSQSClient, mockFileProvider, genList, maxPreviewSize, remoteFilePreviewGeneratorQueueName);
+		previewManager = new PreviewManagerImpl(stubFileMetadataDao, mockS3Client, mockSQSClient, mockFileProvider, genList, maxPreviewSize, mockMsgQueue);
 		
 		// This is a test file metadata
 		testMetadata = new S3FileHandle();

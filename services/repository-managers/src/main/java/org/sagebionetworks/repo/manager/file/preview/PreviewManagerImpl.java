@@ -25,6 +25,8 @@ import org.sagebionetworks.repo.util.TempFileProvider;
 import org.sagebionetworks.repo.web.NotFoundException;
 import org.sagebionetworks.repo.web.TemporarilyUnavailableException;
 import org.sagebionetworks.util.Closer;
+import org.sagebionetworks.workers.util.aws.message.MessageQueue;
+import org.sagebionetworks.workers.util.aws.message.MessageQueueImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.amazonaws.services.s3.AmazonS3Client;
@@ -66,7 +68,7 @@ public class PreviewManagerImpl implements  PreviewManager {
 	 */
 	private Long maxPreviewMemory;
 	
-	private String remoteFilePreviewGeneratorQueueName;
+	private MessageQueue remoteFilePreviewGeneratorQueue;
 
 	/**
 	 * Default used by Spring.
@@ -90,7 +92,7 @@ public class PreviewManagerImpl implements  PreviewManager {
 			AmazonS3Client s3Client, AmazonSQSClient sqsClient,
 			TempFileProvider tempFileProvider,
 			List<PreviewGenerator> generatorList, Long maxPreviewMemory,
-			String remoteFilePreviewGeneratorQName) {
+			MessageQueueImpl remoteFilePreviewGeneratorQueue) {
 		super();
 		this.fileMetadataDao = fileMetadataDao;
 		this.s3Client = s3Client;
@@ -98,7 +100,7 @@ public class PreviewManagerImpl implements  PreviewManager {
 		this.tempFileProvider = tempFileProvider;
 		this.generatorList = generatorList;
 		this.maxPreviewMemory = maxPreviewMemory;
-		this.remoteFilePreviewGeneratorQueueName = remoteFilePreviewGeneratorQName;
+		this.remoteFilePreviewGeneratorQueue = remoteFilePreviewGeneratorQueue;
 		initialize();
 	}
 
@@ -118,8 +120,12 @@ public class PreviewManagerImpl implements  PreviewManager {
 		this.generatorList = generatorList;
 	}
 	
-	public void setRemoteFilePreviewGeneratorQueueName(String qName) {
-		this.remoteFilePreviewGeneratorQueueName = qName;
+	public void setRemoteFilePreviewGeneratorQueueName(MessageQueue q) {
+		this.remoteFilePreviewGeneratorQueue = q;
+	}
+	
+	public void setSqsClient(AmazonSQSClient c) {
+		this.sqsClient = c;
 	}
 
 	@Override
@@ -255,7 +261,7 @@ public class PreviewManagerImpl implements  PreviewManager {
 		out.setBucketName(metadata.getBucketName());
 		out.setFileName("preview.png");
 		out.setKey(metadata.getCreatedBy() + UUID.randomUUID().toString());
-		PreviewGeneratorUtils.sendRemoteFilePreviewGenerationRequest(sqsClient, remoteFilePreviewGeneratorQueueName, metadata, out);
+		PreviewGeneratorUtils.sendRemoteFilePreviewGenerationRequest(sqsClient, remoteFilePreviewGeneratorQueue, metadata, out);
 		
 		throw new OperationNotSupportedException("Not implemented yet...");
 	}
