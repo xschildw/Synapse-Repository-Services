@@ -83,6 +83,8 @@ public class ExpectedStackBeansTest {
 			
 			"stackConfiguration.remoteFilePreviewGeneratorQueueName",
 			"stackConfiguration.remoteFilePreviewGeneratorDeadLetterQueueName"
+
+			"stackConfiguration.asyncQueueName[BULK_FILE_DOWNLOAD]"
 	};
 	
 	@Before
