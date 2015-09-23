@@ -82,7 +82,7 @@ public class ExpectedStackBeansTest {
 			"stackConfiguration.repositoryChangeTopic[PROJECT_SETTING]",
 			
 			"stackConfiguration.remoteFilePreviewGeneratorQueueName",
-			"stackConfiguration.remoteFilePreviewGeneratorDeadLetterQueueName"
+			"stackConfiguration.remoteFilePreviewGeneratorDeadLetterQueueName",
 
 			"stackConfiguration.asyncQueueName[BULK_FILE_DOWNLOAD]"
 	};
