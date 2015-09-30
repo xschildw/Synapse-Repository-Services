@@ -39,6 +39,18 @@
 		<property name="shouldMessagesBePublishedToTopic"
 			ref="stackConfiguration.shouldMessagesBePublishedToTopic"></property>
 	</bean>
+	
+	<!-- The RemoteFilePreviewMessagePublisher publishes RemoteFilePreviewGenerationRequest messages to an SNS topic -->
+	<bean
+		id="remoteFilePreviewMessagePublisher"
+		class="org.sagebionetworks.repo.manager.message.RemoteFilePreviewMessagePublisherImpl">
+		<constructor-arg type="java.lang.String">
+			<ref bean="stackConfiguration.remoteFilePreviewMessageTopicName" />
+		</constructor-arg>
+		<property name="publishToTopicEnabled"
+			ref="stackConfiguration.remoteFilePreviewMessagePublishToTopicEnabled">
+		</property>
+	</bean>
 
 	<!-- This is how messages get rebroadcast -->
 	<bean id="messageSyndication"

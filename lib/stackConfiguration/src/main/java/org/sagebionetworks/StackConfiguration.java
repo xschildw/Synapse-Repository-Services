@@ -928,6 +928,18 @@ public class StackConfiguration {
 		return String.format(StackConstants.TOPIC_NAME_TEMPLATE_PREFIX, singleton().getStack(), StackConfiguration.getStackInstance())
 				+ "modifications";
 	}
+	
+	/**
+	 * The name of the AWS topic where remote file preview generation request messages are published
+	 */
+	public String getRemoteFilePreviewMessageTopicName() {
+		return StackConstants.REMOTE_FILEPREVIEW_MESSAGE_TOPIC_NAME;
+	}
+	
+	public boolean getRemoteFilePreviewMessagePublishToTopicEnabled() {
+		return Boolean.parseBoolean(
+				configuration.getProperty("org.sagebionetworks.repo.manager.remoteFilePreviewMessage.PublishToTopicEnabled"));
+	}
 
 	/**
 	 * The name of the AWS SQS where search updates are pushed.
