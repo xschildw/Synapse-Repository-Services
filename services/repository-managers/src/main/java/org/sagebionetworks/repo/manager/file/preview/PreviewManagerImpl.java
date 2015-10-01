@@ -2,22 +2,23 @@ package org.sagebionetworks.repo.manager.file.preview;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
-
-import javax.naming.OperationNotSupportedException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.http.entity.ContentType;
 import org.sagebionetworks.repo.manager.file.transfer.TransferUtils;
+import org.sagebionetworks.repo.manager.message.RemoteFilePreviewMessagePublisherImpl;
 import org.sagebionetworks.repo.model.dao.FileHandleDao;
 import org.sagebionetworks.repo.model.file.FileHandle;
 import org.sagebionetworks.repo.model.file.PreviewFileHandle;
+import org.sagebionetworks.repo.model.file.RemoteFilePreviewGenerationRequest;
 import org.sagebionetworks.repo.model.file.S3FileHandle;
 import org.sagebionetworks.repo.util.ResourceTracker;
 import org.sagebionetworks.repo.util.ResourceTracker.ExceedsMaximumResources;
@@ -25,8 +26,6 @@ import org.sagebionetworks.repo.util.TempFileProvider;
 import org.sagebionetworks.repo.web.NotFoundException;
 import org.sagebionetworks.repo.web.TemporarilyUnavailableException;
 import org.sagebionetworks.util.Closer;
-import org.sagebionetworks.workers.util.aws.message.MessageQueue;
-import org.sagebionetworks.workers.util.aws.message.MessageQueueImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.amazonaws.services.s3.AmazonS3Client;
@@ -35,7 +34,7 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
-import com.amazonaws.services.sqs.AmazonSQSClient;
+
 /**
  * The preview manager tracks memory allocation and bridges preview generators with
  * Actual file data.
@@ -57,7 +56,10 @@ public class PreviewManagerImpl implements  PreviewManager {
 	TempFileProvider tempFileProvider;
 	
 	@Autowired
-	AmazonSQSClient sqsClient;
+	RemoteFilePreviewMessagePublisherImpl remoteFilePreviewMessagePublisher;
+	
+	@Autowired
+	ExecutorService S3FilePreviewWatcherThreadPool;
 	
 	ResourceTracker resourceTracker;
 	
@@ -68,8 +70,6 @@ public class PreviewManagerImpl implements  PreviewManager {
 	 */
 	private Long maxPreviewMemory;
 	
-	private MessageQueue remoteFilePreviewGeneratorQueue;
-
 	/**
 	 * Default used by Spring.
 	 */
@@ -86,21 +86,21 @@ public class PreviewManagerImpl implements  PreviewManager {
 	 * @param resourceTracker
 	 * @param generatorList
 	 * @param maxPreviewMemory
-	 * @param remoteFilePreviewGeneratorQueueName
 	 */
 	public PreviewManagerImpl(FileHandleDao fileMetadataDao,
-			AmazonS3Client s3Client, AmazonSQSClient sqsClient,
+			AmazonS3Client s3Client,
 			TempFileProvider tempFileProvider,
 			List<PreviewGenerator> generatorList, Long maxPreviewMemory,
-			MessageQueueImpl remoteFilePreviewGeneratorQueue) {
+			RemoteFilePreviewMessagePublisherImpl rfpmp,
+			ExecutorService executorSvc) {
 		super();
 		this.fileMetadataDao = fileMetadataDao;
 		this.s3Client = s3Client;
-		this.sqsClient = sqsClient;
 		this.tempFileProvider = tempFileProvider;
 		this.generatorList = generatorList;
 		this.maxPreviewMemory = maxPreviewMemory;
-		this.remoteFilePreviewGeneratorQueue = remoteFilePreviewGeneratorQueue;
+		this.remoteFilePreviewMessagePublisher = rfpmp;
+		this.S3FilePreviewWatcherThreadPool = executorSvc;
 		initialize();
 	}
 
@@ -120,14 +120,6 @@ public class PreviewManagerImpl implements  PreviewManager {
 		this.generatorList = generatorList;
 	}
 	
-	public void setRemoteFilePreviewGeneratorQueueName(MessageQueue q) {
-		this.remoteFilePreviewGeneratorQueue = q;
-	}
-	
-	public void setSqsClient(AmazonSQSClient c) {
-		this.sqsClient = c;
-	}
-
 	@Override
 	public FileHandle getFileMetadata(String id) throws NotFoundException {
 		return fileMetadataDao.get(id);
@@ -257,13 +249,43 @@ public class PreviewManagerImpl implements  PreviewManager {
 	}
 	
 	private PreviewFileHandle generateRemotePreview(RemotePreviewGenerator generator, S3FileHandle metadata) throws Exception {
+		// Send the request
 		S3FileHandle out = new S3FileHandle();
 		out.setBucketName(metadata.getBucketName());
 		out.setFileName("preview.png");
 		out.setKey(metadata.getCreatedBy() + UUID.randomUUID().toString());
-		PreviewGeneratorUtils.sendRemoteFilePreviewGenerationRequest(sqsClient, remoteFilePreviewGeneratorQueue, metadata, out);
-		
-		throw new OperationNotSupportedException("Not implemented yet...");
+		RemoteFilePreviewGenerationRequest req = PreviewGeneratorUtils.createRemoteFilePreviewGenerationRequest(metadata, out);
+		remoteFilePreviewMessagePublisher.publishToTopic(req);
+		// Wait for the file to appear in S3
+		S3FilePreviewWatcherThread t;
+		t = new S3FilePreviewWatcherThread(out.getBucketName(), out.getKey());
+		long endTime = System.currentTimeMillis() + 60 * 1000;
+		final Future<Boolean> fFound = S3FilePreviewWatcherThreadPool.submit(t);
+		while (! fFound.isDone()) {
+			log.debug("Waiting for preview to appear in S3.");
+			Thread.sleep(5000);
+			long curTime = System.currentTimeMillis();
+			if (curTime > endTime) {
+				break;
+			}
+		}
+		Boolean found = false;
+		if (fFound.isDone()) {
+			found = fFound.get();
+		} else {
+			fFound.cancel(true);
+		}
+		PreviewFileHandle fp = null; 
+		if (found) {
+			S3Object o = s3Client.getObject(out.getBucketName(), out.getKey());
+			fp = new PreviewFileHandle();
+			fp.setBucketName(o.getBucketName());
+			fp.setCreatedBy(metadata.getCreatedBy());
+			fp.setFileName(out.getFileName());
+			fp.setKey(out.getKey());
+			fp.setContentSize(o.getObjectMetadata().getContentLength());
+		}
+		return fp;
 	}
 	
 	
@@ -296,5 +318,21 @@ public class PreviewManagerImpl implements  PreviewManager {
 	@Override
 	public long getMaxPreivewMemoryBytes() {
 		return maxPreviewMemory;
+	}
+	
+	private static class S3FilePreviewWatcherThread implements Callable<Boolean> {
+		
+		private String bucketName;
+		private String keyToWatch;
+		
+		S3FilePreviewWatcherThread(String bucketName, String key) {
+			this.bucketName = bucketName;
+			this.keyToWatch = key;
+		}
+		
+		@Override
+		public Boolean call() {
+			return true;
+		}
 	}
 }

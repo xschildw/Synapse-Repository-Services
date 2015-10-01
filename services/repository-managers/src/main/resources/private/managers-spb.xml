@@ -84,6 +84,17 @@
 		</property>
 		<property name="arguments" ref="stackConfiguration.fileMultipartUploadDaemonCopyPartMaxThreads"/>
 	</bean>
+	
+	<!-- The thread used by the S3 file preview watcher -->
+	<bean id="S3FilePreviewWatcherThreadPool"
+		class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
+		<property name="targetClass">
+			<value>java.util.concurrent.Executors</value>
+		</property>
+		<property name="targetMethod">
+			<value>newSingleThreadExecutor</value>
+		</property>
+	</bean>
 
 	<!-- Fixed Memory Pool - Used to provided a fix amount of memory used for transfering files
 	      from http input streams to S3 -->

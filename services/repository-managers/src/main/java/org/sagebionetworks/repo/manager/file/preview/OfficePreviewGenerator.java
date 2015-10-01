@@ -55,7 +55,7 @@ import com.sun.star.util.XCloseable;
  * @author John
  * 
  */
-public class OfficePreviewGenerator implements LocalPreviewGenerator {
+public class OfficePreviewGenerator implements RemotePreviewGenerator {
 
 	private static Log log = LogFactory.getLog(OfficePreviewGenerator.class);
 
@@ -375,12 +375,6 @@ public class OfficePreviewGenerator implements LocalPreviewGenerator {
 		return OFFICE_MIME_TYPES.contains(contentType);
 	}
 
-	@Override
-	public long calculateNeededMemoryBytesForPreview(String mimeType, long contentSize) {
-		// whole file is read into memory pretty much
-		return contentSize * 2;
-	}
-
 	private static File pathToOffice() throws FileNotFoundException {
 		for (String path : OPENOFFICE_PATHS) {
 			File exeFile = new File(path);
@@ -394,6 +388,6 @@ public class OfficePreviewGenerator implements LocalPreviewGenerator {
 
 	@Override
 	public boolean isLocal() {
-		return true;
+		return false;
 	}
 }

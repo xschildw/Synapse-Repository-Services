@@ -74,23 +74,13 @@ public class PreviewGeneratorUtils {
 		return "noextension";
 	}
 	
-	public static void sendRemoteFilePreviewGenerationRequest(AmazonSQSClient sqsClient, MessageQueue queue, S3FileHandle src, S3FileHandle dest) throws JSONObjectAdapterException {
-		String queueUrl = queue.getQueueUrl();
-		JSONObjectAdapter joa = createRemoteFilePreviewGenerationRequestAsJSONObjectAdapter(
-				src, dest);
-		SendMessageRequest req = new SendMessageRequest().withQueueUrl(queueUrl).withMessageBody(joa.toJSONString());
-		sqsClient.sendMessage(req);
-	}
-
-	private static JSONObjectAdapter createRemoteFilePreviewGenerationRequestAsJSONObjectAdapter(
+	public static RemoteFilePreviewGenerationRequest createRemoteFilePreviewGenerationRequest(
 			S3FileHandle src, S3FileHandle dest)
 			throws JSONObjectAdapterException {
 		RemoteFilePreviewGenerationRequest rfpgReq = new RemoteFilePreviewGenerationRequest();
 		rfpgReq.setSource(src);
 		rfpgReq.setDestination(dest);
-		JSONObjectAdapter joa = new JSONObjectAdapterImpl();
-		rfpgReq.writeToJSONObject(joa);
-		return joa;
+		return rfpgReq;
 	}
 
 }
