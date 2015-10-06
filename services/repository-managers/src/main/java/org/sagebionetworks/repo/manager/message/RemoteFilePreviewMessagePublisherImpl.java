@@ -1,5 +1,7 @@
 package org.sagebionetworks.repo.manager.message;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -10,11 +12,14 @@ import org.sagebionetworks.repo.model.file.RemoteFilePreviewGenerationRequest;
 import org.sagebionetworks.schema.adapter.JSONEntity;
 import org.sagebionetworks.schema.adapter.JSONObjectAdapterException;
 import org.sagebionetworks.schema.adapter.org.json.EntityFactory;
+import org.sagebionetworks.workers.util.aws.message.MessageQueueConfiguration;
+import org.sagebionetworks.workers.util.aws.message.MessageQueueImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.amazonaws.services.sns.AmazonSNSClient;
 import com.amazonaws.services.sns.model.CreateTopicRequest;
 import com.amazonaws.services.sns.model.CreateTopicResult;
+import com.amazonaws.services.sns.model.ListTopicsRequest;
 import com.amazonaws.services.sns.model.PublishRequest;
 import com.amazonaws.services.sns.model.SubscribeRequest;
 import com.amazonaws.services.sqs.AmazonSQSClient;
@@ -37,6 +42,8 @@ public class RemoteFilePreviewMessagePublisherImpl implements
 	private String topicName;
 	private String topicArn;
 	private TopicInfo topicInfo;
+	private MessageQueueConfiguration qConfig;
+	private MessageQueueImpl remoteFilePreviewReqQueue;
 
 	/* Injected */
 	public void setPublishToTopicEnabled(boolean f) {
@@ -131,14 +138,22 @@ public class RemoteFilePreviewMessagePublisherImpl implements
 		TopicInfo info = this.topicInfo;
 		if (info == null) {
 			// Create the topic
+			// Note: The MessageQueueImpl could have created the topic but does
+			// 		not expose its arn.
 			String name = this.topicName;
 			String qName = this.queueName;
 			CreateTopicResult result = awsSNSClient.createTopic(new CreateTopicRequest(name));
 			String arn = result.getTopicArn();
-			CreateQueueResult qRes = awsSQSClient.createQueue(qName);
-			String qUrl = qRes.getQueueUrl();
-			SubscribeRequest sReq = new SubscribeRequest().withTopicArn(arn).withEndpoint(qUrl).withProtocol("sqs");
-			awsSNSClient.subscribe(sReq);
+
+			this.qConfig = new MessageQueueConfiguration();
+			this.qConfig.setQueueName(this.queueName);
+			this.qConfig.setDeadLetterQueueName(this.queueName + "-dl");
+			this.qConfig.setEnabled(true);
+			this.qConfig.setMaxFailureCount(10);
+			this.qConfig.setDefaultMessageVisibilityTimeoutSec(60*2);
+			this.qConfig.setTopicNamesToSubscribe(Arrays.asList(this.topicName));
+			this.remoteFilePreviewReqQueue = new MessageQueueImpl(this.awsSQSClient, this.awsSNSClient, this.qConfig);
+			
 			info = new TopicInfo(name, arn, qName);
 			this.topicInfo = info;
 		}
