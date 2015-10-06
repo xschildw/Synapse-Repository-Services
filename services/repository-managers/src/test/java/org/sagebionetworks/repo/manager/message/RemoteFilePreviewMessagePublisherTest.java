@@ -20,18 +20,23 @@ import com.amazonaws.services.sns.AmazonSNSClient;
 import com.amazonaws.services.sns.model.CreateTopicRequest;
 import com.amazonaws.services.sns.model.CreateTopicResult;
 import com.amazonaws.services.sns.model.PublishRequest;
+import com.amazonaws.services.sqs.AmazonSQSClient;
+import com.amazonaws.services.sqs.model.CreateQueueResult;
 
 public class RemoteFilePreviewMessagePublisherTest {
 	
 	private RemoteFilePreviewGenerationRequest expectedReq;
 	AmazonSNSClient snsClient;
+	AmazonSQSClient sqsClient;
 	RemoteFilePreviewMessagePublisherImpl publisher;
 
 	@Before
 	public void setUp() throws Exception {
 		snsClient = Mockito.mock(AmazonSNSClient.class);
+		sqsClient = Mockito.mock(AmazonSQSClient.class);
 		when(snsClient.createTopic(any(CreateTopicRequest.class))).thenReturn(new CreateTopicResult().withTopicArn("topicArn"));
-		publisher = new RemoteFilePreviewMessagePublisherImpl(snsClient, "topicName");
+		when(sqsClient.createQueue("queueName")).thenReturn(new CreateQueueResult().withQueueUrl("queueUrl"));
+		publisher = new RemoteFilePreviewMessagePublisherImpl(sqsClient, "queueName", snsClient, "topicName");
 		expectedReq = null;
 	}
 

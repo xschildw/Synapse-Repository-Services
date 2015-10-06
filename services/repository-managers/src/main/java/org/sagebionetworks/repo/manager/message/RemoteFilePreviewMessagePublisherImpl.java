@@ -1,5 +1,8 @@
 package org.sagebionetworks.repo.manager.message;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.sagebionetworks.repo.model.ObjectType;
@@ -13,6 +16,10 @@ import com.amazonaws.services.sns.AmazonSNSClient;
 import com.amazonaws.services.sns.model.CreateTopicRequest;
 import com.amazonaws.services.sns.model.CreateTopicResult;
 import com.amazonaws.services.sns.model.PublishRequest;
+import com.amazonaws.services.sns.model.SubscribeRequest;
+import com.amazonaws.services.sqs.AmazonSQSClient;
+import com.amazonaws.services.sqs.model.CreateQueueRequest;
+import com.amazonaws.services.sqs.model.CreateQueueResult;
 
 public class RemoteFilePreviewMessagePublisherImpl implements
 		RemoteFilePreviewMessagePublisher {
@@ -21,8 +28,12 @@ public class RemoteFilePreviewMessagePublisherImpl implements
 
 	@Autowired
 	AmazonSNSClient awsSNSClient;
+	
+	@Autowired
+	AmazonSQSClient awsSQSClient;
 
 	private boolean publishToTopicEnabled;
+	private String queueName;
 	private String topicName;
 	private String topicArn;
 	private TopicInfo topicInfo;
@@ -37,9 +48,11 @@ public class RemoteFilePreviewMessagePublisherImpl implements
 	 * @param topicName
 	 * @param topicArn
 	 */
-	public RemoteFilePreviewMessagePublisherImpl(AmazonSNSClient awsSNSClient, String topicName) {
+	public RemoteFilePreviewMessagePublisherImpl(AmazonSQSClient awsSQSClient, String queueName, AmazonSNSClient awsSNSClient, String topicName) {
+		this.awsSQSClient = awsSQSClient;
 		this.awsSNSClient = awsSNSClient;
 		this.topicName = topicName;
+		this.queueName = queueName;
 	}
 	
 	/**
@@ -58,6 +71,19 @@ public class RemoteFilePreviewMessagePublisherImpl implements
 		this.awsSNSClient = client;
 	}
 
+	/**
+	 * Used by tests to inject a mock client.
+	 * @param awsSQSClient
+	 */
+	public void setAwsSQSClient(AmazonSQSClient client) {
+		this.awsSQSClient = client;
+	}
+
+	@Override
+	public String getQueueName() {
+		return this.queueName;
+	}
+	
 	@Override
 	public String getTopicName() {
 		return this.getTopicInfoLazy().getName();
@@ -99,17 +125,21 @@ public class RemoteFilePreviewMessagePublisherImpl implements
 	/**
 	 * Get the topic info for a given type (lazy loaded).
 	 * 
-	 * @param type
 	 * @return
 	 */
 	private TopicInfo getTopicInfoLazy(){
 		TopicInfo info = this.topicInfo;
-		if (info == null){
+		if (info == null) {
 			// Create the topic
 			String name = this.topicName;
+			String qName = this.queueName;
 			CreateTopicResult result = awsSNSClient.createTopic(new CreateTopicRequest(name));
 			String arn = result.getTopicArn();
-			info = new TopicInfo(name, arn);
+			CreateQueueResult qRes = awsSQSClient.createQueue(qName);
+			String qUrl = qRes.getQueueUrl();
+			SubscribeRequest sReq = new SubscribeRequest().withTopicArn(arn).withEndpoint(qUrl).withProtocol("sqs");
+			awsSNSClient.subscribe(sReq);
+			info = new TopicInfo(name, arn, qName);
 			this.topicInfo = info;
 		}
 		return info;
@@ -122,16 +152,22 @@ public class RemoteFilePreviewMessagePublisherImpl implements
 	private static class TopicInfo{
 		private String name;
 		private String arn;
-		public TopicInfo(String name, String arn) {
+		private String queueName;
+		
+		public TopicInfo(String name, String arn, String qName) {
 			super();
 			this.name = name;
 			this.arn = arn;
+			this.queueName = qName;
 		}
 		public String getName() {
 			return name;
 		}
 		public String getArn() {
 			return arn;
+		}
+		public String getQueueName() {
+			return queueName;
 		}
 	}
 

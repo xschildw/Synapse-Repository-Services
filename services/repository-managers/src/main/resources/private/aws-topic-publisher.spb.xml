@@ -44,6 +44,9 @@
 	<bean
 		id="remoteFilePreviewMessagePublisher"
 		class="org.sagebionetworks.repo.manager.message.RemoteFilePreviewMessagePublisherImpl">
+		<constructor-arg>
+			<ref bean="stackConfiguration.remoteFilePreviewMessageQueueName" />
+		</constructor-arg>
 		<constructor-arg type="java.lang.String">
 			<ref bean="stackConfiguration.remoteFilePreviewMessageTopicName" />
 		</constructor-arg>

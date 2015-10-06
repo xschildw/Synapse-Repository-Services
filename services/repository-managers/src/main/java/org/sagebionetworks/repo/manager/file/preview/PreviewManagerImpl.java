@@ -259,7 +259,7 @@ public class PreviewManagerImpl implements  PreviewManager {
 		// Wait for the file to appear in S3
 		S3FilePreviewWatcherThread t;
 		t = new S3FilePreviewWatcherThread(out.getBucketName(), out.getKey());
-		long endTime = System.currentTimeMillis() + 60 * 1000;
+		long endTime = System.currentTimeMillis() + 10 * 1000;
 		final Future<Boolean> fFound = S3FilePreviewWatcherThreadPool.submit(t);
 		while (! fFound.isDone()) {
 			log.debug("Waiting for preview to appear in S3.");
@@ -272,6 +272,7 @@ public class PreviewManagerImpl implements  PreviewManager {
 		Boolean found = false;
 		if (fFound.isDone()) {
 			found = fFound.get();
+			log.info("Found.");
 		} else {
 			fFound.cancel(true);
 		}

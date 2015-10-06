@@ -936,6 +936,13 @@ public class StackConfiguration {
 		return StackConstants.REMOTE_FILEPREVIEW_MESSAGE_TOPIC_NAME;
 	}
 	
+	/**
+	 * The name of the AWS queu where remote file preview generation request messages are pushed
+	 */
+	public String getRemoteFilePreviewMessageQueueName() {
+		return StackConstants.REMOTE_FILEPREVIEW_MESSAGE_QUEUE_NAME;
+	}
+	
 	public boolean getRemoteFilePreviewMessagePublishToTopicEnabled() {
 		return Boolean.parseBoolean(
 				configuration.getProperty("org.sagebionetworks.repo.manager.remoteFilePreviewMessage.PublishToTopicEnabled"));

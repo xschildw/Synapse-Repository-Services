@@ -252,7 +252,7 @@ public class PreviewManagerImplTest {
 	// Just check basic wiring
 	@Test
 	public void testExpectedRemotePreview() throws Exception {
-		when(mockS3Client.getObject(any(String.class), any(String.class))).thenReturn(this.expectedS3Object(7000));
+		when(mockS3Client.getObject(any(String.class), any(String.class))).thenReturn(this.expectedS3Object(30000));
 		PreviewFileHandle pfm = previewManager.generatePreview(testRemoteMetadata);
 		assertNotNull(pfm);
 	}
