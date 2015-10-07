@@ -36,6 +36,7 @@ import com.amazonaws.services.sqs.model.CreateQueueRequest;
 import com.amazonaws.services.sqs.model.CreateQueueResult;
 import com.amazonaws.services.sqs.model.GetQueueAttributesRequest;
 import com.amazonaws.services.sqs.model.GetQueueAttributesResult;
+import com.amazonaws.services.sqs.model.SetQueueAttributesRequest;
 
 public class RemoteFilePreviewMessagePublisherTest {
 	
@@ -66,6 +67,11 @@ public class RemoteFilePreviewMessagePublisherTest {
 		when(snsClient.listSubscriptionsByTopic(req)).thenReturn(emptyRes, res);
 		// SubscribeRequest sReq = new SubscribeRequest().withProtocol(MessageQueueImpl.PROTOCOL_SQS).withEndpoint("queueArn").withTopicArn("topicArn");
 		
+		attrsReq = new GetQueueAttributesRequest().withQueueUrl("queueUrl").withAttributeNames(MessageQueueImpl.POLICY_KEY);
+		expectedQueueAttribs = new HashMap<String, String>();
+		expectedQueueAttribs.put(MessageQueueImpl.POLICY_KEY, String.format(MessageQueueImpl.GRAN_SET_MESSAGE_TEMPLATE, "queueArn", "[\"topicArn\"]"));
+		when(sqsClient.getQueueAttributes(attrsReq)).thenReturn(expectedQueueAttrRes);
+			
 		publisher = new RemoteFilePreviewMessagePublisherImpl(sqsClient, "queueName", snsClient, "topicName");
 		expectedReq = null;
 	}
