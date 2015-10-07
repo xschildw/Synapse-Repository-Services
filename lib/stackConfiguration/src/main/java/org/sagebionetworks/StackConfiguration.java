@@ -930,22 +930,12 @@ public class StackConfiguration {
 	}
 	
 	/**
-	 * The name of the AWS topic where remote file preview generation request messages are published
+	 * 
+	 * @return
 	 */
-	public String getRemoteFilePreviewMessageTopicName() {
-		return StackConstants.REMOTE_FILEPREVIEW_MESSAGE_TOPIC_NAME;
-	}
-	
-	/**
-	 * The name of the AWS queu where remote file preview generation request messages are pushed
-	 */
-	public String getRemoteFilePreviewMessageQueueName() {
-		return StackConstants.REMOTE_FILEPREVIEW_MESSAGE_QUEUE_NAME;
-	}
-	
-	public boolean getRemoteFilePreviewMessagePublishToTopicEnabled() {
+	public boolean getRemoteFilePreviewGenerationRequestMessagePublishToQueueEnabled() {
 		return Boolean.parseBoolean(
-				configuration.getProperty("org.sagebionetworks.repo.manager.remoteFilePreviewMessage.PublishToTopicEnabled"));
+				configuration.getProperty(StackConstants.REMOTE_FILEPREVIEW_GENERATION_REQUEST_MSG_PUBLISH_ENABLED));
 	}
 
 	/**

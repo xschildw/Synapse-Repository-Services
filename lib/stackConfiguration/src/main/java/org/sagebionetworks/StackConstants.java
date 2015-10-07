@@ -137,8 +137,8 @@ public class StackConstants {
 	public static final String REMOTE_FILEPREVIEW_GENERATOR_DEAD_LETTER_QUEUE_NAME = REMOTE_FILEPREVIEW_GENERATOR_QUEUE_NAME + "-dl";
 	public static final String REMOTE_FILEPREVIEW_GENERATOR_QUEUE_NAME_TEMPLATE = REMOTE_FILEPREVIEW_GENERATOR_QUEUE_NAME + "-%1$s";
 	public static final String REMOTE_FILEPREVIEW_GENERATOR_DEAD_LETTER_QUEUE_NAME_TEMPLATE = REMOTE_FILEPREVIEW_GENERATOR_DEAD_LETTER_QUEUE_NAME + "-%1$s";
-	public static final String REMOTE_FILEPREVIEW_MESSAGE_TOPIC_NAME = "remote-filepreview-message-topic";
-	public static final String REMOTE_FILEPREVIEW_MESSAGE_QUEUE_NAME = "remote-filepreview-message-queue";
+	
+	public static final String REMOTE_FILEPREVIEW_GENERATION_REQUEST_MSG_PUBLISH_ENABLED = "org.sagebionetworks.repo.manager.remoteFilePreviewGenerationRequestMessage.PublishToQueueEnabled";
 
 }
 
