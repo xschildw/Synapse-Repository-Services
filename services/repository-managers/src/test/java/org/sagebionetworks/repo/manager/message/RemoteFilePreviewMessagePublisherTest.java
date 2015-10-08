@@ -36,85 +36,52 @@ import com.amazonaws.services.sqs.model.CreateQueueRequest;
 import com.amazonaws.services.sqs.model.CreateQueueResult;
 import com.amazonaws.services.sqs.model.GetQueueAttributesRequest;
 import com.amazonaws.services.sqs.model.GetQueueAttributesResult;
+import com.amazonaws.services.sqs.model.GetQueueUrlResult;
 import com.amazonaws.services.sqs.model.SetQueueAttributesRequest;
 
 public class RemoteFilePreviewMessagePublisherTest {
 	
 	private RemoteFilePreviewGenerationRequest expectedReq;
-	AmazonSNSClient snsClient;
 	AmazonSQSClient sqsClient;
+	MessageQueueImpl msgQ;
 	RemoteFilePreviewMessagePublisherImpl publisher;
 
 	@Before
 	public void setUp() throws Exception {
-		snsClient = Mockito.mock(AmazonSNSClient.class);
 		sqsClient = Mockito.mock(AmazonSQSClient.class);
-		when(snsClient.createTopic(any(CreateTopicRequest.class))).thenReturn(new CreateTopicResult().withTopicArn("topicArn"));
+		msgQ = Mockito.mock(MessageQueueImpl.class);
+		
+		when(msgQ.getQueueName()).thenReturn("queueName");
+		when(sqsClient.getQueueUrl("queueName")).thenReturn(new GetQueueUrlResult().withQueueUrl("queueUrl"));
 
-		setupMocks("queueName", "queueUrl", "queueArn");
-		setupMocks("queueName-dl", "queueUrl-dl", "queueArn-dl");
-		
-		GetQueueAttributesRequest attrsReq = new GetQueueAttributesRequest().withQueueUrl("queueUrl").withAttributeNames(MessageQueueImpl.REDRIVE_POLICY_KEY);
-		Map<String, String> expectedQueueAttribs = new HashMap<>();
-		String expectedRedrivePolicy = String.format("{\"maxReceiveCount\":\"%d\", \"deadLetterTargetArn\":\"%s\"}", 10, "queueArn-dl");
-		expectedQueueAttribs.put(MessageQueueImpl.REDRIVE_POLICY_KEY, expectedRedrivePolicy);
-		GetQueueAttributesResult expectedQueueAttrRes = new GetQueueAttributesResult().withAttributes(expectedQueueAttribs);
-		when(sqsClient.getQueueAttributes(attrsReq)).thenReturn(expectedQueueAttrRes);
-		
-		ListSubscriptionsByTopicRequest req = new ListSubscriptionsByTopicRequest("topicArn");
-		ListSubscriptionsByTopicResult emptyRes = new ListSubscriptionsByTopicResult().withSubscriptions(new ArrayList<Subscription>());
-		ListSubscriptionsByTopicResult res = new ListSubscriptionsByTopicResult().withSubscriptions(new Subscription().withProtocol(MessageQueueImpl.PROTOCOL_SQS).withEndpoint("queueArn").withTopicArn("topicArn"));
-		when(snsClient.listSubscriptionsByTopic(req)).thenReturn(emptyRes, res);
-		// SubscribeRequest sReq = new SubscribeRequest().withProtocol(MessageQueueImpl.PROTOCOL_SQS).withEndpoint("queueArn").withTopicArn("topicArn");
-		
-		attrsReq = new GetQueueAttributesRequest().withQueueUrl("queueUrl").withAttributeNames(MessageQueueImpl.POLICY_KEY);
-		expectedQueueAttribs = new HashMap<String, String>();
-		expectedQueueAttribs.put(MessageQueueImpl.POLICY_KEY, String.format(MessageQueueImpl.GRAN_SET_MESSAGE_TEMPLATE, "queueArn", "[\"topicArn\"]"));
-		when(sqsClient.getQueueAttributes(attrsReq)).thenReturn(expectedQueueAttrRes);
-			
-		publisher = new RemoteFilePreviewMessagePublisherImpl(sqsClient, "queueName", snsClient, "topicName");
+		publisher = new RemoteFilePreviewMessagePublisherImpl(sqsClient, msgQ);
 		expectedReq = null;
 	}
 
-	private void setupMocks(String qName, String qUrl, String qArn) {
-		CreateQueueRequest expectedQueueReq = new CreateQueueRequest().withQueueName(qName);
-		Map<String, String> expectedQueueAttribs = new HashMap<>();
-		expectedQueueAttribs.put(MessageQueueImpl.VISIBILITY_TIMEOUT_KEY, "120");
-		GetQueueAttributesResult expectedQueueAttrRes1 = new GetQueueAttributesResult().withAttributes(expectedQueueAttribs);
-		List<String> attrs = Arrays.asList(MessageQueueImpl.VISIBILITY_TIMEOUT_KEY);
-		when(sqsClient.createQueue(expectedQueueReq)).thenReturn(new CreateQueueResult().withQueueUrl(qUrl));
-		when(sqsClient.getQueueAttributes(qUrl, attrs)).thenReturn(expectedQueueAttrRes1);
-		GetQueueAttributesRequest attrsReq = new GetQueueAttributesRequest().withQueueUrl(qUrl).withAttributeNames(MessageQueueImpl.QUEUE_ARN_KEY);
-		Map<String, String> expectedQueueAttribs2 = new HashMap<>();
-		expectedQueueAttribs2.put(MessageQueueImpl.QUEUE_ARN_KEY, qArn);
-		GetQueueAttributesResult expectedQueueAttrRes2 = new GetQueueAttributesResult().withAttributes(expectedQueueAttribs2);
-		when(sqsClient.getQueueAttributes(attrsReq)).thenReturn(expectedQueueAttrRes2);
-	}
-
 	@Test(expected=IllegalArgumentException.class)
-	public void testPublishToTopicNullRequest() {
-		publisher.publishToTopic(expectedReq);
+	public void testPublishToQueueNullRequest() {
+		publisher.publishToQueue(expectedReq);
 	}
 	
 	@Test(expected=IllegalArgumentException.class)
-	public void testPublishToTopicNullSource() {
+	public void testPublishToQueueNullSource() {
 		expectedReq = new RemoteFilePreviewGenerationRequest();
-		publisher.publishToTopic(expectedReq);
+		publisher.publishToQueue(expectedReq);
 	}
 	
 	@Test
 	public void testPublishToTopicDisabled() {
-		publisher.setPublishToTopicEnabled(false);
+		publisher.setPublishToQueueEnabled(false);
 		expectedReq = new RemoteFilePreviewGenerationRequest();
 		expectedReq.setSource(new S3FileHandle());
 		expectedReq.setDestination(new S3FileHandle());
-		publisher.publishToTopic(expectedReq);
-		verify(snsClient, never()).publish(any(PublishRequest.class));
+		publisher.publishToQueue(expectedReq);
+		verify(sqsClient, never()).sendMessage(anyString(), anyString());
 	}
 	
 	@Test
 	public void testPublishToTopicEnabled() throws JSONObjectAdapterException {
-		publisher.setPublishToTopicEnabled(true);
+		publisher.setPublishToQueueEnabled(true);
 		expectedReq = new RemoteFilePreviewGenerationRequest();
 		S3FileHandle expectedSrc = new S3FileHandle();
 		expectedSrc.setBucketName("srcBucketName");
@@ -122,12 +89,14 @@ public class RemoteFilePreviewMessagePublisherTest {
 		S3FileHandle expectedDest = new S3FileHandle();
 		expectedDest.setBucketName("destBucketName");
 		expectedReq.setDestination(expectedDest);
-		ArgumentCaptor<PublishRequest> captor1 = ArgumentCaptor.forClass(PublishRequest.class);
-		publisher.publishToTopic(expectedReq);
-		verify(snsClient).publish(captor1.capture());
-		assertEquals("topicArn", captor1.getValue().getTopicArn());
-		String s = captor1.getValue().getMessage();
-		RemoteFilePreviewGenerationRequest req = EntityFactory.createEntityFromJSONString(s, RemoteFilePreviewGenerationRequest.class);
+		ArgumentCaptor<String> captor1 = ArgumentCaptor.forClass(String.class);
+		ArgumentCaptor<String> captor2 = ArgumentCaptor.forClass(String.class);
+		publisher.publishToQueue(expectedReq);
+		verify(sqsClient).sendMessage(captor1.capture(), captor2.capture());
+		String qUrl = captor1.getValue();
+		String msg = captor2.getValue();
+		assertEquals("queueUrl", qUrl);
+		RemoteFilePreviewGenerationRequest req = EntityFactory.createEntityFromJSONString(msg, RemoteFilePreviewGenerationRequest.class);
 		assertEquals(expectedReq, req);
 	}
 

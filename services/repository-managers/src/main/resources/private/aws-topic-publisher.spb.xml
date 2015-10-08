@@ -42,19 +42,35 @@
 	
 	<!-- The RemoteFilePreviewMessagePublisher publishes RemoteFilePreviewGenerationRequest messages to an SNS topic -->
 	<bean
+		id="remoteFilePreviewGenerationReqMessageQueue"
+		class="org.sagebionetworks.workers.util.aws.message.MessageQueueImpl"
+		depends-on="stackConfiguration" >
+		<constructor-arg index="0" ref="awsSQSClient" />
+		<constructor-arg index="1" ref="awsSNSClient" />
+		<constructor-arg index="2">
+			<bean class="org.sagebionetworks.workers.util.aws.message.MessageQueueConfiguration">
+				<property name="queueName"
+					ref="stackConfiguration.remoteFilePreviewGeneratorQueueName" />
+				<property name="enabled" value="true" />
+				<property name="deadLetterQueueName"
+					ref="stackConfiguration.remoteFilePreviewGeneratorDeadLetterQueueName" />
+				<property name="maxFailureCount" value="5" />
+				<property name="defaultMessageVisibilityTimeoutSec" value="500" />
+			</bean>
+		</constructor-arg>
+	</bean>
+	
+	<bean
 		id="remoteFilePreviewMessagePublisher"
 		class="org.sagebionetworks.repo.manager.message.RemoteFilePreviewMessagePublisherImpl">
 		<constructor-arg>
-			<ref bean="awsSQSClient" />
+			<ref bean="sqsClient" />
 		</constructor-arg>
 		<constructor-arg>
-			<ref bean="stackConfiguration.remoteFilePreviewMessageQueueName" />
+			<ref bean="snsClient" />
 		</constructor-arg>
 		<constructor-arg>
-			<ref bean="awsSNSClient" />
-		</constructor-arg>
-		<constructor-arg type="java.lang.String">
-			<ref bean="stackConfiguration.remoteFilePreviewMessageTopicName" />
+			<ref bean="remoteFilePreviewGenerationReqMessageQueue" />
 		</constructor-arg>
 		<property name="publishToTopicEnabled"
 			ref="stackConfiguration.remoteFilePreviewMessagePublishToTopicEnabled">

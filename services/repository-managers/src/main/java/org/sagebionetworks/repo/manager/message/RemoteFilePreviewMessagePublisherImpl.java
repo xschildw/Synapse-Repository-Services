@@ -25,6 +25,7 @@ import com.amazonaws.services.sns.model.SubscribeRequest;
 import com.amazonaws.services.sqs.AmazonSQSClient;
 import com.amazonaws.services.sqs.model.CreateQueueRequest;
 import com.amazonaws.services.sqs.model.CreateQueueResult;
+import com.amazonaws.services.sqs.model.GetQueueUrlResult;
 
 public class RemoteFilePreviewMessagePublisherImpl implements
 		RemoteFilePreviewMessagePublisher {
@@ -32,22 +33,15 @@ public class RemoteFilePreviewMessagePublisherImpl implements
 	static private Log logger = LogFactory.getLog(RepositoryMessagePublisherImpl.class);
 
 	@Autowired
-	AmazonSNSClient awsSNSClient;
+	AmazonSQSClient awsSQSClient;
 	
 	@Autowired
-	AmazonSQSClient awsSQSClient;
+	MessageQueueImpl remoteFileGenerationReqMsgQueue;
 
-	private boolean publishToTopicEnabled;
-	private String queueName;
-	private String topicName;
-	private String topicArn;
-	private TopicInfo topicInfo;
-	private MessageQueueConfiguration qConfig;
-	private MessageQueueImpl remoteFilePreviewReqQueue;
-
+	private boolean publishToQueueEnabled;
 	/* Injected */
-	public void setPublishToTopicEnabled(boolean f) {
-		this.publishToTopicEnabled = f;
+	public void setPublishToQueueEnabled(boolean f) {
+		this.publishToQueueEnabled = f;
 	}
 
 	/**
@@ -55,29 +49,11 @@ public class RemoteFilePreviewMessagePublisherImpl implements
 	 * @param topicName
 	 * @param topicArn
 	 */
-	public RemoteFilePreviewMessagePublisherImpl(AmazonSQSClient awsSQSClient, String queueName, AmazonSNSClient awsSNSClient, String topicName) {
+	public RemoteFilePreviewMessagePublisherImpl(AmazonSQSClient awsSQSClient, MessageQueueImpl msgQueue) {
 		this.awsSQSClient = awsSQSClient;
-		this.awsSNSClient = awsSNSClient;
-		this.topicName = topicName;
-		this.queueName = queueName;
+		this.remoteFileGenerationReqMsgQueue = msgQueue;
 	}
 	
-	/**
-	 * @param topicName
-	 * @param topicArn
-	 */
-	public RemoteFilePreviewMessagePublisherImpl(String topicName) {
-		this.topicName = topicName;
-	}
-	
-	/**
-	 * Used by tests to inject a mock client.
-	 * @param awsSNSClient
-	 */
-	public void setAwsSNSClient(AmazonSNSClient client) {
-		this.awsSNSClient = client;
-	}
-
 	/**
 	 * Used by tests to inject a mock client.
 	 * @param awsSQSClient
@@ -88,33 +64,25 @@ public class RemoteFilePreviewMessagePublisherImpl implements
 
 	@Override
 	public String getQueueName() {
-		return this.queueName;
+		return this.remoteFileGenerationReqMsgQueue.getQueueName();
 	}
 	
 	@Override
-	public String getTopicName() {
-		return this.getTopicInfoLazy().getName();
-	}
-
-	@Override
-	public String getTopicArn() {
-		return this.getTopicInfoLazy().getArn();
-	}
-
-	@Override
-	public void publishToTopic(RemoteFilePreviewGenerationRequest req) {
+	public void publishToQueue(RemoteFilePreviewGenerationRequest req) {
 		if (req == null) {
 			throw new IllegalArgumentException("Request cannot be null.");
 		}
 		if ((req.getSource() == null) || (req.getDestination() == null)) {
 			throw new IllegalArgumentException("Source and Destination cannot be null.");
 		}
-		if (this.publishToTopicEnabled) {
-			this.publish(req, this.getTopicArn());
+		if (this.publishToQueueEnabled) {
+			this.publish(req, this.getQueueName());
 		}
 	}
 	
-	private void publish(JSONEntity message, String topicArn) {
+	private void publish(JSONEntity message, String qName) {
+		GetQueueUrlResult r = awsSQSClient.getQueueUrl(qName);
+		String qUrl = r.getQueueUrl();
 		String json;
 		try {
 			json = EntityFactory.createJSONStringForEntity(message);
@@ -126,64 +94,7 @@ public class RemoteFilePreviewMessagePublisherImpl implements
 			logger.trace("Publishing a message: " + json);
 		}
 		// Publish the message to the topic.
-		awsSNSClient.publish(new PublishRequest(topicArn, json));
+		awsSQSClient.sendMessage(qUrl, json);
 	}
 	
-	/**
-	 * Get the topic info for a given type (lazy loaded).
-	 * 
-	 * @return
-	 */
-	private TopicInfo getTopicInfoLazy(){
-		TopicInfo info = this.topicInfo;
-		if (info == null) {
-			// Create the topic
-			// Note: The MessageQueueImpl could have created the topic but does
-			// 		not expose its arn.
-			String name = this.topicName;
-			String qName = this.queueName;
-			CreateTopicResult result = awsSNSClient.createTopic(new CreateTopicRequest(name));
-			String arn = result.getTopicArn();
-
-			this.qConfig = new MessageQueueConfiguration();
-			this.qConfig.setQueueName(this.queueName);
-			this.qConfig.setDeadLetterQueueName(this.queueName + "-dl");
-			this.qConfig.setEnabled(true);
-			this.qConfig.setMaxFailureCount(10);
-			this.qConfig.setDefaultMessageVisibilityTimeoutSec(60*2);
-			this.qConfig.setTopicNamesToSubscribe(Arrays.asList(this.topicName));
-			this.remoteFilePreviewReqQueue = new MessageQueueImpl(this.awsSQSClient, this.awsSNSClient, this.qConfig);
-			
-			info = new TopicInfo(name, arn, qName);
-			this.topicInfo = info;
-		}
-		return info;
-	}
-
-	/**
-	 * Information about a topic.
-	 *
-	 */
-	private static class TopicInfo{
-		private String name;
-		private String arn;
-		private String queueName;
-		
-		public TopicInfo(String name, String arn, String qName) {
-			super();
-			this.name = name;
-			this.arn = arn;
-			this.queueName = qName;
-		}
-		public String getName() {
-			return name;
-		}
-		public String getArn() {
-			return arn;
-		}
-		public String getQueueName() {
-			return queueName;
-		}
-	}
-
 }
