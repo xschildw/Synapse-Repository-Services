@@ -255,7 +255,7 @@ public class PreviewManagerImpl implements  PreviewManager {
 		out.setFileName("preview.png");
 		out.setKey(metadata.getCreatedBy() + UUID.randomUUID().toString());
 		RemoteFilePreviewGenerationRequest req = PreviewGeneratorUtils.createRemoteFilePreviewGenerationRequest(metadata, out);
-		remoteFilePreviewMessagePublisher.publishToTopic(req);
+		remoteFilePreviewMessagePublisher.publishToQueue(req);
 		// Wait for the file to appear in S3
 		S3FilePreviewWatcherThread t;
 		t = new S3FilePreviewWatcherThread(out.getBucketName(), out.getKey());

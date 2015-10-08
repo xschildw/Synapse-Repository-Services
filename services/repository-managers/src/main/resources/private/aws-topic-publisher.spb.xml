@@ -64,16 +64,13 @@
 		id="remoteFilePreviewMessagePublisher"
 		class="org.sagebionetworks.repo.manager.message.RemoteFilePreviewMessagePublisherImpl">
 		<constructor-arg>
-			<ref bean="sqsClient" />
-		</constructor-arg>
-		<constructor-arg>
-			<ref bean="snsClient" />
+			<ref bean="awsSQSClient" />
 		</constructor-arg>
 		<constructor-arg>
 			<ref bean="remoteFilePreviewGenerationReqMessageQueue" />
 		</constructor-arg>
-		<property name="publishToTopicEnabled"
-			ref="stackConfiguration.remoteFilePreviewMessagePublishToTopicEnabled">
+		<property name="publishToQueueEnabled"
+			ref="stackConfiguration.remoteFilePreviewGenerationRequestMessagePublishToQueueEnabled">
 		</property>
 	</bean>
 

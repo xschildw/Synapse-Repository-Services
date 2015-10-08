@@ -40,6 +40,8 @@ import com.amazonaws.services.sqs.model.CreateQueueRequest;
 import com.amazonaws.services.sqs.model.CreateQueueResult;
 import com.amazonaws.services.sqs.model.GetQueueAttributesRequest;
 import com.amazonaws.services.sqs.model.GetQueueAttributesResult;
+import com.amazonaws.services.sqs.model.PurgeQueueRequest;
+import com.amazonaws.services.sqs.model.ReceiveMessageResult;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(locations = { "classpath:test-context-schedulers.xml" })
@@ -49,57 +51,37 @@ public class RemoteFilePreviewMessagePublisherImplAutowiredTest {
 	private RemoteFilePreviewMessagePublisherImpl remoteFilePreviewMsgPublisher;
 	
 	@Autowired
-	private StackConfiguration stackConfig;
+	private AmazonSQSClient awsSQSClient;
 	
-	AmazonSNSClient mockSNSClient;
-	AmazonSQSClient mockSQSClient;
-
-	@Test
+	private String qUrl;
+	
+	@Before
 	public void setUp() throws Exception {
 		assertNotNull(remoteFilePreviewMsgPublisher);
-		assertEquals(stackConfig.getRemoteFilePreviewGeneratorQueueName(), remoteFilePreviewMsgPublisher.getQueueName());
-//		assertEquals(stackConfig.getRemoteFilePreviewMessageTopicName(), remoteFilePreviewMsgPublisher.getTopicName());
-	}
-
-	private void setupMocks(String qName, String qUrl, String qArn) {
-		CreateQueueRequest expectedQueueReq = new CreateQueueRequest().withQueueName(qName);
-		Map<String, String> expectedQueueAttribs = new HashMap<>();
-		expectedQueueAttribs.put(MessageQueueImpl.VISIBILITY_TIMEOUT_KEY, "120");
-		GetQueueAttributesResult expectedQueueAttrRes1 = new GetQueueAttributesResult().withAttributes(expectedQueueAttribs);
-		List<String> attrs = Arrays.asList(MessageQueueImpl.VISIBILITY_TIMEOUT_KEY);
-		when(mockSQSClient.createQueue(expectedQueueReq)).thenReturn(new CreateQueueResult().withQueueUrl(qUrl));
-		when(mockSQSClient.getQueueAttributes(qUrl, attrs)).thenReturn(expectedQueueAttrRes1);
-		GetQueueAttributesRequest attrsReq = new GetQueueAttributesRequest().withQueueUrl(qUrl).withAttributeNames(MessageQueueImpl.QUEUE_ARN_KEY);
-		Map<String, String> expectedQueueAttribs2 = new HashMap<>();
-		expectedQueueAttribs2.put(MessageQueueImpl.QUEUE_ARN_KEY, qArn);
-		GetQueueAttributesResult expectedQueueAttrRes2 = new GetQueueAttributesResult().withAttributes(expectedQueueAttribs2);
-		when(mockSQSClient.getQueueAttributes(attrsReq)).thenReturn(expectedQueueAttrRes2);
-	}
-
-
-	@Ignore
-	@Test
-	public void testGetArn() {
-		String arn = remoteFilePreviewMsgPublisher.getTopicArn();
-		assertNotNull(arn);
-		assertEquals("topicArn", arn);
+		qUrl = awsSQSClient.getQueueUrl(remoteFilePreviewMsgPublisher.getQueueName()).getQueueUrl();
+		awsSQSClient.purgeQueue(new PurgeQueueRequest().withQueueUrl(qUrl));
 	}
 	
-	@Ignore
+	@After
+	public void tearDown() throws Exception {
+		awsSQSClient.purgeQueue(new PurgeQueueRequest().withQueueUrl(qUrl));
+	}
+
 	@Test
 	public void testPublishToTopicDisabled() {
-		remoteFilePreviewMsgPublisher.setPublishToTopicEnabled(false);
+		remoteFilePreviewMsgPublisher.setPublishToQueueEnabled(false);
 		RemoteFilePreviewGenerationRequest expectedReq = new RemoteFilePreviewGenerationRequest();
 		expectedReq.setSource(new S3FileHandle());
 		expectedReq.setDestination(new S3FileHandle());
-		remoteFilePreviewMsgPublisher.publishToTopic(expectedReq);
-		verify(mockSNSClient, never()).publish(any(PublishRequest.class));
+		remoteFilePreviewMsgPublisher.publishToQueue(expectedReq);
+		ReceiveMessageResult rMsgRes = awsSQSClient.receiveMessage(qUrl);
+		assertEquals(0, rMsgRes.getMessages().size());
 	}
 	
 	@Ignore
 	@Test
 	public void testPublishTopTopic() throws JSONObjectAdapterException {
-		remoteFilePreviewMsgPublisher.setPublishToTopicEnabled(true);
+		remoteFilePreviewMsgPublisher.setPublishToQueueEnabled(true);
 		RemoteFilePreviewGenerationRequest expectedReq = new RemoteFilePreviewGenerationRequest();
 		S3FileHandle expectedSrc = new S3FileHandle();
 		expectedSrc.setBucketName("srcBucketName");
@@ -108,12 +90,9 @@ public class RemoteFilePreviewMessagePublisherImplAutowiredTest {
 		expectedDest.setBucketName("destBucketName");
 		expectedReq.setDestination(expectedDest);
 		ArgumentCaptor<PublishRequest> captor1 = ArgumentCaptor.forClass(PublishRequest.class);
-		remoteFilePreviewMsgPublisher.publishToTopic(expectedReq);
-		verify(mockSNSClient).publish(captor1.capture());
-		assertEquals("topicArn", captor1.getValue().getTopicArn());
-		String s = captor1.getValue().getMessage();
-		RemoteFilePreviewGenerationRequest req = EntityFactory.createEntityFromJSONString(s, RemoteFilePreviewGenerationRequest.class);
-		assertEquals(expectedReq, req);
+		remoteFilePreviewMsgPublisher.publishToQueue(expectedReq);
+		ReceiveMessageResult rMsgRes = awsSQSClient.receiveMessage(qUrl);
+		assertEquals(1, rMsgRes.getMessages().size());
 	}
 
 }
