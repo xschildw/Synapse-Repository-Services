@@ -122,8 +122,11 @@
 	    <property name="multipartUploadDaemonTimeoutMS" ref="stackConfiguration.fileMultipartUploadDaemonTimeoutMS"/>
 	</bean>
 	
-	<!-- The preview manager -->
-	<bean id="previewManager" class="org.sagebionetworks.repo.manager.file.preview.PreviewManagerImpl" init-method="initialize">
+	<!-- The preview managers -->
+	<bean id="previewManager" class="org.sagebionetworks.repo.manager.file.preview.PreviewManagerImpl" >
+	</bean>
+	
+	<bean id="localPreviewManager" class="org.sagebionetworks.repo.manager.file.preview.LocalPreviewManagerImpl" init-method="initialize">
 	    <!-- The list of preview generators, order is important, first generator found wins-->
 	    <property name="generatorList">
 	        <list>
@@ -167,6 +170,14 @@
 	    <!-- The maximum amount of memory to uses -->
 	   	<property name="maxPreviewMemory" ref="stackConfiguration.maxFilePreviewMemoryPoolBytes"/>
 	
+	</bean>
+	
+	<bean id="remotePreviewManager" class="org.sagebionetworks.repo.manager.file.preview.RemotePreviewManagerImpl" >
+	    <!-- The list of preview generators, order is important, first generator found wins-->
+	    <property name="generatorList">
+	        <list>
+	        </list>
+	    </property>
 	</bean>
 	
 	<!-- The Location helper -->

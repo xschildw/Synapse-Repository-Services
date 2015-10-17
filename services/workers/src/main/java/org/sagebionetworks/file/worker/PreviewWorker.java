@@ -5,6 +5,7 @@ import org.apache.logging.log4j.Logger;
 import org.sagebionetworks.asynchronous.workers.changes.ChangeMessageDrivenRunner;
 import org.sagebionetworks.asynchronous.workers.sqs.MessageUtils;
 import org.sagebionetworks.cloudwatch.WorkerLogger;
+import org.sagebionetworks.repo.manager.file.preview.LocalPreviewManager;
 import org.sagebionetworks.repo.manager.file.preview.PreviewManager;
 import org.sagebionetworks.repo.model.ObjectType;
 import org.sagebionetworks.repo.model.file.ExternalFileHandle;
@@ -58,7 +59,7 @@ public class PreviewWorker implements ChangeMessageDrivenRunner {
 					// Only generate a preview if we do not already have one.
 					if (s3fileMeta.getPreviewId() == null) {
 						// Generate a preview.
-						previewManager.generatePreview(s3fileMeta);
+						previewManager.handle(s3fileMeta);
 					}
 				} else if (metadata instanceof ExternalFileHandle) {
 					// we need to add support for this

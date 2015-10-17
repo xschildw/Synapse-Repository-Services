@@ -37,13 +37,13 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(locations = { "classpath:test-context.xml" })
-public class PreviewManagerImplAutoWireTest {
+public class LocalPreviewManagerImplAutoWireTest {
 
 	@Autowired
 	private FileHandleManager fileUploadManager;
 
 	@Autowired
-	private PreviewManager previewManager;
+	private LocalPreviewManager localPreviewManager;
 
 	@Autowired
 	public UserManager userManager;
@@ -67,7 +67,7 @@ public class PreviewManagerImplAutoWireTest {
 	}
 
 	private S3FileHandle createS3File(String filename) throws IOException, UnsupportedEncodingException {
-		InputStream in = PreviewManagerImplAutoWireTest.class.getClassLoader().getResourceAsStream(filename);
+		InputStream in = LocalPreviewManagerImplAutoWireTest.class.getClassLoader().getResourceAsStream(filename);
 		assertNotNull("Failed to find a test file on the classpath: " + filename, in);
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		IOUtils.copy(in, baos);
@@ -102,7 +102,7 @@ public class PreviewManagerImplAutoWireTest {
 
 		// Test that we can generate a preview for this image
 		fileMetadata.setContentType(ImagePreviewGenerator.IMAGE_PNG);
-		PreviewFileHandle pfm = previewManager.generatePreview(fileMetadata);
+		PreviewFileHandle pfm = localPreviewManager.generatePreview(fileMetadata);
 		assertNotNull(pfm);
 		assertNotNull(pfm.getId());
 		assertNotNull(pfm.getContentType());
@@ -126,7 +126,7 @@ public class PreviewManagerImplAutoWireTest {
 		// Test that we can generate a preview as csv
 		fileMetadata.setContentType("text/csv");
 		fileMetadata.setFileName("anyname");
-		PreviewFileHandle pfm = previewManager.generatePreview(fileMetadata);
+		PreviewFileHandle pfm = localPreviewManager.generatePreview(fileMetadata);
 		assertEquals("text/csv", pfm.getContentType());
 		toDelete.add(pfm);
 		S3FileHandle fromDB = (S3FileHandle) fileMetadataDao.get(fileMetadata.getId());
@@ -135,7 +135,7 @@ public class PreviewManagerImplAutoWireTest {
 		// Test that we can generate a preview as text
 		fileMetadata.setContentType("text/plain");
 		fileMetadata.setFileName("anyname");
-		pfm = previewManager.generatePreview(fileMetadata);
+		pfm = localPreviewManager.generatePreview(fileMetadata);
 		assertEquals("text/plain", pfm.getContentType());
 		toDelete.add(pfm);
 		fromDB = (S3FileHandle) fileMetadataDao.get(fileMetadata.getId());

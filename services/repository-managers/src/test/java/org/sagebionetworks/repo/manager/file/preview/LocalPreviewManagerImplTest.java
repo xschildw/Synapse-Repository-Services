@@ -49,9 +49,9 @@ import com.amazonaws.services.sns.AmazonSNSClient;
 import com.amazonaws.services.sns.model.PublishRequest;
 import com.amazonaws.services.sqs.AmazonSQSClient;
 
-public class PreviewManagerImplTest {
+public class LocalPreviewManagerImplTest {
 	
-	PreviewManagerImpl previewManager;
+	LocalPreviewManagerImpl previewManager;
 	FileHandleDao stubFileMetadataDao;
 	@Mock
 	private AmazonS3Client mockS3Client;
@@ -62,8 +62,6 @@ public class PreviewManagerImplTest {
 	@Mock
 	private LocalPreviewGenerator mockLocalPreviewGenerator;
 	@Mock
-	private RemotePreviewGenerator mockRemotePreviewGenerator;
-	@Mock
 	private File mockUploadFile;
 	@Mock
 	private S3Object mockS3Object;
@@ -71,10 +69,6 @@ public class PreviewManagerImplTest {
 	private FileOutputStream mockOutputStream;
 	@Mock
 	private S3ObjectInputStream mockS3ObjectInputStream;
-	@Mock
-	private RemoteFilePreviewMessagePublisherImpl mockRemoteFilePreviewMessagePublisher;
-	
-	ExecutorService executorSvc = Executors.newSingleThreadExecutor();
 	
 	Long maxPreviewSize = 100l;
 	float multiplerForContentType = 1.5f;
@@ -82,7 +76,6 @@ public class PreviewManagerImplTest {
 	String testValidRemoteContentType = "application/msword";
 	PreviewOutputMetadata previewContentType = new PreviewOutputMetadata("application/zip", ".zip");
 	S3FileHandle testLocalMetadata;
-	S3FileHandle testRemoteMetadata;
 	Long resultPreviewSize = 15l;
 	
 	@Before
@@ -99,16 +92,11 @@ public class PreviewManagerImplTest {
 		when(mockLocalPreviewGenerator.calculateNeededMemoryBytesForPreview(testValidLocalContentType, maxPreviewSize + 1)).thenReturn(maxPreviewSize + 1);
 		when(mockLocalPreviewGenerator.generatePreview(mockS3ObjectInputStream, mockOutputStream)).thenReturn(previewContentType);
 		when(mockUploadFile.length()).thenReturn(resultPreviewSize);
-		when(mockRemotePreviewGenerator.isLocal()).thenReturn(false);
-		when(mockRemotePreviewGenerator.supportsContentType(testValidLocalContentType, "txt")).thenReturn(false);
-		when(mockRemotePreviewGenerator.supportsContentType(testValidRemoteContentType, "doc")).thenReturn(true);
-		when(mockRemotePreviewGenerator.generatePreview(mockS3ObjectInputStream, mockOutputStream)).thenReturn(previewContentType);
 		when(mockUploadFile.length()).thenReturn(resultPreviewSize);
 		List<PreviewGenerator> genList = new LinkedList<PreviewGenerator>();
 		genList.add(mockLocalPreviewGenerator);
-		genList.add(mockRemotePreviewGenerator);
 		
-		previewManager = new PreviewManagerImpl(stubFileMetadataDao, mockS3Client, mockFileProvider, genList, maxPreviewSize, mockRemoteFilePreviewMessagePublisher, executorSvc);
+		previewManager = new LocalPreviewManagerImpl(stubFileMetadataDao, mockS3Client, mockFileProvider, genList, maxPreviewSize);
 		
 		// This is a local test file metadata
 		testLocalMetadata = new S3FileHandle();
@@ -123,18 +111,6 @@ public class PreviewManagerImplTest {
 		// Add this to the stub
 		testLocalMetadata = stubFileMetadataDao.createFile(testLocalMetadata);
 
-		// This is a remote test file metadata
-		testRemoteMetadata = new S3FileHandle();
-		testRemoteMetadata.setBucketName("bucketName");
-		testRemoteMetadata.setContentType(testValidRemoteContentType);
-		testRemoteMetadata.setContentMd5("contentMD5");
-		testRemoteMetadata.setContentSize(10l);
-		testRemoteMetadata.setCreatedBy("createdBy");
-		testRemoteMetadata.setEtag("etag");
-		testRemoteMetadata.setFileName("rfileName.doc");
-		testRemoteMetadata.setKey("key");
-		// Add this to the stub
-		testRemoteMetadata = stubFileMetadataDao.createFile(testRemoteMetadata);
 }
 	
 	@Test (expected=IllegalArgumentException.class)
@@ -249,19 +225,4 @@ public class PreviewManagerImplTest {
 		assertEquals(pfm, fromDao);
 	}
 	
-	// Just check basic wiring
-	@Test
-	public void testExpectedRemotePreview() throws Exception {
-		when(mockS3Client.getObject(any(String.class), any(String.class))).thenReturn(this.expectedS3Object(30000));
-		PreviewFileHandle pfm = previewManager.generatePreview(testRemoteMetadata);
-		assertNotNull(pfm);
-	}
-	
-	private S3Object expectedS3Object(long delayMS) throws InterruptedException {
-		S3Object expectedS3Object = new S3Object();
-		expectedS3Object.setBucketName(testRemoteMetadata.getBucketName());
-		expectedS3Object.setKey(testRemoteMetadata.getKey());
-		Thread.sleep(delayMS);
-		return expectedS3Object;
-	}
 }
