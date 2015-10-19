@@ -1,5 +1,7 @@
 package org.sagebionetworks.repo.manager.file.preview;
 
+import java.util.List;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.http.entity.ContentType;
@@ -20,6 +22,12 @@ public class PreviewManagerImpl implements PreviewManager {
 	
 	@Autowired
 	RemotePreviewManagerImpl remotePreviewManager;
+	
+	public PreviewManagerImpl(FileHandleDao fileHandleDao, LocalPreviewManagerImpl localPreviewMgr, RemotePreviewManagerImpl remotePreviewMgr) {
+		this.fileMetadataDao = fileHandleDao;
+		this.localPreviewManager = localPreviewMgr;
+		this.remotePreviewManager = remotePreviewMgr;
+	}
 
 	@Override
 	public boolean canHandleType(ContentType contentType) {
