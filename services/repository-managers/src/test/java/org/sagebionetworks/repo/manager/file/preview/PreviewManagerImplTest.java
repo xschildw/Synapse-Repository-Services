@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
+import static org.mockito.Matchers.anyString;
 
 import org.sagebionetworks.repo.model.dao.FileHandleDao;
 import org.sagebionetworks.repo.model.file.FileHandle;
@@ -42,11 +43,12 @@ public class PreviewManagerImplTest {
 		FileHandle expectedFileHandle = new S3FileHandle();
 		expectedFileHandle.setId("id");
 		expectedFileHandle.setContentType("contentType");
+		expectedFileHandle.setFileName("name.ext");
 		when(mockFileHandleDao.get("id")).thenReturn(expectedFileHandle);
-		when(mockLocalPreviewMgr.canHandleType(any(ContentType.class))).thenReturn(false);
-		when(mockRemotePreviewMgr.canHandleType(any(ContentType.class))).thenReturn(false);
+		when(mockLocalPreviewMgr.canHandleType(anyString(), anyString())).thenReturn(false);
+		when(mockRemotePreviewMgr.canHandleType(anyString(), anyString())).thenReturn(false);
 		
-		assertFalse(previewMgr.canHandleType(ContentType.parse("contentType")));
+		assertFalse(previewMgr.canHandleType("contentType", "ext"));
 	}
 
 	@Test
@@ -55,10 +57,10 @@ public class PreviewManagerImplTest {
 		expectedFileHandle.setId("id");
 		expectedFileHandle.setContentType("contentType");
 		when(mockFileHandleDao.get("id")).thenReturn(expectedFileHandle);
-		when(mockLocalPreviewMgr.canHandleType(any(ContentType.class))).thenReturn(false);
-		when(mockRemotePreviewMgr.canHandleType(any(ContentType.class))).thenReturn(true);
+		when(mockLocalPreviewMgr.canHandleType(anyString(), anyString())).thenReturn(false);
+		when(mockRemotePreviewMgr.canHandleType(anyString(), anyString())).thenReturn(true);
 		
-		assertTrue(previewMgr.canHandleType(ContentType.parse("contentType")));
+		assertTrue(previewMgr.canHandleType("contentType", "ext"));
 	}
 
 	@Test
@@ -67,10 +69,10 @@ public class PreviewManagerImplTest {
 		expectedFileHandle.setId("id");
 		expectedFileHandle.setContentType("contentType");
 		when(mockFileHandleDao.get("id")).thenReturn(expectedFileHandle);
-		when(mockLocalPreviewMgr.canHandleType(any(ContentType.class))).thenReturn(true);
-		when(mockRemotePreviewMgr.canHandleType(any(ContentType.class))).thenReturn(true);
+		when(mockLocalPreviewMgr.canHandleType(anyString(), anyString())).thenReturn(true);
+		when(mockRemotePreviewMgr.canHandleType(anyString(), anyString())).thenReturn(true);
 		
-		assertTrue(previewMgr.canHandleType(ContentType.parse("contentType")));
+		assertTrue(previewMgr.canHandleType("contentType", "ext"));
 	}
 	
 	@Test(expected=RuntimeException.class)
@@ -79,8 +81,8 @@ public class PreviewManagerImplTest {
 		expectedFileHandle.setId("id");
 		expectedFileHandle.setContentType("contentType");
 		when(mockFileHandleDao.get("id")).thenReturn(expectedFileHandle);
-		when(mockLocalPreviewMgr.canHandleType(any(ContentType.class))).thenReturn(false);
-		when(mockRemotePreviewMgr.canHandleType(any(ContentType.class))).thenReturn(false);
+		when(mockLocalPreviewMgr.canHandleType(anyString(), anyString())).thenReturn(false);
+		when(mockRemotePreviewMgr.canHandleType(anyString(), anyString())).thenReturn(false);
 		
 		previewMgr.handle(expectedFileHandle);
 		verify(mockLocalPreviewMgr, never()).handle(any(S3FileHandle.class));
@@ -93,8 +95,8 @@ public class PreviewManagerImplTest {
 		expectedFileHandle.setId("id");
 		expectedFileHandle.setContentType("contentType");
 		when(mockFileHandleDao.get("id")).thenReturn(expectedFileHandle);
-		when(mockLocalPreviewMgr.canHandleType(any(ContentType.class))).thenReturn(false);
-		when(mockRemotePreviewMgr.canHandleType(any(ContentType.class))).thenReturn(true);
+		when(mockLocalPreviewMgr.canHandleType(anyString(), anyString())).thenReturn(false);
+		when(mockRemotePreviewMgr.canHandleType(anyString(), anyString())).thenReturn(true);
 		
 		previewMgr.handle(expectedFileHandle);
 		verify(mockRemotePreviewMgr).handle(any(S3FileHandle.class));
@@ -107,8 +109,8 @@ public class PreviewManagerImplTest {
 		expectedFileHandle.setId("id");
 		expectedFileHandle.setContentType("contentType");
 		when(mockFileHandleDao.get("id")).thenReturn(expectedFileHandle);
-		when(mockLocalPreviewMgr.canHandleType(any(ContentType.class))).thenReturn(true);
-		when(mockRemotePreviewMgr.canHandleType(any(ContentType.class))).thenReturn(false);
+		when(mockLocalPreviewMgr.canHandleType(anyString(), anyString())).thenReturn(true);
+		when(mockRemotePreviewMgr.canHandleType(anyString(), anyString())).thenReturn(false);
 		
 		previewMgr.handle(expectedFileHandle);
 		verify(mockLocalPreviewMgr).handle(any(S3FileHandle.class));

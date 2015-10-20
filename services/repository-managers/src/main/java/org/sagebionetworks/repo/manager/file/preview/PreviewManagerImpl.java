@@ -23,6 +23,11 @@ public class PreviewManagerImpl implements PreviewManager {
 	@Autowired
 	RemotePreviewManagerImpl remotePreviewManager;
 	
+	/* Used by Spring */
+	public PreviewManagerImpl() {
+		
+	};
+	
 	public PreviewManagerImpl(FileHandleDao fileHandleDao, LocalPreviewManagerImpl localPreviewMgr, RemotePreviewManagerImpl remotePreviewMgr) {
 		this.fileMetadataDao = fileHandleDao;
 		this.localPreviewManager = localPreviewMgr;
@@ -30,19 +35,20 @@ public class PreviewManagerImpl implements PreviewManager {
 	}
 
 	@Override
-	public boolean canHandleType(ContentType contentType) {
-		if (! localPreviewManager.canHandleType(contentType)) {
-			return remotePreviewManager.canHandleType(contentType);
+	public boolean canHandleType(String contentType, String extension) {
+		if (! localPreviewManager.canHandleType(contentType, extension)) {
+			return remotePreviewManager.canHandleType(contentType, extension);
 		}
 		return true;
 	}
 
 	@Override
 	public void handle(S3FileHandle metadata) throws Exception {
-		ContentType cType = ContentType.parse(metadata.getContentType());
-		if (localPreviewManager.canHandleType(cType)) {
+		String cType = metadata.getContentType();
+		String ext = PreviewGeneratorUtils.findExtension(metadata.getFileName());
+		if (localPreviewManager.canHandleType(cType, ext)) {
 			localPreviewManager.handle(metadata);
-		} else if (remotePreviewManager.canHandleType(cType)) {
+		} else if (remotePreviewManager.canHandleType(cType, ext)) {
 			remotePreviewManager.handle(metadata);
 		} else {
 			throw new RuntimeException("Content type cannot be handled!");

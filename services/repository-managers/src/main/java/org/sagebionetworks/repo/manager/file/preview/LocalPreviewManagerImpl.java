@@ -233,10 +233,10 @@ public class LocalPreviewManagerImpl implements  LocalPreviewManager {
 	 * Find
 	 * @param metadta
 	 */
-	private PreviewGenerator findPreviewGenerator(String contentType, String extension) {
-		contentType = contentType.toLowerCase();
+	private PreviewGenerator findPreviewGenerator(String mimeType, String extension) {
+		mimeType = mimeType.toLowerCase();
 		for(PreviewGenerator gen: generatorList){
-			if (gen.supportsContentType(contentType, extension)) {
+			if (gen.supportsContentType(mimeType, extension)) {
 				return gen;
 			}
 		}
@@ -260,9 +260,10 @@ public class LocalPreviewManagerImpl implements  LocalPreviewManager {
 	}
 	
 	@Override
-	public boolean canHandleType(ContentType contentType) {
-		// TODO Auto-generated method stub
-		return false;
+	public boolean canHandleType(String contentType, String extension) {
+		ContentType ct = ContentType.parse(contentType);
+		String mimeType = ct.getMimeType();
+		return (this.findPreviewGenerator(mimeType, extension) != null);
 	}
 
 

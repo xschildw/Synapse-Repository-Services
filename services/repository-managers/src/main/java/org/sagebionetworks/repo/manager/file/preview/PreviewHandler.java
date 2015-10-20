@@ -5,7 +5,7 @@ import org.sagebionetworks.repo.model.file.S3FileHandle;
 
 public interface PreviewHandler {
 	
-	boolean canHandleType(ContentType contentType);
+	boolean canHandleType(String contentType, String extension);
 	
 	void handle(S3FileHandle metadata) throws Exception;
 }

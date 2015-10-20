@@ -22,7 +22,7 @@ import com.amazonaws.services.s3.AmazonS3Client;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(locations = { "classpath:test-context.xml" })
-public class RemoteFilePreviewManagerImplAutoWireTest {
+public class RemotePreviewManagerImplAutoWireTest {
 	
 	@Autowired
 	private FileHandleManager fileUploadManager;
@@ -55,8 +55,9 @@ public class RemoteFilePreviewManagerImplAutoWireTest {
 	}
 
 	@Test
-	public void test() {
-		fail("Not yet implemented");
+	public void testCanHandle() {
+		assertFalse(remotePreviewManager.canHandleType("image/gif", ".gif"));
+		assertFalse(remotePreviewManager.canHandleType("application/pdf", ".pdf"));
 	}
 
 }
