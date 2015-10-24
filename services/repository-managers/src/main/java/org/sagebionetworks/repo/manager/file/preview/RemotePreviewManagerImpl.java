@@ -100,7 +100,6 @@ public class RemotePreviewManagerImpl implements RemotePreviewManager {
 	@Override
 	public void handle(S3FileHandle metadata) throws Exception {
 		this.generatePreview(metadata);
-
 	}
 
 	@Override
@@ -123,58 +122,27 @@ public class RemotePreviewManagerImpl implements RemotePreviewManager {
 			log.info("Cannot generate preview for file with empty content type");
 			return null;
 		}
+		
 		ContentType contentType = ContentType.parse(metadata.getContentType());
 		String extension = PreviewGeneratorUtils.findExtension(metadata.getFileName());
+		
 		final PreviewGenerator gen = findPreviewGenerator(contentType.getMimeType(), extension);
 		// there is nothing to do if we do not have a generator for this type
 		if(gen == null){
 			log.info("No preview generator found for contentType:"+metadata.getContentType());
 			return null;
 		}
+		if (! (gen instanceof RemotePreviewGenerator)) {
+			throw new RuntimeException("Generator found is not a remote preview generator.");
+		}
 
-		fhRes = generateRemotePreview(gen, metadata);
+		fhRes = generateRemotePreview((RemotePreviewGenerator)gen, metadata);
 
 		return fhRes;
 	}
 	
-	private PreviewFileHandle generateRemotePreview(PreviewGenerator generator, S3FileHandle metadata) throws Exception {
-		// Send the request
-		S3FileHandle out = new S3FileHandle();
-		out.setBucketName(metadata.getBucketName());
-		out.setFileName("preview.png");
-		out.setKey(metadata.getCreatedBy() + UUID.randomUUID().toString());
-		RemoteFilePreviewGenerationRequest req = PreviewGeneratorUtils.createRemoteFilePreviewGenerationRequest(metadata, out);
-		remoteFilePreviewMessagePublisher.publishToQueue(req);
-		// Wait for the file to appear in S3
-		S3FilePreviewWatcherThread t;
-		t = new S3FilePreviewWatcherThread(out.getBucketName(), out.getKey());
-		long endTime = System.currentTimeMillis() + 10 * 1000;
-		final Future<Boolean> fFound = S3FilePreviewWatcherThreadPool.submit(t);
-		while (! fFound.isDone()) {
-			log.debug("Waiting for preview to appear in S3.");
-			Thread.sleep(5000);
-			long curTime = System.currentTimeMillis();
-			if (curTime > endTime) {
-				break;
-			}
-		}
-		Boolean found = false;
-		if (fFound.isDone()) {
-			found = fFound.get();
-			log.info("Found.");
-		} else {
-			fFound.cancel(true);
-		}
-		PreviewFileHandle fp = null; 
-		if (found) {
-			S3Object o = s3Client.getObject(out.getBucketName(), out.getKey());
-			fp = new PreviewFileHandle();
-			fp.setBucketName(o.getBucketName());
-			fp.setCreatedBy(metadata.getCreatedBy());
-			fp.setFileName(out.getFileName());
-			fp.setKey(out.getKey());
-			fp.setContentSize(o.getObjectMetadata().getContentLength());
-		}
+	private PreviewFileHandle generateRemotePreview(RemotePreviewGenerator generator, S3FileHandle metadata) throws Exception {
+		PreviewFileHandle fp = generator.generatePreview(metadata); 
 		return fp;
 	}
 	
@@ -184,7 +152,7 @@ public class RemotePreviewManagerImpl implements RemotePreviewManager {
 	 */
 	private PreviewGenerator findPreviewGenerator(String mimeType, String extension) {
 		mimeType = mimeType.toLowerCase();
-		for(PreviewGenerator gen: generatorList){
+		for(PreviewGenerator gen: generatorList) {
 			if (gen.supportsContentType(mimeType, extension)) {
 				return gen;
 			}

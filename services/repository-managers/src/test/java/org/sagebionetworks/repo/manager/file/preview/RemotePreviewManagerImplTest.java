@@ -3,6 +3,7 @@ package org.sagebionetworks.repo.manager.file.preview;
 import static org.junit.Assert.*;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doReturn;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -68,11 +69,6 @@ public class RemotePreviewManagerImplTest {
 		MockitoAnnotations.initMocks(this);
 		stubFileMetadataDao = new StubFileMetadataDao();
 		
-		when(mockRemotePreviewGenerator.isLocal()).thenReturn(false);
-		when(mockRemotePreviewGenerator.supportsContentType(testValidLocalContentType, "txt")).thenReturn(false);
-		when(mockRemotePreviewGenerator.supportsContentType(testValidRemoteContentType, "doc")).thenReturn(true);
-		when(mockRemotePreviewGenerator.generatePreview(mockS3ObjectInputStream, mockOutputStream)).thenReturn(previewContentType);
-
 		List<PreviewGenerator> genList = new LinkedList<PreviewGenerator>();
 		genList.add(mockRemotePreviewGenerator);
 
@@ -88,6 +84,13 @@ public class RemotePreviewManagerImplTest {
 		testRemoteMetadata.setKey("key");
 		// Add this to the stub
 		testRemoteMetadata = stubFileMetadataDao.createFile(testRemoteMetadata);
+		
+		PreviewFileHandle expectedFileHandle = new PreviewFileHandle();
+
+		when(mockRemotePreviewGenerator.isLocal()).thenReturn(false);
+		when(mockRemotePreviewGenerator.supportsContentType(testValidLocalContentType, "txt")).thenReturn(false);
+		when(mockRemotePreviewGenerator.supportsContentType(testValidRemoteContentType, "doc")).thenReturn(true);
+		when(mockRemotePreviewGenerator.generatePreview(testRemoteMetadata)).thenReturn(expectedFileHandle);
 
 		previewManager = new RemotePreviewManagerImpl(stubFileMetadataDao, mockS3Client, mockFileProvider, genList, maxPreviewSize, mockRemoteFilePreviewMessagePublisher, executorSvc);
 

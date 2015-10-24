@@ -174,8 +174,7 @@
 	    <!-- The list of preview generators, order is important, first generator found wins-->
 	    <property name="generatorList">
 	        <list>
-		    	<bean class="org.sagebionetworks.repo.manager.file.preview.PdfPreviewGenerator" />
-	            <bean class="org.sagebionetworks.repo.manager.file.preview.OfficePreviewGenerator"/>
+	            <bean class="org.sagebionetworks.repo.manager.file.preview.GenericRemotePreviewGenerator" />
 	        </list>
 	    </property>
 	</bean>

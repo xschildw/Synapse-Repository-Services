@@ -55,7 +55,7 @@ import com.sun.star.util.XCloseable;
  * @author John
  * 
  */
-public class OfficePreviewGenerator implements RemotePreviewGenerator {
+public class OfficePreviewGenerator implements LocalPreviewGenerator {
 
 	private static Log log = LogFactory.getLog(OfficePreviewGenerator.class);
 
@@ -388,6 +388,13 @@ public class OfficePreviewGenerator implements RemotePreviewGenerator {
 
 	@Override
 	public boolean isLocal() {
-		return false;
+		return true;
+	}
+
+	@Override
+	public long calculateNeededMemoryBytesForPreview(String mimeType,
+			long contentSize) {
+		// TODO Auto-generated method stub
+		return 0;
 	}
 }
