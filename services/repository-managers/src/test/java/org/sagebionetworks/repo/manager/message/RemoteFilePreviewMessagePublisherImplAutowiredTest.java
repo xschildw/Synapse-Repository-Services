@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -45,6 +46,7 @@ import com.amazonaws.services.sqs.model.ReceiveMessageResult;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(locations = { "classpath:test-context-schedulers.xml" })
+@Ignore
 public class RemoteFilePreviewMessagePublisherImplAutowiredTest {
 	
 	@Autowired
