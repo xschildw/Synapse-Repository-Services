@@ -50,9 +50,6 @@ public class GenericRemotePreviewGenerator implements RemotePreviewGenerator {
 	@Autowired
 	RemoteFilePreviewMessagePublisherImpl remoteFilePreviewMessagePublisher;
 	
-	@Autowired
-	ExecutorService S3FilePreviewWatcherThreadPool;
-	
 	DefaultClock clock;
 	
 	/* Used by Spring */
