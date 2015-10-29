@@ -10,7 +10,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.http.entity.ContentType;
-import org.sagebionetworks.repo.manager.message.RemoteFilePreviewMessagePublisherImpl;
+import org.sagebionetworks.repo.manager.message.RemoteFilePreviewRequestMessagePublisherImpl;
 import org.sagebionetworks.repo.model.dao.FileHandleDao;
 import org.sagebionetworks.repo.model.file.FileHandle;
 import org.sagebionetworks.repo.model.file.PreviewFileHandle;
@@ -38,7 +38,7 @@ public class RemotePreviewManagerImpl implements RemotePreviewManager {
 	TempFileProvider tempFileProvider;
 	
 	@Autowired
-	RemoteFilePreviewMessagePublisherImpl remoteFilePreviewMessagePublisher;
+	RemoteFilePreviewRequestMessagePublisherImpl remoteFilePreviewMessagePublisher;
 	
 	@Autowired
 	ExecutorService S3FilePreviewWatcherThreadPool;
@@ -67,7 +67,7 @@ public class RemotePreviewManagerImpl implements RemotePreviewManager {
 			AmazonS3Client s3Client,
 			TempFileProvider tempFileProvider,
 			List<PreviewGenerator> generatorList, Long maxPreviewMemory,
-			RemoteFilePreviewMessagePublisherImpl rfpmp,
+			RemoteFilePreviewRequestMessagePublisherImpl rfpmp,
 			ExecutorService executorSvc) {
 		super();
 		this.fileMetadataDao = fileMetadataDao;

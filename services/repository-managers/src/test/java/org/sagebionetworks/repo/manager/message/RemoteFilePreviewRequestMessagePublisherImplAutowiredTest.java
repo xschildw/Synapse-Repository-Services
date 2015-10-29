@@ -47,10 +47,10 @@ import com.amazonaws.services.sqs.model.ReceiveMessageResult;
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(locations = { "classpath:test-context-schedulers.xml" })
 @Ignore
-public class RemoteFilePreviewMessagePublisherImplAutowiredTest {
+public class RemoteFilePreviewRequestMessagePublisherImplAutowiredTest {
 	
 	@Autowired
-	private RemoteFilePreviewMessagePublisherImpl remoteFilePreviewMsgPublisher;
+	private RemoteFilePreviewRequestMessagePublisherImpl remoteFilePreviewMsgPublisher;
 	
 	@Autowired
 	private AmazonSQSClient awsSQSClient;

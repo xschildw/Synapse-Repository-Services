@@ -41,7 +41,7 @@ public class OfficePreviewTest {
 
 	@Before
 	public void before() throws IOException, ServiceUnavailableException {
-		Assume.assumeTrue(StackConfiguration.singleton().getOpenOfficeImageMagicePreviewsEnabled());
+		Assume.assumeTrue(StackConfiguration.singleton().getRemoteFilePreviewsEnabled());
 	}
 
 	@Test

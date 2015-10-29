@@ -16,7 +16,7 @@ import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import org.sagebionetworks.repo.manager.message.RemoteFilePreviewMessagePublisherImpl;
+import org.sagebionetworks.repo.manager.message.RemoteFilePreviewRequestMessagePublisherImpl;
 import org.sagebionetworks.repo.model.file.PreviewFileHandle;
 import org.sagebionetworks.repo.model.file.RemoteFilePreviewGenerationRequest;
 import org.sagebionetworks.repo.model.file.S3FileHandle;
@@ -29,7 +29,7 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 public class GenericRemotePreviewGeneratorTest {
 	
 	AmazonS3Client mockS3Client;
-	RemoteFilePreviewMessagePublisherImpl mockMesgPublisher;
+	RemoteFilePreviewRequestMessagePublisherImpl mockMesgPublisher;
 	DefaultClock mockClock;
 	
 	GenericRemotePreviewGenerator generator;
@@ -37,7 +37,7 @@ public class GenericRemotePreviewGeneratorTest {
 	@Before
 	public void setUp() throws Exception {
 		mockS3Client = Mockito.mock(AmazonS3Client.class);
-		mockMesgPublisher = Mockito.mock(RemoteFilePreviewMessagePublisherImpl.class);
+		mockMesgPublisher = Mockito.mock(RemoteFilePreviewRequestMessagePublisherImpl.class);
 		mockClock = Mockito.mock(DefaultClock.class);
 		
 		generator = new GenericRemotePreviewGenerator(mockS3Client, mockMesgPublisher, mockClock);

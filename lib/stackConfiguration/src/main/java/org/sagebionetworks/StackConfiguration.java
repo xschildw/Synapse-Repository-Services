@@ -688,8 +688,8 @@ public class StackConfiguration {
 	 * Is open-office/image-magic dependent previews be enabled?
 	 * @return
 	 */
-	public boolean getOpenOfficeImageMagicePreviewsEnabled(){
-		return Boolean.parseBoolean(configuration.getPropertyRepeatedly("org.sagebionetworks.preview.open.office.enabled"));
+	public boolean getRemoteFilePreviewsEnabled(){
+		return Boolean.parseBoolean(configuration.getPropertyRepeatedly(StackConstants.KEY_REMOTE_FILEPREVIEW_GENERATION_ENABLED));
 	}
 
 	/**
@@ -930,15 +930,6 @@ public class StackConfiguration {
 	}
 	
 	/**
-	 * 
-	 * @return
-	 */
-	public boolean getRemoteFilePreviewGenerationRequestMessagePublishToQueueEnabled() {
-		return Boolean.parseBoolean(
-				configuration.getProperty(StackConstants.REMOTE_FILEPREVIEW_GENERATION_REQUEST_MSG_PUBLISH_ENABLED));
-	}
-
-	/**
 	 * The name of the AWS SQS where search updates are pushed.
 	 * 
 	 * @return
@@ -1008,13 +999,13 @@ public class StackConfiguration {
 				StackConfiguration.getStackInstance());
 	}
 	
-	public String getRemoteFilePreviewGeneratorQueueName() {
-		return String.format(StackConstants.REMOTE_FILEPREVIEW_GENERATOR_QUEUE_NAME_TEMPLATE,
+	public String getRemoteFilePreviewRequestQueueName() {
+		return String.format(StackConstants.REMOTE_FILEPREVIEW_REQUEST_QUEUE_NAME_TEMPLATE,
 			singleton.getStack());
 	}
 	
-	public String getRemoteFilePreviewGeneratorDeadLetterQueueName() {
-		return String.format(StackConstants.REMOTE_FILEPREVIEW_GENERATOR_DEAD_LETTER_QUEUE_NAME_TEMPLATE,
+	public String getRemoteFilePreviewRequestDeadLetterQueueName() {
+		return String.format(StackConstants.REMOTE_FILEPREVIEW_REQUEST_DEAD_LETTER_QUEUE_NAME_TEMPLATE,
 			singleton.getStack());
 	}
 

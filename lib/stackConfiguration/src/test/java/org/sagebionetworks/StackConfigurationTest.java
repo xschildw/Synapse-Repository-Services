@@ -108,8 +108,8 @@ public class StackConfigurationTest {
 	@Test
 	public void testGetRemoteFilePreviewGeneratorQueueName() {
 		StackConfiguration cfg = new StackConfiguration();
-		assertEquals(StackConstants.REMOTE_FILEPREVIEW_GENERATOR_QUEUE_NAME + "-dev", cfg.getRemoteFilePreviewGeneratorQueueName());
-		assertEquals(StackConstants.REMOTE_FILEPREVIEW_GENERATOR_DEAD_LETTER_QUEUE_NAME + "-dev", cfg.getRemoteFilePreviewGeneratorDeadLetterQueueName());
+		assertEquals(StackConstants.REMOTE_FILEPREVIEW_REQUEST_QUEUE_NAME + "-dev", cfg.getRemoteFilePreviewRequestQueueName());
+		assertEquals(StackConstants.REMOTE_FILEPREVIEW_REQUEST_DEAD_LETTER_QUEUE_NAME + "-dev", cfg.getRemoteFilePreviewRequestDeadLetterQueueName());
 	}
 	
 }

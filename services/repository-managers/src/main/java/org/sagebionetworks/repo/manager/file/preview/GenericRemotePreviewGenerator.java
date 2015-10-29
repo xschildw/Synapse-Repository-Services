@@ -14,7 +14,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.sagebionetworks.StackConfiguration;
 import org.sagebionetworks.repo.manager.file.preview.RemotePreviewManagerImpl.S3FilePreviewWatcherThread;
-import org.sagebionetworks.repo.manager.message.RemoteFilePreviewMessagePublisherImpl;
+import org.sagebionetworks.repo.manager.message.RemoteFilePreviewRequestMessagePublisherImpl;
 import org.sagebionetworks.repo.model.file.PreviewFileHandle;
 import org.sagebionetworks.repo.model.file.RemoteFilePreviewGenerationRequest;
 import org.sagebionetworks.repo.model.file.S3FileHandle;
@@ -48,7 +48,7 @@ public class GenericRemotePreviewGenerator implements RemotePreviewGenerator {
 	AmazonS3Client s3Client;
 	
 	@Autowired
-	RemoteFilePreviewMessagePublisherImpl remoteFilePreviewMessagePublisher;
+	RemoteFilePreviewRequestMessagePublisherImpl remoteFilePreviewMessagePublisher;
 	
 	DefaultClock clock;
 	
@@ -57,7 +57,7 @@ public class GenericRemotePreviewGenerator implements RemotePreviewGenerator {
 		
 	}
 	
-	public GenericRemotePreviewGenerator(AmazonS3Client client, RemoteFilePreviewMessagePublisherImpl rfpPublisher, DefaultClock clock) {
+	public GenericRemotePreviewGenerator(AmazonS3Client client, RemoteFilePreviewRequestMessagePublisherImpl rfpPublisher, DefaultClock clock) {
 		this.s3Client = client;
 		this.remoteFilePreviewMessagePublisher = rfpPublisher;
 		this.clock = clock;
@@ -65,7 +65,7 @@ public class GenericRemotePreviewGenerator implements RemotePreviewGenerator {
 	
 	@Override
 	public boolean supportsContentType(String mimeType, String extension) {
-		if(!StackConfiguration.singleton().getOpenOfficeImageMagicePreviewsEnabled()){
+		if(!StackConfiguration.singleton().getRemoteFilePreviewsEnabled()){
 			return false;
 		}
 		return REMOTE_MIME_TYPES.contains(mimeType);

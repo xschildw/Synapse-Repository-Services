@@ -160,7 +160,7 @@ public class PreviewIntegrationTest {
 
 	@Test
 	public void testRoundTripPdf() throws Exception {
-		if(!StackConfiguration.singleton().getOpenOfficeImageMagicePreviewsEnabled()){
+		if(!StackConfiguration.singleton().getRemoteFilePreviewsEnabled()){
 			return;
 		}
 		ConvertCmd convert = new ConvertCmd();
@@ -173,7 +173,7 @@ public class PreviewIntegrationTest {
 
 	@Test
 	public void testRoundTripOffice() throws Exception {
-		if(!StackConfiguration.singleton().getOpenOfficeImageMagicePreviewsEnabled()){
+		if(!StackConfiguration.singleton().getRemoteFilePreviewsEnabled()){
 			return;
 		}
 		try {

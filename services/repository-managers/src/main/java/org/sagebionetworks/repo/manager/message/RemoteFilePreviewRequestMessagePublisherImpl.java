@@ -27,7 +27,7 @@ import com.amazonaws.services.sqs.model.CreateQueueRequest;
 import com.amazonaws.services.sqs.model.CreateQueueResult;
 import com.amazonaws.services.sqs.model.GetQueueUrlResult;
 
-public class RemoteFilePreviewMessagePublisherImpl implements
+public class RemoteFilePreviewRequestMessagePublisherImpl implements
 		RemoteFilePreviewMessagePublisher {
 
 	static private Log logger = LogFactory.getLog(RepositoryMessagePublisherImpl.class);
@@ -49,7 +49,7 @@ public class RemoteFilePreviewMessagePublisherImpl implements
 	 * @param topicName
 	 * @param topicArn
 	 */
-	public RemoteFilePreviewMessagePublisherImpl(AmazonSQSClient awsSQSClient, MessageQueueImpl msgQueue) {
+	public RemoteFilePreviewRequestMessagePublisherImpl(AmazonSQSClient awsSQSClient, MessageQueueImpl msgQueue) {
 		this.awsSQSClient = awsSQSClient;
 		this.remoteFileGenerationReqMsgQueue = msgQueue;
 	}

@@ -39,12 +39,12 @@ import com.amazonaws.services.sqs.model.GetQueueAttributesResult;
 import com.amazonaws.services.sqs.model.GetQueueUrlResult;
 import com.amazonaws.services.sqs.model.SetQueueAttributesRequest;
 
-public class RemoteFilePreviewMessagePublisherTest {
+public class RemoteFilePreviewRequestMessagePublisherTest {
 	
 	private RemoteFilePreviewGenerationRequest expectedReq;
 	AmazonSQSClient sqsClient;
 	MessageQueueImpl msgQ;
-	RemoteFilePreviewMessagePublisherImpl publisher;
+	RemoteFilePreviewRequestMessagePublisherImpl publisher;
 
 	@Before
 	public void setUp() throws Exception {
@@ -54,7 +54,7 @@ public class RemoteFilePreviewMessagePublisherTest {
 		when(msgQ.getQueueName()).thenReturn("queueName");
 		when(sqsClient.getQueueUrl("queueName")).thenReturn(new GetQueueUrlResult().withQueueUrl("queueUrl"));
 
-		publisher = new RemoteFilePreviewMessagePublisherImpl(sqsClient, msgQ);
+		publisher = new RemoteFilePreviewRequestMessagePublisherImpl(sqsClient, msgQ);
 		expectedReq = null;
 	}
 

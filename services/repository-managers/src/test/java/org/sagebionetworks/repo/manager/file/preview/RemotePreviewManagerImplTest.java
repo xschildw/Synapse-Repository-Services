@@ -17,7 +17,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.sagebionetworks.repo.manager.message.RemoteFilePreviewMessagePublisherImpl;
+import org.sagebionetworks.repo.manager.message.RemoteFilePreviewRequestMessagePublisherImpl;
 import org.sagebionetworks.repo.model.dao.FileHandleDao;
 import org.sagebionetworks.repo.model.file.PreviewFileHandle;
 import org.sagebionetworks.repo.model.file.S3FileHandle;
@@ -50,7 +50,7 @@ public class RemotePreviewManagerImplTest {
 	@Mock
 	private S3ObjectInputStream mockS3ObjectInputStream;
 	@Mock
-	private RemoteFilePreviewMessagePublisherImpl mockRemoteFilePreviewMessagePublisher;
+	private RemoteFilePreviewRequestMessagePublisherImpl mockRemoteFilePreviewMessagePublisher;
 	
 	ExecutorService executorSvc = Executors.newSingleThreadExecutor();
 	

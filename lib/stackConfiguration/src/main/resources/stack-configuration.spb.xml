@@ -148,9 +148,9 @@
 	<bean id="stackConfiguration.logBucketName" class="org.springframework.beans.factory.config.PropertyPathFactoryBean" />
 	
 	<!-- RemoteFilePreviewGenerator -->
-	<bean id="stackConfiguration.remoteFilePreviewGeneratorQueueName" class="org.springframework.beans.factory.config.PropertyPathFactoryBean" />
-	<bean id="stackConfiguration.remoteFilePreviewGeneratorDeadLetterQueueName" class="org.springframework.beans.factory.config.PropertyPathFactoryBean" />
-	<bean id="stackConfiguration.remoteFilePreviewGenerationRequestMessagePublishToQueueEnabled" class="org.springframework.beans.factory.config.PropertyPathFactoryBean" />
+	<bean id="stackConfiguration.remoteFilePreviewRequestQueueName" class="org.springframework.beans.factory.config.PropertyPathFactoryBean" />
+	<bean id="stackConfiguration.remoteFilePreviewRequestDeadLetterQueueName" class="org.springframework.beans.factory.config.PropertyPathFactoryBean" />
+	<bean id="stackConfiguration.remoteFilePreviewsEnabled" class="org.springframework.beans.factory.config.PropertyPathFactoryBean" />
 	
 	
 </beans>
