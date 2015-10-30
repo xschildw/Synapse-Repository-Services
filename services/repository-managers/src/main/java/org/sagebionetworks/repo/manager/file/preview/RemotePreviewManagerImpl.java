@@ -10,6 +10,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.http.entity.ContentType;
+import org.sagebionetworks.repo.manager.message.RemoteFilePreviewNotificationMessagePublisherImpl;
 import org.sagebionetworks.repo.manager.message.RemoteFilePreviewRequestMessagePublisherImpl;
 import org.sagebionetworks.repo.model.dao.FileHandleDao;
 import org.sagebionetworks.repo.model.file.FileHandle;
@@ -37,12 +38,6 @@ public class RemotePreviewManagerImpl implements RemotePreviewManager {
 	@Autowired
 	TempFileProvider tempFileProvider;
 	
-	@Autowired
-	RemoteFilePreviewRequestMessagePublisherImpl remoteFilePreviewMessagePublisher;
-	
-	@Autowired
-	ExecutorService S3FilePreviewWatcherThreadPool;
-	
 	List<PreviewGenerator> generatorList;
 	
 	/**
@@ -67,15 +62,13 @@ public class RemotePreviewManagerImpl implements RemotePreviewManager {
 			AmazonS3Client s3Client,
 			TempFileProvider tempFileProvider,
 			List<PreviewGenerator> generatorList, Long maxPreviewMemory,
-			RemoteFilePreviewRequestMessagePublisherImpl rfpmp,
-			ExecutorService executorSvc) {
+			RemoteFilePreviewRequestMessagePublisherImpl rfprmp,
+			RemoteFilePreviewNotificationMessagePublisherImpl rfpnmp) {
 		super();
 		this.fileMetadataDao = fileMetadataDao;
 		this.s3Client = s3Client;
 		this.tempFileProvider = tempFileProvider;
 		this.generatorList = generatorList;
-		this.remoteFilePreviewMessagePublisher = rfpmp;
-		this.S3FilePreviewWatcherThreadPool = executorSvc;
 	}
 	
 	/**

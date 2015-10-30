@@ -68,6 +68,7 @@ public class ExpectedStackBeansTest {
 			"stackConfiguration.fileMultipartUploadDaemonCopyPartMaxThreads",
 			
 			"stackConfiguration.auditRecordBucketName",
+
 			"stackConfiguration.stackInstanceNumber",
 			"stackConfiguration.stack",
 			
@@ -84,9 +85,11 @@ public class ExpectedStackBeansTest {
 			"stackConfiguration.repositoryChangeTopic[TEAM_MEMBER]",
 			"stackConfiguration.repositoryChangeTopic[PROJECT_SETTING]",
 			
-			"stackConfiguration.remoteFilePreviewGeneratorQueueName",
-			"stackConfiguration.remoteFilePreviewGeneratorDeadLetterQueueName",
-			"stackConfiguration.remoteFilePreviewGenerationRequestMessagePublishToQueueEnabled",
+			"stackConfiguration.remoteFilePreviewRequestQueueName",
+			"stackConfiguration.remoteFilePreviewRequestDeadLetterQueueName",
+			"stackConfiguration.remoteFilePreviewNotificationQueueName",
+			"stackConfiguration.remoteFilePreviewNotificationDeadLetterQueueName",
+			"stackConfiguration.remoteFilePreviewsEnabled",
 
 			"stackConfiguration.asyncQueueName[BULK_FILE_DOWNLOAD]"
 	};

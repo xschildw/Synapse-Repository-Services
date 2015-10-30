@@ -17,6 +17,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.sagebionetworks.repo.manager.message.RemoteFilePreviewNotificationMessagePublisherImpl;
 import org.sagebionetworks.repo.manager.message.RemoteFilePreviewRequestMessagePublisherImpl;
 import org.sagebionetworks.repo.model.dao.FileHandleDao;
 import org.sagebionetworks.repo.model.file.PreviewFileHandle;
@@ -50,9 +51,9 @@ public class RemotePreviewManagerImplTest {
 	@Mock
 	private S3ObjectInputStream mockS3ObjectInputStream;
 	@Mock
-	private RemoteFilePreviewRequestMessagePublisherImpl mockRemoteFilePreviewMessagePublisher;
-	
-	ExecutorService executorSvc = Executors.newSingleThreadExecutor();
+	private RemoteFilePreviewRequestMessagePublisherImpl mockRemoteFilePreviewRequestMessagePublisher;
+	@Mock
+	private RemoteFilePreviewNotificationMessagePublisherImpl mockRemoteFilePreviewNotificationMessagePublisher;
 	
 	Long maxPreviewSize = 100l;
 	float multiplerForContentType = 1.5f;
@@ -85,14 +86,12 @@ public class RemotePreviewManagerImplTest {
 		// Add this to the stub
 		testRemoteMetadata = stubFileMetadataDao.createFile(testRemoteMetadata);
 		
-		PreviewFileHandle expectedFileHandle = new PreviewFileHandle();
-
 		when(mockRemotePreviewGenerator.isLocal()).thenReturn(false);
 		when(mockRemotePreviewGenerator.supportsContentType(testValidLocalContentType, "txt")).thenReturn(false);
 		when(mockRemotePreviewGenerator.supportsContentType(testValidRemoteContentType, "doc")).thenReturn(true);
-		when(mockRemotePreviewGenerator.generatePreview(testRemoteMetadata)).thenReturn(expectedFileHandle);
+		when(mockRemotePreviewGenerator.generatePreview(testRemoteMetadata)).thenReturn(null);
 
-		previewManager = new RemotePreviewManagerImpl(stubFileMetadataDao, mockS3Client, mockFileProvider, genList, maxPreviewSize, mockRemoteFilePreviewMessagePublisher, executorSvc);
+		previewManager = new RemotePreviewManagerImpl(stubFileMetadataDao, mockS3Client, mockFileProvider, genList, maxPreviewSize, mockRemoteFilePreviewRequestMessagePublisher, mockRemoteFilePreviewNotificationMessagePublisher);
 
 	}
 
@@ -103,16 +102,12 @@ public class RemotePreviewManagerImplTest {
 	// Just check basic wiring
 	@Test
 	public void testExpectedRemotePreview() throws Exception {
-		when(mockS3Client.getObject(any(String.class), any(String.class))).thenReturn(this.expectedS3Object(30000));
-		PreviewFileHandle pfm = previewManager.generatePreview(testRemoteMetadata);
-		assertNotNull(pfm);
-	}
-	
-	private S3Object expectedS3Object(long delayMS) throws InterruptedException {
 		S3Object expectedS3Object = new S3Object();
 		expectedS3Object.setBucketName(testRemoteMetadata.getBucketName());
 		expectedS3Object.setKey(testRemoteMetadata.getKey());
-		Thread.sleep(delayMS);
-		return expectedS3Object;
+		when(mockS3Client.getObject(any(String.class), any(String.class))).thenReturn(expectedS3Object);
+		PreviewFileHandle pfm = previewManager.generatePreview(testRemoteMetadata);
+		assertNull(pfm);
 	}
+
 }

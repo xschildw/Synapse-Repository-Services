@@ -150,6 +150,8 @@
 	<!-- RemoteFilePreviewGenerator -->
 	<bean id="stackConfiguration.remoteFilePreviewRequestQueueName" class="org.springframework.beans.factory.config.PropertyPathFactoryBean" />
 	<bean id="stackConfiguration.remoteFilePreviewRequestDeadLetterQueueName" class="org.springframework.beans.factory.config.PropertyPathFactoryBean" />
+	<bean id="stackConfiguration.remoteFilePreviewNotificationQueueName" class="org.springframework.beans.factory.config.PropertyPathFactoryBean" />
+	<bean id="stackConfiguration.remoteFilePreviewNotificationDeadLetterQueueName" class="org.springframework.beans.factory.config.PropertyPathFactoryBean" />
 	<bean id="stackConfiguration.remoteFilePreviewsEnabled" class="org.springframework.beans.factory.config.PropertyPathFactoryBean" />
 	
 	

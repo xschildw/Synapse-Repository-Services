@@ -16,6 +16,7 @@ import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import org.sagebionetworks.repo.manager.message.RemoteFilePreviewNotificationMessagePublisherImpl;
 import org.sagebionetworks.repo.manager.message.RemoteFilePreviewRequestMessagePublisherImpl;
 import org.sagebionetworks.repo.model.file.PreviewFileHandle;
 import org.sagebionetworks.repo.model.file.RemoteFilePreviewGenerationRequest;
@@ -29,32 +30,24 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 public class GenericRemotePreviewGeneratorTest {
 	
 	AmazonS3Client mockS3Client;
-	RemoteFilePreviewRequestMessagePublisherImpl mockMesgPublisher;
-	DefaultClock mockClock;
+	RemoteFilePreviewRequestMessagePublisherImpl mockReqMsgPublisher;
+	RemoteFilePreviewNotificationMessagePublisherImpl mockNotMsgPublisher;
 	
 	GenericRemotePreviewGenerator generator;
 
 	@Before
 	public void setUp() throws Exception {
 		mockS3Client = Mockito.mock(AmazonS3Client.class);
-		mockMesgPublisher = Mockito.mock(RemoteFilePreviewRequestMessagePublisherImpl.class);
-		mockClock = Mockito.mock(DefaultClock.class);
+		mockReqMsgPublisher = Mockito.mock(RemoteFilePreviewRequestMessagePublisherImpl.class);
+		mockNotMsgPublisher = Mockito.mock(RemoteFilePreviewNotificationMessagePublisherImpl.class);
 		
-		generator = new GenericRemotePreviewGenerator(mockS3Client, mockMesgPublisher, mockClock);
+		generator = new GenericRemotePreviewGenerator(mockS3Client, mockReqMsgPublisher, mockNotMsgPublisher);
 	}
 
 	@After
 	public void tearDown() throws Exception {
 	}
 
-	@Test
-	public void testClock() {
-		when(mockClock.currentTimeMillis()).thenReturn(1000000L, 1400000L, 3L);
-		long t = mockClock.currentTimeMillis();
-		t = mockClock.currentTimeMillis();
-		t = mockClock.currentTimeMillis();
-	}
-	
 	@Test
 	public void testIsLocal() {
 		assertFalse(generator.isLocal());
@@ -78,25 +71,12 @@ public class GenericRemotePreviewGeneratorTest {
 		S3FileHandle inputMetadata = new S3FileHandle();
 		ObjectMetadata expectedOmd = new ObjectMetadata();
 
-		when(mockClock.currentTimeMillis()).thenReturn(1000000L, 1400000L);
 		when(mockS3Client.getObjectMetadata(anyString(), anyString())).thenReturn(null);
 		
 		PreviewFileHandle pfh = generator.generatePreview(inputMetadata);
-		verify(mockMesgPublisher).publishToQueue(any(RemoteFilePreviewGenerationRequest.class));
+		verify(mockReqMsgPublisher).publishToQueue(any(RemoteFilePreviewGenerationRequest.class));
+		verify(mockNotMsgPublisher).publishToQueue(any(RemoteFilePreviewGenerationRequest.class));
 		assertNull(pfh);
 	}
 	
-	@Test
-	public void testGeneratePreview() throws InterruptedException, JSONObjectAdapterException, ExecutionException {
-		S3FileHandle inputMetadata = new S3FileHandle();
-		ObjectMetadata expectedOmd = new ObjectMetadata();
-
-		when(mockClock.currentTimeMillis()).thenReturn(1000000L);
-		when(mockS3Client.getObjectMetadata(anyString(), anyString())).thenReturn(expectedOmd);
-		
-		PreviewFileHandle pfh = generator.generatePreview(inputMetadata);
-		verify(mockMesgPublisher).publishToQueue(any(RemoteFilePreviewGenerationRequest.class));
-		assertNotNull(pfh);
-	}
-
 }

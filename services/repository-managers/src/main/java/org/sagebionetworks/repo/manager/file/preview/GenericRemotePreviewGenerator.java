@@ -14,6 +14,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.sagebionetworks.StackConfiguration;
 import org.sagebionetworks.repo.manager.file.preview.RemotePreviewManagerImpl.S3FilePreviewWatcherThread;
+import org.sagebionetworks.repo.manager.message.RemoteFilePreviewNotificationMessagePublisherImpl;
 import org.sagebionetworks.repo.manager.message.RemoteFilePreviewRequestMessagePublisherImpl;
 import org.sagebionetworks.repo.model.file.PreviewFileHandle;
 import org.sagebionetworks.repo.model.file.RemoteFilePreviewGenerationRequest;
@@ -48,19 +49,20 @@ public class GenericRemotePreviewGenerator implements RemotePreviewGenerator {
 	AmazonS3Client s3Client;
 	
 	@Autowired
-	RemoteFilePreviewRequestMessagePublisherImpl remoteFilePreviewMessagePublisher;
+	RemoteFilePreviewRequestMessagePublisherImpl remoteFilePreviewRequestMessagePublisher;
 	
-	DefaultClock clock;
+	@Autowired
+	RemoteFilePreviewNotificationMessagePublisherImpl remoteFilePreviewNotificationMessagePublisher;
 	
 	/* Used by Spring */
 	public GenericRemotePreviewGenerator() {
 		
 	}
 	
-	public GenericRemotePreviewGenerator(AmazonS3Client client, RemoteFilePreviewRequestMessagePublisherImpl rfpPublisher, DefaultClock clock) {
+	public GenericRemotePreviewGenerator(AmazonS3Client client, RemoteFilePreviewRequestMessagePublisherImpl rfpReqPublisher, RemoteFilePreviewNotificationMessagePublisherImpl rfpNotPublisher) {
 		this.s3Client = client;
-		this.remoteFilePreviewMessagePublisher = rfpPublisher;
-		this.clock = clock;
+		this.remoteFilePreviewRequestMessagePublisher = rfpReqPublisher;
+		this.remoteFilePreviewNotificationMessagePublisher = rfpNotPublisher;
 	}
 	
 	@Override
@@ -88,35 +90,11 @@ public class GenericRemotePreviewGenerator implements RemotePreviewGenerator {
 		out.setFileName("preview.png");
 		out.setKey(inputMetadata.getCreatedBy() + UUID.randomUUID().toString());
 		RemoteFilePreviewGenerationRequest req = PreviewGeneratorUtils.createRemoteFilePreviewGenerationRequest(inputMetadata, out);
-		remoteFilePreviewMessagePublisher.publishToQueue(req);
+		remoteFilePreviewRequestMessagePublisher.publishToQueue(req);
+		remoteFilePreviewNotificationMessagePublisher.publishToQueue(req);
 
-		// Wait for the file to appear in S3
-		String bName = out.getBucketName();
-		String k = out.getKey();
-		long startTime = clock.currentTimeMillis();
-		long endTime = startTime + 5 * 60 * 1000; // Wait 5 mins max
-		boolean found = false;
-		ObjectMetadata omd = null;
-		while (! found) {
-			omd = s3Client.getObjectMetadata(bName, k);
-			if (omd != null) {
-				break;
-			}
-			if (clock.currentTimeMillis() > endTime) {
-				break;
-			}
-			Thread.sleep(30 * 1000);
-		}
-		PreviewFileHandle fp = null;
-		if (omd != null) {
-			fp = new PreviewFileHandle();
-			fp.setBucketName(bName);
-			fp.setCreatedBy(inputMetadata.getCreatedBy());
-			fp.setFileName(out.getFileName());
-			fp.setKey(k);
-			fp.setContentSize(omd.getContentLength());
-		}
-		return fp;
+		// Creating the actual file handle is done by a worker looking at the remote preview notifications queue
+		return null;
 	}
 
 }

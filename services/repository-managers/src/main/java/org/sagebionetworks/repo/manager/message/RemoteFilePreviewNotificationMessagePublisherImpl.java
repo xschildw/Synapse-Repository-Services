@@ -12,16 +12,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.amazonaws.services.sqs.AmazonSQSClient;
 import com.amazonaws.services.sqs.model.GetQueueUrlResult;
 
-public class RemoteFilePreviewRequestMessagePublisherImpl implements
+public class RemoteFilePreviewNotificationMessagePublisherImpl implements
 		RemoteFilePreviewMessagePublisher {
 
-	static private Log logger = LogFactory.getLog(RemoteFilePreviewRequestMessagePublisherImpl.class);
+	static private Log logger = LogFactory.getLog(RemoteFilePreviewNotificationMessagePublisherImpl.class);
 
 	@Autowired
 	AmazonSQSClient awsSQSClient;
 	
 	@Autowired
-	MessageQueueImpl remoteFileGenerationReqMsgQueue;
+	MessageQueueImpl remoteFileGenerationNotificationMsgQueue;
 
 	private boolean publishToQueueEnabled;
 	/* Injected */
@@ -34,9 +34,9 @@ public class RemoteFilePreviewRequestMessagePublisherImpl implements
 	 * @param topicName
 	 * @param topicArn
 	 */
-	public RemoteFilePreviewRequestMessagePublisherImpl(AmazonSQSClient awsSQSClient, MessageQueueImpl msgQueue) {
+	public RemoteFilePreviewNotificationMessagePublisherImpl(AmazonSQSClient awsSQSClient, MessageQueueImpl msgQueue) {
 		this.awsSQSClient = awsSQSClient;
-		this.remoteFileGenerationReqMsgQueue = msgQueue;
+		this.remoteFileGenerationNotificationMsgQueue = msgQueue;
 	}
 	
 	/**
@@ -49,7 +49,7 @@ public class RemoteFilePreviewRequestMessagePublisherImpl implements
 
 	@Override
 	public String getQueueName() {
-		return this.remoteFileGenerationReqMsgQueue.getQueueName();
+		return this.remoteFileGenerationNotificationMsgQueue.getQueueName();
 	}
 	
 	@Override
@@ -81,5 +81,4 @@ public class RemoteFilePreviewRequestMessagePublisherImpl implements
 		// Publish the message to the topic.
 		awsSQSClient.sendMessage(qUrl, json);
 	}
-	
 }

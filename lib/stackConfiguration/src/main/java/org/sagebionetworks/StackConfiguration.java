@@ -1009,6 +1009,16 @@ public class StackConfiguration {
 			singleton.getStack());
 	}
 
+	public String getRemoteFilePreviewNotificationQueueName() {
+		return String.format(StackConstants.REMOTE_FILEPREVIEW_NOTIFICATION_QUEUE_NAME_TEMPLATE,
+			singleton.getStack(), singleton.getStackInstance());
+	}
+	
+	public String getRemoteFilePreviewNotificationDeadLetterQueueName() {
+		return String.format(StackConstants.REMOTE_FILEPREVIEW_NOTIFICATION_DEAD_LETTER_QUEUE_NAME_TEMPLATE,
+			singleton.getStack(), singleton.getStackInstance());
+	}
+
 	/**
 	 * The name of the AWS SQS where file updates are pushed.
 	 * 
