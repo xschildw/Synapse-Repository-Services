@@ -42,7 +42,7 @@
 	
 	<!-- The RemoteFilePreviewRequestMessagePublisher publishes RemoteFilePreviewGenerationRequest messages to an SQS queue -->
 	<bean
-		id="remoteFilePreviewRequestMessageQueue"
+		id="remoteFilePreviewRequestMsgQueue"
 		class="org.sagebionetworks.workers.util.aws.message.MessageQueueImpl"
 		depends-on="stackConfiguration" >
 		<constructor-arg index="0" ref="awsSQSClient" />
@@ -67,7 +67,7 @@
 			<ref bean="awsSQSClient" />
 		</constructor-arg>
 		<constructor-arg>
-			<ref bean="remoteFilePreviewRequestMessageQueue" />
+			<ref bean="remoteFilePreviewRequestMsgQueue" />
 		</constructor-arg>
 		<property name="publishToQueueEnabled"
 			ref="stackConfiguration.remoteFilePreviewsEnabled">
@@ -76,7 +76,7 @@
 	
 	<!-- The RemoteFilePreviewNotificationMessagePublisher publishes RemoteFilePreviewGenerationRequest messages to an SQS queue -->
 	<bean
-		id="remoteFilePreviewNotificationMessageQueue"
+		id="remoteFilePreviewNotificationMsgQueue"
 		class="org.sagebionetworks.workers.util.aws.message.MessageQueueImpl"
 		depends-on="stackConfiguration" >
 		<constructor-arg index="0" ref="awsSQSClient" />
@@ -101,7 +101,7 @@
 			<ref bean="awsSQSClient" />
 		</constructor-arg>
 		<constructor-arg>
-			<ref bean="remoteFilePreviewNotificationMessageQueue" />
+			<ref bean="remoteFilePreviewNotificationMsgQueue" />
 		</constructor-arg>
 		<property name="publishToQueueEnabled"
 			ref="stackConfiguration.remoteFilePreviewsEnabled">

@@ -131,9 +131,6 @@
 	</bean>
 	
 	<!-- The preview managers -->
-	<bean id="previewManager" class="org.sagebionetworks.repo.manager.file.preview.PreviewManagerImpl" >
-	</bean>
-	
 	<bean id="localPreviewManager" class="org.sagebionetworks.repo.manager.file.preview.LocalPreviewManagerImpl" init-method="initialize">
 	    <!-- The list of preview generators, order is important, first generator found wins-->
 	    <property name="generatorList">
@@ -182,7 +179,8 @@
 	    <!-- The list of preview generators, order is important, first generator found wins-->
 	    <property name="generatorList">
 	        <list>
-	            <bean class="org.sagebionetworks.repo.manager.file.preview.GenericRemotePreviewGenerator" />
+	            <bean class="org.sagebionetworks.repo.manager.file.preview.GenericRemotePreviewGenerator">
+	            </bean>
 	        </list>
 	    </property>
 	</bean>

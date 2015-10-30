@@ -21,7 +21,7 @@ public class RemoteFilePreviewRequestMessagePublisherImpl implements
 	AmazonSQSClient awsSQSClient;
 	
 	@Autowired
-	MessageQueueImpl remoteFileGenerationReqMsgQueue;
+	MessageQueueImpl remoteFilePreviewRequestMsgQueue;
 
 	private boolean publishToQueueEnabled;
 	/* Injected */
@@ -36,7 +36,7 @@ public class RemoteFilePreviewRequestMessagePublisherImpl implements
 	 */
 	public RemoteFilePreviewRequestMessagePublisherImpl(AmazonSQSClient awsSQSClient, MessageQueueImpl msgQueue) {
 		this.awsSQSClient = awsSQSClient;
-		this.remoteFileGenerationReqMsgQueue = msgQueue;
+		this.remoteFilePreviewRequestMsgQueue = msgQueue;
 	}
 	
 	/**
@@ -49,7 +49,7 @@ public class RemoteFilePreviewRequestMessagePublisherImpl implements
 
 	@Override
 	public String getQueueName() {
-		return this.remoteFileGenerationReqMsgQueue.getQueueName();
+		return this.remoteFilePreviewRequestMsgQueue.getQueueName();
 	}
 	
 	@Override

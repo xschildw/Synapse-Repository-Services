@@ -21,7 +21,7 @@ public class RemoteFilePreviewNotificationMessagePublisherImpl implements
 	AmazonSQSClient awsSQSClient;
 	
 	@Autowired
-	MessageQueueImpl remoteFileGenerationNotificationMsgQueue;
+	MessageQueueImpl remoteFilePreviewNotificationMsgQueue;
 
 	private boolean publishToQueueEnabled;
 	/* Injected */
@@ -36,7 +36,7 @@ public class RemoteFilePreviewNotificationMessagePublisherImpl implements
 	 */
 	public RemoteFilePreviewNotificationMessagePublisherImpl(AmazonSQSClient awsSQSClient, MessageQueueImpl msgQueue) {
 		this.awsSQSClient = awsSQSClient;
-		this.remoteFileGenerationNotificationMsgQueue = msgQueue;
+		this.remoteFilePreviewNotificationMsgQueue = msgQueue;
 	}
 	
 	/**
@@ -49,7 +49,7 @@ public class RemoteFilePreviewNotificationMessagePublisherImpl implements
 
 	@Override
 	public String getQueueName() {
-		return this.remoteFileGenerationNotificationMsgQueue.getQueueName();
+		return this.remoteFilePreviewNotificationMsgQueue.getQueueName();
 	}
 	
 	@Override
