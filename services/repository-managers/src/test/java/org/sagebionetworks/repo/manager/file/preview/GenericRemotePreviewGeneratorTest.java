@@ -29,7 +29,6 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 
 public class GenericRemotePreviewGeneratorTest {
 	
-	AmazonS3Client mockS3Client;
 	RemoteFilePreviewRequestMessagePublisherImpl mockReqMsgPublisher;
 	RemoteFilePreviewNotificationMessagePublisherImpl mockNotMsgPublisher;
 	
@@ -37,11 +36,10 @@ public class GenericRemotePreviewGeneratorTest {
 
 	@Before
 	public void setUp() throws Exception {
-		mockS3Client = Mockito.mock(AmazonS3Client.class);
 		mockReqMsgPublisher = Mockito.mock(RemoteFilePreviewRequestMessagePublisherImpl.class);
 		mockNotMsgPublisher = Mockito.mock(RemoteFilePreviewNotificationMessagePublisherImpl.class);
 		
-		generator = new GenericRemotePreviewGenerator(mockS3Client, mockReqMsgPublisher, mockNotMsgPublisher);
+		generator = new GenericRemotePreviewGenerator(mockReqMsgPublisher, mockNotMsgPublisher);
 	}
 
 	@After
@@ -71,8 +69,6 @@ public class GenericRemotePreviewGeneratorTest {
 		S3FileHandle inputMetadata = new S3FileHandle();
 		ObjectMetadata expectedOmd = new ObjectMetadata();
 
-		when(mockS3Client.getObjectMetadata(anyString(), anyString())).thenReturn(null);
-		
 		PreviewFileHandle pfh = generator.generatePreview(inputMetadata);
 		verify(mockReqMsgPublisher).publishToQueue(any(RemoteFilePreviewGenerationRequest.class));
 		verify(mockNotMsgPublisher).publishToQueue(any(RemoteFilePreviewGenerationRequest.class));

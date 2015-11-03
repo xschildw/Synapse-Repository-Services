@@ -180,10 +180,14 @@
 	    <property name="generatorList">
 	        <list>
 	            <bean class="org.sagebionetworks.repo.manager.file.preview.GenericRemotePreviewGenerator">
+					<constructor-arg index="0" ref="remoteFilePreviewRequestMessagePublisher" />
+					<constructor-arg index="1" ref="remoteFilePreviewNotificationMessagePublisher" />
 	            </bean>
 	        </list>
 	    </property>
 	</bean>
+	
+	<bean id="previewManager" class="org.sagebionetworks.repo.manager.file.preview.PreviewManagerImpl" />
 	
 	<!-- The Location helper -->
 	<bean id="locationHelper" class="org.sagebionetworks.repo.util.LocationHelpersImpl" />

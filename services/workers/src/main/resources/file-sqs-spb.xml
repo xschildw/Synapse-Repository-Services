@@ -11,24 +11,6 @@
 	<!-- Turn on Spring's autoproxy using AspectJ's @Aspect annotations. -->
 	<aop:aspectj-autoproxy />
 
-	<bean id="remoteFilePreviewGeneratorQueue"
-		class="org.sagebionetworks.workers.utils.aws.message.MessageQueueImpl"
-		depends-on="stackConfiguration" >
-		<constructor-arg index="0" ref="awsSQSClient" />
-		<constructor-arg index="1" ref="awsSNSClient" />
-		<constructor-arg index="2">
-				<bean
-						class="org.sagebionetworks.workers.util.aws.message.MessageQueueConfiguration">
-						<property name="queueName"
- 							ref="stackConfiguration.remoteFilePreviewGeneratorQueueName" />
-						<property name="defaultMessageVisibilityTimeoutSec" value="6000" />
-						<property name="deadLetterQueueName"
-							ref="stackConfiguration.remoteFilePreviewGeneratorDeadLetterQueueName" />
-						<property name="maxFailureCount" value="3" />
-				</bean>
-		</constructor-arg>
-	</bean>
-	
 	<bean id="fileQueueMessageReveiverTrigger" class="org.springframework.scheduling.quartz.SimpleTriggerBean"
 		scope="singleton">
 		<property name="jobDetail">

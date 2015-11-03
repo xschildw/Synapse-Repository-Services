@@ -1,32 +1,18 @@
 package org.sagebionetworks.repo.manager.file.preview;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.sagebionetworks.StackConfiguration;
-import org.sagebionetworks.repo.manager.file.preview.RemotePreviewManagerImpl.S3FilePreviewWatcherThread;
-import org.sagebionetworks.repo.manager.message.RemoteFilePreviewNotificationMessagePublisherImpl;
-import org.sagebionetworks.repo.manager.message.RemoteFilePreviewRequestMessagePublisherImpl;
+import org.sagebionetworks.repo.manager.message.RemoteFilePreviewMessagePublisher;
 import org.sagebionetworks.repo.model.file.PreviewFileHandle;
 import org.sagebionetworks.repo.model.file.RemoteFilePreviewGenerationRequest;
 import org.sagebionetworks.repo.model.file.S3FileHandle;
 import org.sagebionetworks.schema.adapter.JSONObjectAdapterException;
-import org.sagebionetworks.util.Clock;
-import org.sagebionetworks.util.DefaultClock;
-import org.springframework.beans.factory.annotation.Autowired;
 
-import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.S3Object;
 import com.google.common.collect.ImmutableSet;
 
 public class GenericRemotePreviewGenerator implements RemotePreviewGenerator {
@@ -45,22 +31,16 @@ public class GenericRemotePreviewGenerator implements RemotePreviewGenerator {
 					"text/pdf", "text/x-pdf", "application/pdf")
 			.build();
 
-	@Autowired
-	AmazonS3Client s3Client;
+	RemoteFilePreviewMessagePublisher remoteFilePreviewRequestMessagePublisher;
 	
-	@Autowired
-	RemoteFilePreviewRequestMessagePublisherImpl remoteFilePreviewRequestMessagePublisher;
-	
-	@Autowired
-	RemoteFilePreviewNotificationMessagePublisherImpl remoteFilePreviewNotificationMessagePublisher;
+	RemoteFilePreviewMessagePublisher remoteFilePreviewNotificationMessagePublisher;
 	
 	/* Used by Spring */
 	public GenericRemotePreviewGenerator() {
 		
 	}
 	
-	public GenericRemotePreviewGenerator(AmazonS3Client client, RemoteFilePreviewRequestMessagePublisherImpl rfpReqPublisher, RemoteFilePreviewNotificationMessagePublisherImpl rfpNotPublisher) {
-		this.s3Client = client;
+	public GenericRemotePreviewGenerator(RemoteFilePreviewMessagePublisher rfpReqPublisher, RemoteFilePreviewMessagePublisher rfpNotPublisher) {
 		this.remoteFilePreviewRequestMessagePublisher = rfpReqPublisher;
 		this.remoteFilePreviewNotificationMessagePublisher = rfpNotPublisher;
 	}

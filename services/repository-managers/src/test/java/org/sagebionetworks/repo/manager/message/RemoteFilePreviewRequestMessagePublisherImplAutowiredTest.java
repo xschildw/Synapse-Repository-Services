@@ -50,7 +50,7 @@ import com.amazonaws.services.sqs.model.ReceiveMessageResult;
 public class RemoteFilePreviewRequestMessagePublisherImplAutowiredTest {
 	
 	@Autowired
-	private RemoteFilePreviewRequestMessagePublisherImpl remoteFilePreviewMsgPublisher;
+	private RemoteFilePreviewRequestMessagePublisherImpl remoteFilePreviewRequestMessagePublisher;
 	
 	@Autowired
 	private AmazonSQSClient awsSQSClient;
@@ -59,9 +59,8 @@ public class RemoteFilePreviewRequestMessagePublisherImplAutowiredTest {
 	
 	@Before
 	public void setUp() throws Exception {
-		assertNotNull(remoteFilePreviewMsgPublisher);
-		qUrl = awsSQSClient.getQueueUrl(remoteFilePreviewMsgPublisher.getQueueName()).getQueueUrl();
-		awsSQSClient.purgeQueue(new PurgeQueueRequest().withQueueUrl(qUrl));
+		assertNotNull(remoteFilePreviewRequestMessagePublisher);
+		qUrl = awsSQSClient.getQueueUrl(remoteFilePreviewRequestMessagePublisher.getQueueName()).getQueueUrl();
 	}
 	
 	@After
@@ -71,11 +70,11 @@ public class RemoteFilePreviewRequestMessagePublisherImplAutowiredTest {
 
 	@Test
 	public void testPublishToTopicDisabled() {
-		remoteFilePreviewMsgPublisher.setPublishToQueueEnabled(false);
+		remoteFilePreviewRequestMessagePublisher.setPublishToQueueEnabled(false);
 		RemoteFilePreviewGenerationRequest expectedReq = new RemoteFilePreviewGenerationRequest();
 		expectedReq.setSource(new S3FileHandle());
 		expectedReq.setDestination(new S3FileHandle());
-		remoteFilePreviewMsgPublisher.publishToQueue(expectedReq);
+		remoteFilePreviewRequestMessagePublisher.publishToQueue(expectedReq);
 		ReceiveMessageResult rMsgRes = awsSQSClient.receiveMessage(qUrl);
 		assertEquals(0, rMsgRes.getMessages().size());
 	}
@@ -83,7 +82,7 @@ public class RemoteFilePreviewRequestMessagePublisherImplAutowiredTest {
 	@Ignore
 	@Test
 	public void testPublishTopTopic() throws JSONObjectAdapterException {
-		remoteFilePreviewMsgPublisher.setPublishToQueueEnabled(true);
+		remoteFilePreviewRequestMessagePublisher.setPublishToQueueEnabled(true);
 		RemoteFilePreviewGenerationRequest expectedReq = new RemoteFilePreviewGenerationRequest();
 		S3FileHandle expectedSrc = new S3FileHandle();
 		expectedSrc.setBucketName("srcBucketName");
@@ -92,7 +91,7 @@ public class RemoteFilePreviewRequestMessagePublisherImplAutowiredTest {
 		expectedDest.setBucketName("destBucketName");
 		expectedReq.setDestination(expectedDest);
 		ArgumentCaptor<PublishRequest> captor1 = ArgumentCaptor.forClass(PublishRequest.class);
-		remoteFilePreviewMsgPublisher.publishToQueue(expectedReq);
+		remoteFilePreviewRequestMessagePublisher.publishToQueue(expectedReq);
 		ReceiveMessageResult rMsgRes = awsSQSClient.receiveMessage(qUrl);
 		assertEquals(1, rMsgRes.getMessages().size());
 	}

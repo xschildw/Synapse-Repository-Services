@@ -4,6 +4,8 @@ import static org.junit.Assert.*;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -23,6 +25,7 @@ import org.sagebionetworks.repo.model.dao.FileHandleDao;
 import org.sagebionetworks.repo.model.file.PreviewFileHandle;
 import org.sagebionetworks.repo.model.file.S3FileHandle;
 import org.sagebionetworks.repo.util.TempFileProvider;
+import org.sagebionetworks.repo.web.TemporarilyUnavailableException;
 
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.S3Object;
@@ -34,8 +37,6 @@ public class RemotePreviewManagerImplTest {
 	RemotePreviewManagerImpl previewManager;
 	FileHandleDao stubFileMetadataDao;
 	
-	@Mock
-	private AmazonS3Client mockS3Client;
 	@Mock
 	private AmazonSNSClient mockSNSClient;
 	@Mock
@@ -91,7 +92,7 @@ public class RemotePreviewManagerImplTest {
 		when(mockRemotePreviewGenerator.supportsContentType(testValidRemoteContentType, "doc")).thenReturn(true);
 		when(mockRemotePreviewGenerator.generatePreview(testRemoteMetadata)).thenReturn(null);
 
-		previewManager = new RemotePreviewManagerImpl(stubFileMetadataDao, mockS3Client, mockFileProvider, genList, maxPreviewSize, mockRemoteFilePreviewRequestMessagePublisher, mockRemoteFilePreviewNotificationMessagePublisher);
+		previewManager = new RemotePreviewManagerImpl(stubFileMetadataDao, mockFileProvider, genList, maxPreviewSize, mockRemoteFilePreviewRequestMessagePublisher, mockRemoteFilePreviewNotificationMessagePublisher);
 
 	}
 
@@ -99,15 +100,61 @@ public class RemotePreviewManagerImplTest {
 	public void tearDown() throws Exception {
 	}
 
+	
+	@Test(expected=IllegalArgumentException.class)
+	public void testNullMetadata() throws Exception {
+		previewManager.generatePreview(null);
+	}
+	
+	@Test
+	public void testBadContent() throws Exception {
+		S3FileHandle bad = new S3FileHandle();
+		try {
+			previewManager.generatePreview(bad);
+		} catch (IllegalArgumentException e) {
+			// Expected
+		}
+		bad.setContentType("contentType");
+		try {
+			previewManager.generatePreview(bad);
+		} catch (IllegalArgumentException e) {
+			// Expected
+		}
+		//	Should not throw any exception here...
+	}
+	
+	@Test
+	public void testZeroContentSize() throws Exception {
+		testRemoteMetadata.setContentSize(0L);
+		PreviewFileHandle pfh = previewManager.generatePreview(testRemoteMetadata);
+		assertNull(pfh);
+		verify(mockRemotePreviewGenerator, never()).generatePreview(any(S3FileHandle.class));
+		
+	}
+	
+	@Test
+	public void testEmptyContentType() throws Exception {
+		testRemoteMetadata.setContentType("");
+		PreviewFileHandle pfh = previewManager.generatePreview(testRemoteMetadata);
+		assertNull(pfh);
+		verify(mockRemotePreviewGenerator, never()).generatePreview(any(S3FileHandle.class));
+	}
+	
+	@Test
+	public void testInvalidContentType() throws Exception {
+		testRemoteMetadata.setContentType("invalid");
+		PreviewFileHandle pfh = previewManager.generatePreview(testRemoteMetadata);
+		assertNull(pfh);
+		verify(mockRemotePreviewGenerator, never()).generatePreview(any(S3FileHandle.class));
+	}
+	
+	
 	// Just check basic wiring
 	@Test
 	public void testExpectedRemotePreview() throws Exception {
-		S3Object expectedS3Object = new S3Object();
-		expectedS3Object.setBucketName(testRemoteMetadata.getBucketName());
-		expectedS3Object.setKey(testRemoteMetadata.getKey());
-		when(mockS3Client.getObject(any(String.class), any(String.class))).thenReturn(expectedS3Object);
 		PreviewFileHandle pfm = previewManager.generatePreview(testRemoteMetadata);
 		assertNull(pfm);
+		verify(mockRemotePreviewGenerator).generatePreview(any(S3FileHandle.class));
 	}
 
 }

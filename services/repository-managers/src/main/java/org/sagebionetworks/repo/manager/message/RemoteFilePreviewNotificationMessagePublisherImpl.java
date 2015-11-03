@@ -6,6 +6,7 @@ import org.sagebionetworks.repo.model.file.RemoteFilePreviewGenerationRequest;
 import org.sagebionetworks.schema.adapter.JSONEntity;
 import org.sagebionetworks.schema.adapter.JSONObjectAdapterException;
 import org.sagebionetworks.schema.adapter.org.json.EntityFactory;
+import org.sagebionetworks.workers.util.aws.message.MessageQueue;
 import org.sagebionetworks.workers.util.aws.message.MessageQueueImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -17,11 +18,9 @@ public class RemoteFilePreviewNotificationMessagePublisherImpl implements
 
 	static private Log logger = LogFactory.getLog(RemoteFilePreviewNotificationMessagePublisherImpl.class);
 
-	@Autowired
 	AmazonSQSClient awsSQSClient;
 	
-	@Autowired
-	MessageQueueImpl remoteFilePreviewNotificationMsgQueue;
+	MessageQueue remoteFilePreviewNotificationMsgQueue;
 
 	private boolean publishToQueueEnabled;
 	/* Injected */
@@ -34,7 +33,7 @@ public class RemoteFilePreviewNotificationMessagePublisherImpl implements
 	 * @param topicName
 	 * @param topicArn
 	 */
-	public RemoteFilePreviewNotificationMessagePublisherImpl(AmazonSQSClient awsSQSClient, MessageQueueImpl msgQueue) {
+	public RemoteFilePreviewNotificationMessagePublisherImpl(AmazonSQSClient awsSQSClient, MessageQueue msgQueue) {
 		this.awsSQSClient = awsSQSClient;
 		this.remoteFilePreviewNotificationMsgQueue = msgQueue;
 	}

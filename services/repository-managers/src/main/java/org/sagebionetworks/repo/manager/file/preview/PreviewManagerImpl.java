@@ -18,17 +18,17 @@ public class PreviewManagerImpl implements PreviewManager {
 	FileHandleDao fileMetadataDao;
 	
 	@Autowired
-	LocalPreviewManagerImpl localPreviewManager;
+	LocalPreviewManager localPreviewManager;
 	
 	@Autowired
-	RemotePreviewManagerImpl remotePreviewManager;
+	RemotePreviewManager remotePreviewManager;
 	
 	/* Used by Spring */
 	public PreviewManagerImpl() {
 		
 	};
 	
-	public PreviewManagerImpl(FileHandleDao fileHandleDao, LocalPreviewManagerImpl localPreviewMgr, RemotePreviewManagerImpl remotePreviewMgr) {
+	public PreviewManagerImpl(FileHandleDao fileHandleDao, LocalPreviewManager localPreviewMgr, RemotePreviewManager remotePreviewMgr) {
 		this.fileMetadataDao = fileHandleDao;
 		this.localPreviewManager = localPreviewMgr;
 		this.remotePreviewManager = remotePreviewMgr;

@@ -33,9 +33,6 @@ public class RemotePreviewManagerImpl implements RemotePreviewManager {
 	FileHandleDao fileMetadataDao;
 	
 	@Autowired
-	AmazonS3Client s3Client;
-	
-	@Autowired
 	TempFileProvider tempFileProvider;
 	
 	List<PreviewGenerator> generatorList;
@@ -51,7 +48,6 @@ public class RemotePreviewManagerImpl implements RemotePreviewManager {
 	 * The Ioc Constructor.
 	 * 
 	 * @param fileMetadataDao
-	 * @param s3Client
 	 * @param sqsClient
 	 * @param tempFileProvider
 	 * @param resourceTracker
@@ -59,14 +55,12 @@ public class RemotePreviewManagerImpl implements RemotePreviewManager {
 	 * @param maxPreviewMemory
 	 */
 	public RemotePreviewManagerImpl(FileHandleDao fileMetadataDao,
-			AmazonS3Client s3Client,
 			TempFileProvider tempFileProvider,
 			List<PreviewGenerator> generatorList, Long maxPreviewMemory,
 			RemoteFilePreviewRequestMessagePublisherImpl rfprmp,
 			RemoteFilePreviewNotificationMessagePublisherImpl rfpnmp) {
 		super();
 		this.fileMetadataDao = fileMetadataDao;
-		this.s3Client = s3Client;
 		this.tempFileProvider = tempFileProvider;
 		this.generatorList = generatorList;
 	}
@@ -151,22 +145,6 @@ public class RemotePreviewManagerImpl implements RemotePreviewManager {
 			}
 		}
 		return null;
-	}
-
-	public static class S3FilePreviewWatcherThread implements Callable<Boolean> {
-		
-		private String bucketName;
-		private String keyToWatch;
-		
-		S3FilePreviewWatcherThread(String bucketName, String key) {
-			this.bucketName = bucketName;
-			this.keyToWatch = key;
-		}
-		
-		@Override
-		public Boolean call() {
-			return true;
-		}
 	}
 
 }
