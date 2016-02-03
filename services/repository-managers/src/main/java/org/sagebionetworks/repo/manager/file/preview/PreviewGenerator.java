@@ -29,7 +29,7 @@ public interface PreviewGenerator {
 	 * @return  Must return the content type of generated preview.
 	 * @throws IOException 
 	 */
-	public PreviewOutputMetadata generatePreview(InputStream from, OutputStream to) throws IOException;
+	public PreviewOutputMetadata generatePreview(InputStream from, OutputStream to) throws IOException, RuntimeException;
 	
 	
 	/**
