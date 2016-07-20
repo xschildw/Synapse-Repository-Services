@@ -272,6 +272,12 @@ public class HttpClientHelper {
 		client.getParams().setParameter(
 				CoreConnectionPNames.CONNECTION_TIMEOUT, milliseconds);
 	}
+	
+	public static int getGlobalConnectionTimeout(HttpClient client) {
+		HttpParams params = client.getParams();
+		int v = params.getIntParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, -1);
+		return v;
+	}
 
 	/**
 	 * Set the socket timeout (SO_TIMEOUT) in milliseconds, which is the timeout
@@ -289,6 +295,13 @@ public class HttpClientHelper {
 		client.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT,
 				milliseconds);
 	}
+	
+	public static int getGlobalSocketTimeout(HttpClient client) {
+		HttpParams params = client.getParams();
+		int v = params.getIntParameter(CoreConnectionPNames.SO_TIMEOUT, -1);
+		return v;
+	}
+
 
 	/**
 	 * Perform a request using the provided Client.

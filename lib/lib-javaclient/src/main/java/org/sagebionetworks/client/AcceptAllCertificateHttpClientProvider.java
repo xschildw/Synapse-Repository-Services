@@ -45,10 +45,20 @@ public class AcceptAllCertificateHttpClientProvider implements HttpClientProvide
 	public void setGlobalConnectionTimeout(int defaultTimeoutMsec) {
 		HttpClientHelper.setGlobalConnectionTimeout(getSingleton(), defaultTimeoutMsec);
 	}
+	
+	@Override
+	public int getGlobalConnectionTimeout() {
+		return HttpClientHelper.getGlobalConnectionTimeout(getSingleton());
+	}
 
 	@Override
 	public void setGlobalSocketTimeout(int defaultTimeoutMsec) {
 		HttpClientHelper.setGlobalSocketTimeout(getSingleton(), defaultTimeoutMsec);
+	}
+	
+	@Override
+	public int getGlobalSocketTimeout() {
+		return HttpClientHelper.getGlobalSocketTimeout(getSingleton());
 	}
 
 	@Override

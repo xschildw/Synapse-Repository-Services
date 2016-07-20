@@ -24,10 +24,20 @@ public class HttpClientProviderImpl implements HttpClientProvider {
 	public void setGlobalConnectionTimeout(int defaultTimeoutMsec) {
 		HttpClientHelper.setGlobalConnectionTimeout(DefaultHttpClientSingleton.getInstance(), defaultTimeoutMsec);	
 	}
+	
+	@Override
+	public int getGlobalConnectionTimeout() {
+		return HttpClientHelper.getGlobalConnectionTimeout(DefaultHttpClientSingleton.getInstance());
+	}
 
 	@Override
 	public void setGlobalSocketTimeout(int defaultTimeoutMsec) {
 		HttpClientHelper.setGlobalSocketTimeout(DefaultHttpClientSingleton.getInstance(), defaultTimeoutMsec);
+	}
+
+	@Override
+	public int getGlobalSocketTimeout() {
+		return HttpClientHelper.getGlobalSocketTimeout(DefaultHttpClientSingleton.getInstance());
 	}
 
 	@Override

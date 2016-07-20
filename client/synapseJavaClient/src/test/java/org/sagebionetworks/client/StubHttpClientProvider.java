@@ -9,6 +9,8 @@ import org.apache.http.Header;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.sagebionetworks.utils.DefaultHttpClientSingleton;
+import org.sagebionetworks.utils.HttpClientHelper;
 import org.sagebionetworks.utils.HttpClientHelperException;
 
 /**
@@ -36,9 +38,19 @@ public class StubHttpClientProvider implements HttpClientProvider {
 	}
 
 	@Override
+	public int getGlobalConnectionTimeout() {
+		return -1;
+	}
+
+	@Override
 	public void setGlobalSocketTimeout(int defaultTimeoutMsec) {
 		// TODO Auto-generated method stub
 		
+	}
+
+	@Override
+	public int getGlobalSocketTimeout() {
+		return -1;
 	}
 
 	@Override

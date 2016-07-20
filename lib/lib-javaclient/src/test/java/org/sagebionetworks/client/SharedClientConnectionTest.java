@@ -102,6 +102,26 @@ public class SharedClientConnectionTest {
 	}
 	
 	@Test
+	public void testRealClientProvider() {
+		HttpClientProvider provider = new HttpClientProviderImpl();
+		assertEquals(5000, provider.getGlobalConnectionTimeout());
+		assertEquals(20000, provider.getGlobalSocketTimeout());
+		provider.setGlobalConnectionTimeout(60000);
+		assertEquals(60000, provider.getGlobalConnectionTimeout());
+		provider.setGlobalSocketTimeout(600000);
+		assertEquals(600000, provider.getGlobalSocketTimeout());
+		provider.setGlobalConnectionTimeout(5000);
+		provider.setGlobalSocketTimeout(20000);
+	}
+	
+	@Test
+	public void testRealClientProvider2() {
+		HttpClientProvider provider = new HttpClientProviderImpl();
+		assertEquals(5000, provider.getGlobalConnectionTimeout());
+		assertEquals(20000, provider.getGlobalSocketTimeout());
+	}
+	
+	@Test
 	public void testTimeoutsDontChange() {
 		verify(mockClientProvider, never()).setGlobalConnectionTimeout(anyInt());
 		verify(mockClientProvider, never()).setGlobalSocketTimeout(anyInt());

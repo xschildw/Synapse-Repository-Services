@@ -23,12 +23,16 @@ public interface HttpClientProvider {
 	 * @param defaultTimeoutMsec
 	 */
 	public void setGlobalConnectionTimeout(int defaultTimeoutMsec);
+	
+	public int getGlobalConnectionTimeout();
 
 	/**
 	 * 
 	 * @param defaultTimeoutMsec
 	 */
 	public void setGlobalSocketTimeout(int defaultTimeoutMsec);
+	
+	public int getGlobalSocketTimeout();
 
 	/**
 	 * Upload a file.
