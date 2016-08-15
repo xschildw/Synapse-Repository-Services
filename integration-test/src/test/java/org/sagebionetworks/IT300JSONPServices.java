@@ -8,6 +8,7 @@ import java.io.IOException;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.util.EntityUtils;
@@ -30,7 +31,7 @@ import org.sagebionetworks.schema.adapter.JSONObjectAdapter;
 import org.sagebionetworks.schema.adapter.JSONObjectAdapterException;
 import org.sagebionetworks.schema.adapter.org.json.EntityFactory;
 import org.sagebionetworks.schema.adapter.org.json.JSONObjectAdapterImpl;
-import org.sagebionetworks.utils.DefaultHttpClientSingleton;
+import org.sagebionetworks.utils.HttpClientHelper;
 
 /**
  * Tests for JSONP supported methods.
@@ -45,6 +46,8 @@ public class IT300JSONPServices {
 	
 	private Team teamToDelete = null;
 	
+	private static HttpClient client = null;
+	
 	@BeforeClass
 	public static void beforeClass() throws Exception {
 		// Create a user
@@ -55,6 +58,7 @@ public class IT300JSONPServices {
 		
 		synapse = new SynapseClientImpl();
 		userToDelete = SynapseClientHelper.createUser(adminSynapse, synapse);
+		client = HttpClientHelper.createNewClient(true);
 	}
 	
 	@After
@@ -77,7 +81,7 @@ public class IT300JSONPServices {
 		String callbackName = "parseMe";
 		urlBuilder.append("/concept/11291/childrenTransitive?callback="); 
 		urlBuilder.append(callbackName);
-		HttpResponse response = DefaultHttpClientSingleton.getInstance().execute(new HttpGet(urlBuilder.toString()));
+		HttpResponse response = client.execute(new HttpGet(urlBuilder.toString()));
 		assertNotNull(response);
 		assertEquals(200, response.getStatusLine().getStatusCode());
 		assertNotNull(response.getEntity());
@@ -100,7 +104,7 @@ public class IT300JSONPServices {
 		String callbackName = "parseMe";
 		urlBuilder.append("/concept/11291?callback="); 
 		urlBuilder.append(callbackName);
-		HttpResponse response = DefaultHttpClientSingleton.getInstance().execute(new HttpGet(urlBuilder.toString()));
+		HttpResponse response = client.execute(new HttpGet(urlBuilder.toString()));
 		assertNotNull(response);
 		assertEquals(200, response.getStatusLine().getStatusCode());
 		assertNotNull(response.getEntity());
@@ -127,7 +131,7 @@ public class IT300JSONPServices {
 		HttpRequestBase request = new HttpGet(urlBuilder.toString());
 		// adding a session token to the request is not allowed.
 		request.setHeader("sessionToken", "not allowed");
-		HttpResponse response = DefaultHttpClientSingleton.getInstance().execute(request);
+		HttpResponse response = client.execute(request);
 		assertNotNull(response);
 		assertEquals(200, response.getStatusLine().getStatusCode());
 		assertNotNull(response.getEntity());
@@ -150,7 +154,7 @@ public class IT300JSONPServices {
 		String callbackName = "parseMe";
 		urlBuilder.append("/teams"+"?callback="); 
 		urlBuilder.append(callbackName);
-		HttpResponse response = DefaultHttpClientSingleton.getInstance().execute(new HttpGet(urlBuilder.toString()));
+		HttpResponse response = client.execute(new HttpGet(urlBuilder.toString()));
 		assertNotNull(response);
 		assertEquals(200, response.getStatusLine().getStatusCode());
 		assertNotNull(response.getEntity());
@@ -187,7 +191,7 @@ public class IT300JSONPServices {
 		String teamId = makeATeam();
 		urlBuilder.append("/teamMembers/"+teamId+"?callback="); 
 		urlBuilder.append(callbackName);
-		HttpResponse response = DefaultHttpClientSingleton.getInstance().execute(new HttpGet(urlBuilder.toString()));
+		HttpResponse response = client.execute(new HttpGet(urlBuilder.toString()));
 		assertNotNull(response);
 		assertEquals(200, response.getStatusLine().getStatusCode());
 		assertNotNull(response.getEntity());

@@ -13,6 +13,7 @@ import java.util.List;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.util.EntityUtils;
@@ -31,7 +32,7 @@ import org.sagebionetworks.repo.model.file.ChunkedFileToken;
 import org.sagebionetworks.repo.model.file.CompleteChunkedFileRequest;
 import org.sagebionetworks.repo.model.file.CreateChunkedFileTokenRequest;
 import org.sagebionetworks.repo.model.file.S3FileHandle;
-import org.sagebionetworks.utils.DefaultHttpClientSingleton;
+import org.sagebionetworks.utils.HttpClientHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
@@ -114,7 +115,8 @@ public class MultipartManagerImplAutowireTest {
 		StringEntity entity = new StringEntity(fileBody, "UTF-8");
 		entity.setContentType(ccftr.getContentType());
 		httppost.setEntity(entity);
-		HttpResponse response = DefaultHttpClientSingleton.getInstance().execute(httppost);
+		HttpClient client = HttpClientHelper.createNewClient(true);
+		HttpResponse response = client.execute(httppost);
 		String text = EntityUtils.toString(response.getEntity());
 		assertEquals(200, response.getStatusLine().getStatusCode());
 		System.out.println(text);

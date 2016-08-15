@@ -19,6 +19,7 @@ import java.util.concurrent.Callable;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -45,7 +46,6 @@ import org.sagebionetworks.repo.model.file.S3FileHandle;
 import org.sagebionetworks.schema.adapter.JSONObjectAdapterException;
 import org.sagebionetworks.util.Pair;
 import org.sagebionetworks.util.TimeUtils;
-import org.sagebionetworks.utils.DefaultHttpClientSingleton;
 import org.sagebionetworks.utils.HttpClientHelper;
 import org.sagebionetworks.utils.MD5ChecksumHelper;
 
@@ -191,7 +191,8 @@ public class IT054FileEntityTest {
 	public void testFileEntityChangeNameAndContent() throws SynapseException, IOException, InterruptedException, JSONObjectAdapterException {
 		// check download on original
 		URL fileHandleTemporaryUrl = synapse.getFileHandleTemporaryUrl(fileHandle.getId());
-		HttpResponse response = HttpClientHelper.performRequest(DefaultHttpClientSingleton.getInstance(), fileHandleTemporaryUrl.toString(),
+		HttpClient client = HttpClientHelper.createNewClient(true);
+				HttpResponse response = HttpClientHelper.performRequest(client, fileHandleTemporaryUrl.toString(),
 				"GET", null, null);
 		int statusCode = response.getStatusLine().getStatusCode();
 		assertTrue(statusCode >= 200 && statusCode < 300);
@@ -213,7 +214,7 @@ public class IT054FileEntityTest {
 
 		// and check download on copy
 		fileHandleTemporaryUrl = synapse.getFileHandleTemporaryUrl(copy.getId());
-		response = HttpClientHelper.performRequest(DefaultHttpClientSingleton.getInstance(), fileHandleTemporaryUrl.toString(), "GET", null,
+		response = HttpClientHelper.performRequest(client, fileHandleTemporaryUrl.toString(), "GET", null,
 				null);
 		statusCode = response.getStatusLine().getStatusCode();
 		assertTrue(statusCode >= 200 && statusCode < 300);
@@ -237,7 +238,7 @@ public class IT054FileEntityTest {
 
 		// and check download on original again
 		fileHandleTemporaryUrl = synapse.getFileHandleTemporaryUrl(fileHandle.getId());
-		response = HttpClientHelper.performRequest(DefaultHttpClientSingleton.getInstance(), fileHandleTemporaryUrl.toString(), "GET", null,
+		response = HttpClientHelper.performRequest(client, fileHandleTemporaryUrl.toString(), "GET", null,
 				null);
 		statusCode = response.getStatusLine().getStatusCode();
 		assertTrue(statusCode >= 200 && statusCode < 300);

@@ -26,7 +26,7 @@ import org.sagebionetworks.repo.model.file.MultipartUploadState;
 import org.sagebionetworks.repo.model.file.MultipartUploadStatus;
 import org.sagebionetworks.repo.model.file.PartPresignedUrl;
 import org.sagebionetworks.repo.model.file.PartUtils;
-import org.sagebionetworks.utils.DefaultHttpClientSingleton;
+import org.sagebionetworks.utils.HttpClientHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
@@ -65,7 +65,7 @@ public class MultipartManagerV2ImplAutowireTest {
 	@Before
 	public void before() throws Exception {		
 		// used to put data to a pre-signed url.
-		httpClient = DefaultHttpClientSingleton.getInstance();
+		httpClient = HttpClientHelper.createNewClient(true);
 		fileHandlesToDelete = new LinkedList<String>();
 		adminUserInfo = userManager
 				.getUserInfo(BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER
