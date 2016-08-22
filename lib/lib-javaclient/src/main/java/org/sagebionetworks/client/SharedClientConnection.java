@@ -307,15 +307,33 @@ public class SharedClientConnection {
 		return statusCode>=200 && statusCode<300;
 	}
 	
+	private static boolean isClientErrorStatusCode(int statusCode) {
+		return (statusCode >= 400 && statusCode < 500);
+	}
+	
+	private static boolean isServerErrorStatusCode(int statusCode) {
+		return (statusCode >= 500);
+	}
+	
 	private static void convertHttpResponseToException(int statusCode, String responseBody) throws SynapseException {
+		// 200s
 		if (isOKStatusCode(statusCode)) return;
-		JSONObject results = null;
-		try {
-			results = new JSONObject(responseBody);
-		} catch (JSONException e) {
-			throw new SynapseClientException("responseBody: <<"+responseBody+">>", e);
+		
+		// 400s
+		if (isClientErrorStatusCode(statusCode)) {
+			JSONObject results = null;
+			try {
+				results = new JSONObject(responseBody);
+			} catch (JSONException e) {
+				throw new SynapseServerException(statusCode, "JSON responseBody: <<"+responseBody+">>", e);
+			}
+			convertHttpResponseToException(statusCode, results);
 		}
-		convertHttpResponseToException(statusCode, results);
+		
+		// 500s
+		if (isServerErrorStatusCode(statusCode)) {
+			throw new SynapseServerException(statusCode, "String responseBody: <<"+responseBody+">>");
+		}
 	}
 	
 	private static void convertHttpResponseToException(int statusCode, JSONObject responseBody) throws SynapseException {
@@ -710,6 +728,9 @@ public class SharedClientConnection {
 			String uri, 
 			 Map<String, String> parameters,
 			 int statusCode) throws SynapseException {
+
+		convertHttpResponseToException(statusCode, responseBody);
+		
 		JSONObject results = null;
 		
 		if (null != responseBody && responseBody.length()>0) {
@@ -730,7 +751,6 @@ public class SharedClientConnection {
 			}
 		}
 		
-		convertHttpResponseToException(statusCode, results);
 
 		return results;
 	}

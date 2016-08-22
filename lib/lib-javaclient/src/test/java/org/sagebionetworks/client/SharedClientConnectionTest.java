@@ -149,9 +149,6 @@ public class SharedClientConnectionTest {
 			assertEquals(genericExceptionMessage, e.getMessage());
 		}
 	}
-	
-	
-	
 
 	@Test
 	public void testServiceUnavailableRetry() throws Exception {
@@ -214,15 +211,40 @@ public class SharedClientConnectionTest {
 			assertEquals(genericExceptionMessage, e.getMessage());
 		}
 	}
-
+	
 	@Test
-	public void testSynapseServerRequest() throws Exception {
-		configureMockHttpResponse(HttpStatus.SC_INTERNAL_SERVER_ERROR, genericErrorMessageJson);
+	public void testForbiddenRequestNotJSON() throws Exception {
+		configureMockHttpResponse(HttpStatus.SC_FORBIDDEN, genericExceptionMessage);
+		String expectedMessage = "JSON responseBody: <<" + genericExceptionMessage + ">>";
 		try {
 			sharedClientConnection.postJson(endpoint, uri,jsonString, userAgent, null);
 			fail("expected exception");
 		} catch (SynapseServerException e) {
-			assertEquals(genericExceptionMessage, e.getMessage());
+			assertEquals(expectedMessage, e.getMessage());
+		}
+	}
+
+	@Test
+	public void testSynapseGenuineServerRequestException() throws Exception {
+		configureMockHttpResponse(HttpStatus.SC_INTERNAL_SERVER_ERROR, genericErrorMessageJson);
+		String expectedMsg = "String responseBody: <<" + genericErrorMessageJson + ">>";
+		try {
+			sharedClientConnection.postJson(endpoint, uri,jsonString, userAgent, null);
+			fail("expected exception");
+		} catch (SynapseServerException e) {
+			assertEquals(expectedMsg, e.getMessage());
+		}
+	}
+	
+	@Test
+	public void  testSynapseGatewayServerRequestException() throws Exception {
+		configureMockHttpResponse(HttpStatus.SC_BAD_GATEWAY, genericExceptionMessage);
+		String expectedMsg = "String responseBody: <<" + genericExceptionMessage + ">>";
+		try {
+			sharedClientConnection.postJson(endpoint, uri,jsonString, userAgent, null);
+			fail("expected exception");
+		} catch (SynapseServerException e) {
+			assertEquals(expectedMsg, e.getMessage());
 		}
 	}
 
