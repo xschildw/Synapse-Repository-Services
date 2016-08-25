@@ -6,7 +6,6 @@ import java.util.concurrent.ExecutorService;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
 import org.sagebionetworks.common.util.progress.AutoProgressingCallable;
 import org.sagebionetworks.common.util.progress.ProgressCallback;
 import org.sagebionetworks.repo.manager.UserManager;
@@ -54,25 +53,29 @@ public class MigrationTypeCountWorker implements MessageDrivenRunner {
 	public void processStatus(final ProgressCallback<Void> progressCallback, final Message message) throws Throwable {
 		final AsynchronousJobStatus status = asynchJobStatusManager.lookupJobStatus(message.getBody());
 		try {
-			final UserInfo user = userManager.getUserInfo(status.getStartedByUserId());
-			final AsyncMigrationTypeCountRequest req = AsynchJobUtils.extractRequestBody(status, AsyncMigrationTypeCountRequest.class);
-			final String t = req.getType();
-			final MigrationType mt = MigrationType.valueOf(t);
-			migrationManagerSupport.callWithAutoProgress(progressCallback, new Callable<Void>() {
-					@Override
-					public Void call() throws Exception {
-						MigrationTypeCount mtc = migrationManager.getMigrationTypeCount(user, mt);
-						AsyncMigrationTypeCountResult res = new AsyncMigrationTypeCountResult();
-						res.setCount(mtc);
-						asynchJobStatusManager.setComplete(status.getJobId(), res);
-						return null;
-					}
-				});
+			this.dispatchProcessStatus(progressCallback, status);
 		} catch (Throwable e) {
 			// Record the error
 			asynchJobStatusManager.setJobFailed(status.getJobId(), e);
 			throw e;
 		}
+	}
+	
+	public void dispatchProcessStatus(final ProgressCallback<Void> progressCallback, final AsynchronousJobStatus status) throws Exception {
+		final UserInfo user = userManager.getUserInfo(status.getStartedByUserId());
+		final AsyncMigrationTypeCountRequest req = AsynchJobUtils.extractRequestBody(status, AsyncMigrationTypeCountRequest.class);
+		final String t = req.getType();
+		final MigrationType mt = MigrationType.valueOf(t);
+		migrationManagerSupport.callWithAutoProgress(progressCallback, new Callable<Void>() {
+				@Override
+				public Void call() throws Exception {
+					MigrationTypeCount mtc = migrationManager.getMigrationTypeCount(user, mt);
+					AsyncMigrationTypeCountResult res = new AsyncMigrationTypeCountResult();
+					res.setCount(mtc);
+					asynchJobStatusManager.setComplete(status.getJobId(), res);
+					return null;
+				}
+			});
 	}
 	
 

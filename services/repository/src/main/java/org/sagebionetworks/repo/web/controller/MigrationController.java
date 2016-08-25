@@ -95,7 +95,7 @@ public class MigrationController extends BaseController {
 			@RequestParam(value = AuthorizationConstants.USER_ID_PARAM) Long userId,
 			@RequestParam(required=true) AsyncMigrationTypeCountRequest request)
 			throws DatastoreException, NotFoundException {
-		AsynchronousJobStatus job = serviceProvider.getAsynchronousJobServices().startJob(userId, request);
+		AsynchronousJobStatus job = serviceProvider.getAsynchronousJobServices().startJobAsAdmin(userId, request);
 		AsyncJobId jobId = new AsyncJobId();
 		jobId.setToken(job.getJobId());
 		return jobId;
