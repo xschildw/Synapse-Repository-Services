@@ -599,6 +599,8 @@ public class UrlHelpers {
 	public static final String MIGRATION = "/migration";
 	public static final String MIGRATION_COUNTS = MIGRATION+"/counts";
 	public static final String MIGRATION_COUNT = MIGRATION+"/count";
+	public static final String MIGRATION_COUNT_ASYNC_START = MIGRATION_COUNT+"/async/start";
+	public static final String MIGRATION_COUNT_ASYNC_GET = MIGRATION_COUNT+"/async/get";
 	public static final String MIGRATION_ROWS = MIGRATION+"/rows";
 	public static final String MIGRATION_ROWS_BY_RANGE = MIGRATION+"/rowsbyrange";
 	public static final String MIGRATION_DELTA = MIGRATION+"/delta";

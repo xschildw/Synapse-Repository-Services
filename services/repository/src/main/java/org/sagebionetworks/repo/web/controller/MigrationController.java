@@ -8,8 +8,12 @@ import org.sagebionetworks.repo.model.DatastoreException;
 import org.sagebionetworks.repo.model.IdList;
 import org.sagebionetworks.repo.model.InvalidModelException;
 import org.sagebionetworks.repo.model.UnauthorizedException;
+import org.sagebionetworks.repo.model.asynch.AsyncJobId;
+import org.sagebionetworks.repo.model.asynch.AsynchronousJobStatus;
 import org.sagebionetworks.repo.model.daemon.BackupRestoreStatus;
 import org.sagebionetworks.repo.model.daemon.RestoreSubmission;
+import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountRequest;
+import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountResult;
 import org.sagebionetworks.repo.model.migration.MigrationRangeChecksum;
 import org.sagebionetworks.repo.model.migration.MigrationType;
 import org.sagebionetworks.repo.model.migration.MigrationTypeChecksum;
@@ -17,12 +21,14 @@ import org.sagebionetworks.repo.model.migration.MigrationTypeCount;
 import org.sagebionetworks.repo.model.migration.MigrationTypeCounts;
 import org.sagebionetworks.repo.model.migration.MigrationTypeList;
 import org.sagebionetworks.repo.model.migration.RowMetadataResult;
+import org.sagebionetworks.repo.model.table.RowReferenceSetResults;
 import org.sagebionetworks.repo.web.NotFoundException;
 import org.sagebionetworks.repo.web.UrlHelpers;
 import org.sagebionetworks.repo.web.service.ServiceProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -77,6 +83,37 @@ public class MigrationController extends BaseController {
 			throws DatastoreException, NotFoundException {
 		return serviceProvider.getMigrationService().getTypeCount(userId, MigrationType.valueOf(type));
 	}
+	
+	/**
+	 * Start an async job to request migration count for given type
+	 * Async version of getTypeCount()
+	 */
+	@ResponseStatus(HttpStatus.CREATED)
+	@RequestMapping(value = UrlHelpers.MIGRATION_COUNT_ASYNC_START, method = RequestMethod.POST)
+	public @ResponseBody
+	AsyncJobId startTypeCountJob(
+			@RequestParam(value = AuthorizationConstants.USER_ID_PARAM) Long userId,
+			@RequestParam(required=true) AsyncMigrationTypeCountRequest request)
+			throws DatastoreException, NotFoundException {
+		AsynchronousJobStatus job = serviceProvider.getAsynchronousJobServices().startJob(userId, request);
+		AsyncJobId jobId = new AsyncJobId();
+		jobId.setToken(job.getJobId());
+		return jobId;
+	}
+	
+	@ResponseStatus(HttpStatus.CREATED)
+	@RequestMapping(value = UrlHelpers.MIGRATION_COUNT_ASYNC_GET, method = RequestMethod.GET)
+	public @ResponseBody
+	AsyncMigrationTypeCountResult getMigrationTypeCountResult(
+			@RequestParam(value = AuthorizationConstants.USER_ID_PARAM) Long userId,
+			@PathVariable String asyncToken) throws Throwable {
+				
+		AsynchronousJobStatus jobStatus = serviceProvider
+				.getAsynchronousJobServices().getJobStatusAndThrow(userId, asyncToken);
+		return (AsyncMigrationTypeCountResult) jobStatus.getResponseBody();
+	}
+
+
 	
 	
 	/**
