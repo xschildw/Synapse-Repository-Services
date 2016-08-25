@@ -23,6 +23,16 @@ public interface AsynchronousJobServices {
 	 * @throws NotFoundException 
 	 */
 	AsynchronousJobStatus startJob(Long userId, AsynchronousRequestBody body) throws NotFoundException;
+	
+	/**
+	 * Launch a new job as admin.
+	 * 
+	 * @param userId
+	 * @param body
+	 * @return
+	 * @throws NotFoundException 
+	 */
+	AsynchronousJobStatus startJobAsAdmin(Long userId, AsynchronousRequestBody body) throws NotFoundException;
 
 	/**
 	 * Get the status for an existing job.

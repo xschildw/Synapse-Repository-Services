@@ -4,6 +4,7 @@ import org.sagebionetworks.repo.manager.UserManager;
 import org.sagebionetworks.repo.manager.asynch.AsynchJobStatusManager;
 import org.sagebionetworks.repo.model.AsynchJobFailedException;
 import org.sagebionetworks.repo.model.NotReadyException;
+import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.asynch.AsynchJobState;
 import org.sagebionetworks.repo.model.asynch.AsynchronousJobStatus;
@@ -33,6 +34,21 @@ public class AsynchronousJobServicesImpl implements AsynchronousJobServices {
 			throw new IllegalArgumentException("Body cannot be null");
 		}
 		UserInfo user = userManager.getUserInfo(userId);
+		return asynchJobStatusManager.startJob(user, body);
+	}
+
+	@Override
+	public AsynchronousJobStatus startJobAsAdmin(Long userId, AsynchronousRequestBody body) throws NotFoundException {
+		if (userId == null) {
+			throw new IllegalArgumentException("UserId cannot be null");
+		}
+		if (body == null) {
+			throw new IllegalArgumentException("Body cannot be null");
+		}
+		UserInfo user = userManager.getUserInfo(userId);
+		if (! user.isAdmin()) {
+			throw new UnauthorizedException("Only an administrator may start a job as an Admin.");
+		}
 		return asynchJobStatusManager.startJob(user, body);
 	}
 
