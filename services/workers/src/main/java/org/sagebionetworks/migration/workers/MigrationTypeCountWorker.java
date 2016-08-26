@@ -15,6 +15,7 @@ import org.sagebionetworks.repo.manager.migration.MigrationManager;
 import org.sagebionetworks.repo.manager.migration.MigrationManagerSupport;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.asynch.AsynchronousJobStatus;
+import org.sagebionetworks.repo.model.migration.AsyncMigrationRequest;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountRequest;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountResult;
 import org.sagebionetworks.repo.model.migration.MigrationType;
@@ -52,30 +53,37 @@ public class MigrationTypeCountWorker implements MessageDrivenRunner {
 	
 	public void processStatus(final ProgressCallback<Void> progressCallback, final Message message) throws Throwable {
 		final AsynchronousJobStatus status = asynchJobStatusManager.lookupJobStatus(message.getBody());
-		try {
-			this.dispatchProcessStatus(progressCallback, status);
-		} catch (Throwable e) {
-			// Record the error
-			asynchJobStatusManager.setJobFailed(status.getJobId(), e);
-			throw e;
-		}
+		this.dispatchProcessStatus(progressCallback, status);
 	}
 	
 	public void dispatchProcessStatus(final ProgressCallback<Void> progressCallback, final AsynchronousJobStatus status) throws Exception {
 		final UserInfo user = userManager.getUserInfo(status.getStartedByUserId());
-		final AsyncMigrationTypeCountRequest req = AsynchJobUtils.extractRequestBody(status, AsyncMigrationTypeCountRequest.class);
-		final String t = req.getType();
+		final AsyncMigrationRequest req = AsynchJobUtils.extractRequestBody(status, AsyncMigrationRequest.class);
+		if (req instanceof AsyncMigrationTypeCountRequest) {
+			AsyncMigrationTypeCountRequest mtcReq = (AsyncMigrationTypeCountRequest) req;
+			processAsyncMigrationTypeCountRequest(progressCallback, user, mtcReq, status.getJobId());
+		}
+	}
+	
+	public void processAsyncMigrationTypeCountRequest(final ProgressCallback<Void> progressCallback, final UserInfo user, final AsyncMigrationTypeCountRequest mtcReq, final String jobId) throws Exception {
+		final String t = mtcReq.getType();
 		final MigrationType mt = MigrationType.valueOf(t);
-		migrationManagerSupport.callWithAutoProgress(progressCallback, new Callable<Void>() {
+		try {
+			migrationManagerSupport.callWithAutoProgress(progressCallback, new Callable<Void>() {
 				@Override
 				public Void call() throws Exception {
 					MigrationTypeCount mtc = migrationManager.getMigrationTypeCount(user, mt);
 					AsyncMigrationTypeCountResult res = new AsyncMigrationTypeCountResult();
 					res.setCount(mtc);
-					asynchJobStatusManager.setComplete(status.getJobId(), res);
+					asynchJobStatusManager.setComplete(jobId, res);
 					return null;
 				}
 			});
+		} catch (Throwable e) {
+			// Record the error
+			asynchJobStatusManager.setJobFailed(jobId, e);
+			throw e;
+		}
 	}
 	
 

@@ -2,7 +2,7 @@
 	"description": "Response of an asynchronous migration type count operation",
 	"implements":[
         {
-            "$ref":"org.sagebionetworks.repo.model.asynch.AsynchronousResponseBody"
+            "$ref":"org.sagebionetworks.repo.model.migration.AsyncMigrationResponse"
         }
     ],
 	"properties": {
