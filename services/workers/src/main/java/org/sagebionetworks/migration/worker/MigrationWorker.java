@@ -1,4 +1,4 @@
-package org.sagebionetworks.migration.workers;
+package org.sagebionetworks.migration.worker;
 
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -26,18 +26,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.amazonaws.services.sqs.model.Message;
 
-public class MigrationTypeCountWorker implements MessageDrivenRunner {
+public class MigrationWorker implements MessageDrivenRunner {
 
-	static private Logger log = LogManager.getLogger(MigrationTypeCountWorker.class);
+	static private Logger log = LogManager.getLogger(MigrationWorker.class);
 
 	@Autowired
 	private AsynchJobStatusManager asynchJobStatusManager;
 	@Autowired
 	private UserManager userManager;
 	@Autowired
-	private MigrationManager migrationManager;
-	@Autowired
-	private MigrationManagerSupport migrationManagerSupport;
+	private AsyncMigrationRequestProcessor requestProcessor;
 
 	@Override
 	public void run(ProgressCallback<Void> progressCallback, Message message)
@@ -56,35 +54,13 @@ public class MigrationTypeCountWorker implements MessageDrivenRunner {
 		this.dispatchProcessStatus(progressCallback, status);
 	}
 	
-	public void dispatchProcessStatus(final ProgressCallback<Void> progressCallback, final AsynchronousJobStatus status) throws Exception {
+	private void dispatchProcessStatus(final ProgressCallback<Void> progressCallback, final AsynchronousJobStatus status) throws Throwable {
 		final UserInfo user = userManager.getUserInfo(status.getStartedByUserId());
 		final AsyncMigrationRequest req = AsynchJobUtils.extractRequestBody(status, AsyncMigrationRequest.class);
 		if (req instanceof AsyncMigrationTypeCountRequest) {
 			AsyncMigrationTypeCountRequest mtcReq = (AsyncMigrationTypeCountRequest) req;
-			processAsyncMigrationTypeCountRequest(progressCallback, user, mtcReq, status.getJobId());
+			requestProcessor.processAsyncMigrationTypeCountRequest(progressCallback, user, mtcReq, status.getJobId());
 		}
 	}
-	
-	public void processAsyncMigrationTypeCountRequest(final ProgressCallback<Void> progressCallback, final UserInfo user, final AsyncMigrationTypeCountRequest mtcReq, final String jobId) throws Exception {
-		final String t = mtcReq.getType();
-		final MigrationType mt = MigrationType.valueOf(t);
-		try {
-			migrationManagerSupport.callWithAutoProgress(progressCallback, new Callable<Void>() {
-				@Override
-				public Void call() throws Exception {
-					MigrationTypeCount mtc = migrationManager.getMigrationTypeCount(user, mt);
-					AsyncMigrationTypeCountResult res = new AsyncMigrationTypeCountResult();
-					res.setCount(mtc);
-					asynchJobStatusManager.setComplete(jobId, res);
-					return null;
-				}
-			});
-		} catch (Throwable e) {
-			// Record the error
-			asynchJobStatusManager.setJobFailed(jobId, e);
-			throw e;
-		}
-	}
-	
 
 }
