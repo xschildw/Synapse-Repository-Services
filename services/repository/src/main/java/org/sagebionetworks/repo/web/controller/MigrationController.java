@@ -12,6 +12,8 @@ import org.sagebionetworks.repo.model.asynch.AsyncJobId;
 import org.sagebionetworks.repo.model.asynch.AsynchronousJobStatus;
 import org.sagebionetworks.repo.model.daemon.BackupRestoreStatus;
 import org.sagebionetworks.repo.model.daemon.RestoreSubmission;
+import org.sagebionetworks.repo.model.migration.AsyncMigrationRequest;
+import org.sagebionetworks.repo.model.migration.AsyncMigrationResponse;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountRequest;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountResult;
 import org.sagebionetworks.repo.model.migration.MigrationRangeChecksum;
@@ -89,11 +91,11 @@ public class MigrationController extends BaseController {
 	 * Async version of getTypeCount()
 	 */
 	@ResponseStatus(HttpStatus.CREATED)
-	@RequestMapping(value = UrlHelpers.MIGRATION_COUNT_ASYNC_START, method = RequestMethod.POST)
+	@RequestMapping(value = UrlHelpers.MIGRATION_ASYNC_START, method = RequestMethod.POST)
 	public @ResponseBody
 	AsyncJobId startTypeCountJob(
 			@RequestParam(value = AuthorizationConstants.USER_ID_PARAM) Long userId,
-			@RequestParam(required=true) AsyncMigrationTypeCountRequest request)
+			@RequestParam(required=true) AsyncMigrationRequest request)
 			throws DatastoreException, NotFoundException {
 		AsynchronousJobStatus job = serviceProvider.getAsynchronousJobServices().startJobAsAdmin(userId, request);
 		AsyncJobId jobId = new AsyncJobId();
@@ -102,9 +104,9 @@ public class MigrationController extends BaseController {
 	}
 	
 	@ResponseStatus(HttpStatus.CREATED)
-	@RequestMapping(value = UrlHelpers.MIGRATION_COUNT_ASYNC_GET, method = RequestMethod.GET)
+	@RequestMapping(value = UrlHelpers.MIGRATION_ASYNC_GET, method = RequestMethod.GET)
 	public @ResponseBody
-	AsyncMigrationTypeCountResult getMigrationTypeCountResult(
+	AsyncMigrationResponse getMigrationTypeCountResult(
 			@RequestParam(value = AuthorizationConstants.USER_ID_PARAM) Long userId,
 			@PathVariable String asyncToken) throws Throwable {
 				
