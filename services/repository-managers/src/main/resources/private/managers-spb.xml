@@ -244,6 +244,13 @@
 	
 	<bean id="backupDriver" class="org.sagebionetworks.repo.manager.backup.daemon.BackupDriverImpl" scope="singleton"/>
 
+	<bean id="migrationExecutorService" class="java.util.concurrent.Executors"
+		scope="singleton" factory-method="newFixedThreadPool">
+		<constructor-arg value="1" />
+	</bean>
+	
+	<bean id="migrationManagerSupport" class="org.sagebionetworks.repo.manager.migration.MigrationManagerSupportImpl" scope="singleton" />
+    
 	<bean
         id="migrationManager"
         class="org.sagebionetworks.repo.manager.migration.MigrationManagerImpl"
