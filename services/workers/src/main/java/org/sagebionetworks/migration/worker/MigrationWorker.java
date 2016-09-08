@@ -15,6 +15,7 @@ import org.sagebionetworks.repo.manager.migration.MigrationManager;
 import org.sagebionetworks.repo.manager.migration.MigrationManagerSupport;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.asynch.AsynchronousJobStatus;
+import org.sagebionetworks.repo.model.migration.AsyncMigrationRangeChecksumRequest;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationRequest;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountRequest;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountResult;
@@ -60,6 +61,11 @@ public class MigrationWorker implements MessageDrivenRunner {
 		if (req instanceof AsyncMigrationTypeCountRequest) {
 			AsyncMigrationTypeCountRequest mtcReq = (AsyncMigrationTypeCountRequest) req;
 			requestProcessor.processAsyncMigrationTypeCountRequest(progressCallback, user, mtcReq, status.getJobId());
+		} else if (req instanceof AsyncMigrationRangeChecksumRequest) {
+			AsyncMigrationRangeChecksumRequest mrcReq = (AsyncMigrationRangeChecksumRequest) req;
+			requestProcessor.processAsyncMigrationRangeChecksumRequest(progressCallback, user, mrcReq, status.getJobId());
+		} else {
+			throw new IllegalArgumentException("Unrecognized AsyncMigrationRequest");
 		}
 	}
 
