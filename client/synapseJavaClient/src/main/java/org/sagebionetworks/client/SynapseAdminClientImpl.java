@@ -3,6 +3,9 @@ package org.sagebionetworks.client;
 import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.apache.http.client.utils.URIBuilder;
 import org.json.JSONObject;
 import org.sagebionetworks.client.exceptions.SynapseClientException;
@@ -13,12 +16,15 @@ import org.sagebionetworks.repo.model.EntityId;
 import org.sagebionetworks.repo.model.IdList;
 import org.sagebionetworks.repo.model.ObjectType;
 import org.sagebionetworks.repo.model.TrashedEntity;
+import org.sagebionetworks.repo.model.asynch.AsyncJobId;
 import org.sagebionetworks.repo.model.auth.NewIntegrationTestUser;
 import org.sagebionetworks.repo.model.daemon.BackupRestoreStatus;
 import org.sagebionetworks.repo.model.daemon.RestoreSubmission;
 import org.sagebionetworks.repo.model.message.ChangeMessages;
 import org.sagebionetworks.repo.model.message.FireMessagesResult;
 import org.sagebionetworks.repo.model.message.PublishResults;
+import org.sagebionetworks.repo.model.migration.AsyncMigrationRequest;
+import org.sagebionetworks.repo.model.migration.AsyncMigrationResponse;
 import org.sagebionetworks.repo.model.migration.MigrationRangeChecksum;
 import org.sagebionetworks.repo.model.migration.MigrationType;
 import org.sagebionetworks.repo.model.migration.MigrationTypeChecksum;
@@ -157,12 +163,12 @@ public class SynapseAdminClientImpl extends SynapseClientImpl implements Synapse
 	
 	public AsyncJobId startAsyncMigrationRequest(AsyncMigrationRequest req) throws SynapseException {
 		String uri = MIGRATION_ASYNC_START;
-		JSONObject jsonObject = null;
+		AsyncJobId jobId = new AsyncJobId();;
 		try {
-			jsonObject = EntityFactory.createJSONObjectForEntity(req);
-			jsonObject = getSharedClientConnection().putJson(repoEndpoint, jsonObject.toString(), getUserAgent());
+			String json = EntityFactory.createJSONStringForEntity(req);
+			Map<String, String> params = new HashMap<String, String>();
+			JSONObject jsonObject = getSharedClientConnection().postJson(repoEndpoint, uri, json, getUserAgent(), params);
 			JSONObjectAdapter adapter = new JSONObjectAdapterImpl(jsonObject);
-			AsyncJobId jobId = new AsyncJobId();
 			jobId.initializeFromJSONObject(adapter);
 		} catch (JSONObjectAdapterException e) {
 			throw new SynapseClientException(e);
@@ -170,19 +176,18 @@ public class SynapseAdminClientImpl extends SynapseClientImpl implements Synapse
 		return jobId;
 	}
 	
-	public AsyncJobId getAsyncMigrationResponse(String asyncToken) throws SynapseException {
-		String uri = MIGRATION_ASYNC_GET;
+	public AsyncMigrationResponse getAsyncMigrationResponse(String asyncToken) throws SynapseException {
+		String uri = MIGRATION_ASYNC_GET + "?asyncToken=" + asyncToken;
+		AsyncMigrationResponse resp = null;
 		JSONObject jsonObject = null;
 		try {
-			jsonObject = EntityFactory.createJSONObjectForEntity(req);
-			jsonObject = getSharedClientConnection().putJson(repoEndpoint, jsonObject.toString(), getUserAgent());
+			jsonObject = getSharedClientConnection().getJson(repoEndpoint, uri, getUserAgent());
 			JSONObjectAdapter adapter = new JSONObjectAdapterImpl(jsonObject);
-			AsyncJobId jobId = new AsyncJobId();
-			jobId.initializeFromJSONObject(adapter);
+			resp = EntityFactory.createEntityFromJSONObject(jsonObject, AsyncMigrationResponse.class);
 		} catch (JSONObjectAdapterException e) {
 			throw new SynapseClientException(e);
 		}
-		return jobId;
+		return resp;
 	}
 	
 	public MigrationTypeCounts getTypeCounts() throws SynapseException, JSONObjectAdapterException {

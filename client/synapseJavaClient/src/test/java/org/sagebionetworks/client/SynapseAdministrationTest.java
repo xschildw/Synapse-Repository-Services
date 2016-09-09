@@ -2,10 +2,12 @@ package org.sagebionetworks.client;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Mockito.when;
 
+import java.io.UnsupportedEncodingException;
 import java.util.Map;
 
 import org.apache.http.HttpResponse;
@@ -14,8 +16,17 @@ import org.apache.http.entity.StringEntity;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
+import org.sagebionetworks.client.exceptions.SynapseException;
 import org.sagebionetworks.repo.model.ObjectType;
+import org.sagebionetworks.repo.model.asynch.AsyncJobId;
 import org.sagebionetworks.repo.model.message.FireMessagesResult;
+import org.sagebionetworks.repo.model.migration.AsyncMigrationRequest;
+import org.sagebionetworks.repo.model.migration.AsyncMigrationResponse;
+import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountRequest;
+import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountResult;
+import org.sagebionetworks.repo.model.migration.MigrationType;
+import org.sagebionetworks.repo.model.migration.MigrationTypeCount;
+import org.sagebionetworks.schema.adapter.JSONObjectAdapterException;
 import org.sagebionetworks.schema.adapter.org.json.EntityFactory;
 
 
@@ -110,5 +121,50 @@ public class SynapseAdministrationTest {
 		String expected = "/admin/messages/rebroadcast?queueName=some-queue&startChangeNumber=345&type=ACTIVITY";
 		String url = SynapseAdminClientImpl.buildPublishMessagesURL("some-queue", new Long(345), ObjectType.ACTIVITY, null);
 		assertEquals(expected, url);
+	}
+	
+	@Test
+	public void testStartAsyncMigrationRequest() throws SynapseException, JSONObjectAdapterException, UnsupportedEncodingException {
+		AsyncJobId expectedId = new AsyncJobId();
+		expectedId.setToken("token");
+		String expectedJSONRes = EntityFactory.createJSONStringForEntity(expectedId);
+		StringEntity responseEntity = new StringEntity(expectedJSONRes);
+		when(mockResponse.getEntity()).thenReturn(responseEntity);
+		StatusLine statusLine = Mockito.mock(StatusLine.class);
+		when(statusLine.getStatusCode()).thenReturn(200);
+		when(mockResponse.getStatusLine()).thenReturn(statusLine);
+		
+		AsyncMigrationTypeCountRequest req = new AsyncMigrationTypeCountRequest();
+		req.setType(MigrationType.NODE.name());
+		
+		AsyncJobId id = synapse.startAsyncMigrationRequest(req);
+		
+		assertNotNull(id);
+		assertEquals(expectedId, id);
+	}
+	
+	@Test
+	public void testGetMigrationResponse() throws Exception {
+		AsyncMigrationTypeCountResult expectedResult = new AsyncMigrationTypeCountResult();
+		MigrationTypeCount mtc = new MigrationTypeCount();
+		mtc.setType(MigrationType.NODE);
+		mtc.setMinid(0L);
+		mtc.setMaxid(100L);
+		mtc.setCount(50L);
+		expectedResult.setCount(mtc);
+		String expectedJSONRes = EntityFactory.createJSONStringForEntity(expectedResult);
+		StringEntity responseEntity = new StringEntity(expectedJSONRes);
+		when(mockResponse.getEntity()).thenReturn(responseEntity);
+		StatusLine statusLine = Mockito.mock(StatusLine.class);
+		when(statusLine.getStatusCode()).thenReturn(200);
+		when(mockResponse.getStatusLine()).thenReturn(statusLine);
+		
+		AsyncMigrationResponse response = synapse.getAsyncMigrationResponse("token");
+		assertNotNull(response);
+		if (! (response instanceof AsyncMigrationTypeCountResult)) {
+			fail("Wrong type!");
+		}
+		
+		
 	}
 }
