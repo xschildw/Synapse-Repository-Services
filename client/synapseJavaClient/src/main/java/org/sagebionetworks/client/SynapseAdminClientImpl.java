@@ -49,6 +49,8 @@ public class SynapseAdminClientImpl extends SynapseClientImpl implements Synapse
 	private static final String ADMIN_WAIT = ADMIN + "/wait";
 
 	private static final String MIGRATION = "/migration";
+	private static final String MIGRATION_ASYNC_START = MIGRATION + "/async/start";
+	private static final String MIGRATION_ASYNC_GET = MIGRATION + "/async/get";
 	private static final String MIGRATION_COUNTS = MIGRATION + "/counts";
 	private static final String MIGRATION_COUNT = MIGRATION + "/count";
 	private static final String MIGRATION_ROWS = MIGRATION + "/rows";
@@ -151,6 +153,36 @@ public class SynapseAdminClientImpl extends SynapseClientImpl implements Synapse
 		MigrationTypeList mtl = new MigrationTypeList();
 		mtl.initializeFromJSONObject(adapter);
 		return mtl;
+	}
+	
+	public AsyncJobId startAsyncMigrationRequest(AsyncMigrationRequest req) throws SynapseException {
+		String uri = MIGRATION_ASYNC_START;
+		JSONObject jsonObject = null;
+		try {
+			jsonObject = EntityFactory.createJSONObjectForEntity(req);
+			jsonObject = getSharedClientConnection().putJson(repoEndpoint, jsonObject.toString(), getUserAgent());
+			JSONObjectAdapter adapter = new JSONObjectAdapterImpl(jsonObject);
+			AsyncJobId jobId = new AsyncJobId();
+			jobId.initializeFromJSONObject(adapter);
+		} catch (JSONObjectAdapterException e) {
+			throw new SynapseClientException(e);
+		}
+		return jobId;
+	}
+	
+	public AsyncJobId getAsyncMigrationResponse(String asyncToken) throws SynapseException {
+		String uri = MIGRATION_ASYNC_GET;
+		JSONObject jsonObject = null;
+		try {
+			jsonObject = EntityFactory.createJSONObjectForEntity(req);
+			jsonObject = getSharedClientConnection().putJson(repoEndpoint, jsonObject.toString(), getUserAgent());
+			JSONObjectAdapter adapter = new JSONObjectAdapterImpl(jsonObject);
+			AsyncJobId jobId = new AsyncJobId();
+			jobId.initializeFromJSONObject(adapter);
+		} catch (JSONObjectAdapterException e) {
+			throw new SynapseClientException(e);
+		}
+		return jobId;
 	}
 	
 	public MigrationTypeCounts getTypeCounts() throws SynapseException, JSONObjectAdapterException {
