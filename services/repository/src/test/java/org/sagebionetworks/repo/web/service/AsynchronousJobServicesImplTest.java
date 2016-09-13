@@ -58,7 +58,7 @@ public class AsynchronousJobServicesImplTest {
 		expectedUser.setId(123L);
 		AsynchronousRequestBody body = new AsyncMigrationTypeCountRequest();
 		when(mockUserManager.getUserInfo(eq(userId))).thenReturn(expectedUser);
-		svc.startJobAsAdmin(userId, body);
+		svc.startJob(userId, body);
 	}
 	
 	@Test
@@ -71,7 +71,7 @@ public class AsynchronousJobServicesImplTest {
 		AsynchronousJobStatus expectedStatus = new AsynchronousJobStatus();
 		expectedStatus.setJobId("jobId");
 		when(mockAsynchJobStatusManager.startJob(eq(expectedUser), eq(body))).thenReturn(expectedStatus);
-		AsynchronousJobStatus status = svc.startJobAsAdmin(userId, body);
+		AsynchronousJobStatus status = svc.startJob(userId, body);
 		assertEquals(expectedStatus.getJobId(), status.getJobId());
 	}
 

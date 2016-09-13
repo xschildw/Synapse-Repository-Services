@@ -84,39 +84,7 @@ public class MigrationController extends BaseController {
 			@RequestParam(required=true) String type)
 			throws DatastoreException, NotFoundException {
 		return serviceProvider.getMigrationService().getTypeCount(userId, MigrationType.valueOf(type));
-	}
-	
-	/**
-	 * Start an async job to request migration count for given type
-	 * Async version of getTypeCount()
-	 */
-	@ResponseStatus(HttpStatus.CREATED)
-	@RequestMapping(value = UrlHelpers.MIGRATION_ASYNC_START, method = RequestMethod.POST)
-	public @ResponseBody
-	AsyncJobId startTypeCountJob(
-			@RequestParam(value = AuthorizationConstants.USER_ID_PARAM) Long userId,
-			@RequestParam(required=true) AsyncMigrationRequest request)
-			throws DatastoreException, NotFoundException {
-		AsynchronousJobStatus job = serviceProvider.getAsynchronousJobServices().startJobAsAdmin(userId, request);
-		AsyncJobId jobId = new AsyncJobId();
-		jobId.setToken(job.getJobId());
-		return jobId;
-	}
-	
-	@ResponseStatus(HttpStatus.CREATED)
-	@RequestMapping(value = UrlHelpers.MIGRATION_ASYNC_GET, method = RequestMethod.GET)
-	public @ResponseBody
-	AsyncMigrationResponse getMigrationTypeCountResult(
-			@RequestParam(value = AuthorizationConstants.USER_ID_PARAM) Long userId,
-			@PathVariable String asyncToken) throws Throwable {
-				
-		AsynchronousJobStatus jobStatus = serviceProvider
-				.getAsynchronousJobServices().getJobStatusAndThrow(userId, asyncToken);
-		return (AsyncMigrationTypeCountResult) jobStatus.getResponseBody();
-	}
-
-
-	
+	}	
 	
 	/**
 	 * This method is used to query a source stack for all of its metadata.
