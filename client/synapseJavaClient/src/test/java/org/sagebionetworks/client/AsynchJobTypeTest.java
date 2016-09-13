@@ -4,6 +4,8 @@ import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 import org.sagebionetworks.repo.model.file.S3FileCopyRequest;
+import org.sagebionetworks.repo.model.migration.AsyncMigrationRequest;
+import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountRequest;
 import org.sagebionetworks.repo.model.table.AppendableRowSetRequest;
 import org.sagebionetworks.repo.model.table.DownloadFromTableRequest;
 import org.sagebionetworks.repo.model.table.QueryBundleRequest;
@@ -178,5 +180,22 @@ public class AsynchJobTypeTest {
 		String actual = type.getResultUrl(token, (String) null);
 		String expected = "/table/transaction/async/get/abcdefgh";
 		assertEquals(actual, expected);
+	}
+	
+	@Test
+	public void testStartAsyncMigrationRequest() {
+		AsynchJobType type = AsynchJobType.AsyncMigration;
+		AsyncMigrationTypeCountRequest req = new AsyncMigrationTypeCountRequest();
+		String expected = "/migration/async/start";
+		String actual = type.getStartUrl(req);
+		assertEquals(expected, actual);
+	}
+	
+	@Test
+	public void testGetAsyncMigrationResponse() {
+		AsynchJobType type = AsynchJobType.AsyncMigration;
+		String expected = "/migration/async/get/token";
+		String actual = type.getResultUrl("token", (String)null);
+		assertEquals(expected, actual);
 	}
 }

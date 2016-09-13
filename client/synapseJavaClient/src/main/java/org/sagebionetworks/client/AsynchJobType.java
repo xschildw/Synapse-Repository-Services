@@ -2,11 +2,13 @@ package org.sagebionetworks.client;
 
 
 import static org.sagebionetworks.client.SynapseClientImpl.*;
+import static org.sagebionetworks.client.SynapseAdminClientImpl.MIGRATION_ASYNC;
 
 import org.sagebionetworks.repo.model.asynch.AsynchronousRequestBody;
 import org.sagebionetworks.repo.model.asynch.AsynchronousResponseBody;
 import org.sagebionetworks.repo.model.file.BulkFileDownloadResponse;
 import org.sagebionetworks.repo.model.file.S3FileCopyResults;
+import org.sagebionetworks.repo.model.migration.AsyncMigrationResponse;
 import org.sagebionetworks.repo.model.table.DownloadFromTableResult;
 import org.sagebionetworks.repo.model.table.HasEntityId;
 import org.sagebionetworks.repo.model.table.QueryResult;
@@ -32,7 +34,8 @@ public enum AsynchJobType {
 	TableCSVDownload(TABLE_DOWNLOAD_CSV, DownloadFromTableResult.class, RestEndpointType.repo), 
 	S3FileCopy(S3_FILE_COPY, S3FileCopyResults.class, RestEndpointType.file),
 	BulkFileDownload(FILE_BULK, BulkFileDownloadResponse.class, RestEndpointType.file),
-	TableTransaction(TABLE_TRANSACTION, TableUpdateTransactionResponse.class, RestEndpointType.repo);
+	TableTransaction(TABLE_TRANSACTION, TableUpdateTransactionResponse.class, RestEndpointType.repo),
+	AsyncMigration(MIGRATION_ASYNC, AsyncMigrationResponse.class, RestEndpointType.repo);
 
 	String prefix;
 	Class<? extends AsynchronousResponseBody> responseClass;
