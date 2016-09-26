@@ -3,7 +3,7 @@ package org.sagebionetworks.repo.manager.discussion;
 import static org.sagebionetworks.repo.manager.discussion.DiscussionThreadManagerImpl.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.*;
 
 import java.util.ArrayList;
@@ -15,6 +15,7 @@ import java.util.Set;
 import org.apache.commons.lang.RandomStringUtils;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -26,7 +27,9 @@ import org.sagebionetworks.repo.manager.AuthorizationManagerUtil;
 import org.sagebionetworks.repo.model.ACCESS_TYPE;
 import org.sagebionetworks.repo.model.AccessControlListDAO;
 import org.sagebionetworks.repo.model.EntityIdList;
+import org.sagebionetworks.repo.model.GroupMembersDAO;
 import org.sagebionetworks.repo.model.ObjectType;
+import org.sagebionetworks.repo.model.PaginatedIds;
 import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UploadContentToS3DAO;
 import org.sagebionetworks.repo.model.UserInfo;
@@ -37,6 +40,7 @@ import org.sagebionetworks.repo.model.dao.subscription.SubscriptionDAO;
 import org.sagebionetworks.repo.model.discussion.CreateDiscussionThread;
 import org.sagebionetworks.repo.model.discussion.DiscussionFilter;
 import org.sagebionetworks.repo.model.discussion.DiscussionThreadBundle;
+import org.sagebionetworks.repo.model.discussion.DiscussionThreadEntityReference;
 import org.sagebionetworks.repo.model.discussion.DiscussionThreadOrder;
 import org.sagebionetworks.repo.model.discussion.EntityThreadCounts;
 import org.sagebionetworks.repo.model.discussion.Forum;
@@ -73,6 +77,8 @@ public class DiscussionThreadManagerImplTest {
 	private EntityIdList mockEntityIdList;
 	@Mock
 	private List<String> mockList;
+	@Mock
+	private GroupMembersDAO mockGroupMembersDao;
 
 	private DiscussionThreadManager threadManager;
 	private UserInfo userInfo = new UserInfo(false /*not admin*/);
@@ -87,6 +93,8 @@ public class DiscussionThreadManagerImplTest {
 	private MessageURL messageUrl = new MessageURL();
 	private UpdateThreadTitle newTitle = new UpdateThreadTitle();
 	private UpdateThreadMessage newMessage = new UpdateThreadMessage();
+	private List<DiscussionThreadEntityReference> entityRefs = new ArrayList<DiscussionThreadEntityReference>();
+	private List<DiscussionThreadEntityReference> titleEntityRefs = new ArrayList<DiscussionThreadEntityReference>();
 
 	@Before
 	public void before() {
@@ -101,11 +109,12 @@ public class DiscussionThreadManagerImplTest {
 		ReflectionTestUtils.setField(threadManager, "subscriptionDao", mockSubscriptionDao);
 		ReflectionTestUtils.setField(threadManager, "transactionalMessenger", mockTransactionalMessenger);
 		ReflectionTestUtils.setField(threadManager, "aclDao", mockAclDao);
+		ReflectionTestUtils.setField(threadManager, "groupMembersDao", mockGroupMembersDao);
 
 		createDto = new CreateDiscussionThread();
 		createDto.setForumId(forumId.toString());
-		createDto.setTitle("title");
-		createDto.setMessageMarkdown("messageMarkdown");
+		createDto.setTitle("title with syn123");
+		createDto.setMessageMarkdown("messageMarkdown with syn456");
 		forum = new Forum();
 		forum.setId(forumId.toString());
 		forum.setProjectId(projectId);
@@ -118,8 +127,20 @@ public class DiscussionThreadManagerImplTest {
 		dto.setIsDeleted(false);
 		userInfo.setId(userId);
 
-		newTitle.setTitle("newTitle");
+		newTitle.setTitle("newTitle with syn123");
 		newMessage.setMessageMarkdown("newMessageMarkdown");
+
+
+		DiscussionThreadEntityReference titleEntityRef = new DiscussionThreadEntityReference();
+		titleEntityRef.setEntityId("123");
+		titleEntityRef.setThreadId(""+threadId);
+		titleEntityRefs.add(titleEntityRef);
+		entityRefs.add(titleEntityRef);
+
+		DiscussionThreadEntityReference markdownEntityRef = new DiscussionThreadEntityReference();
+		markdownEntityRef.setEntityId("456");
+		markdownEntityRef.setThreadId(""+threadId);
+		entityRefs.add(markdownEntityRef);
 
 		when(mockForumDao.getForum(Long.parseLong(createDto.getForumId()))).thenReturn(forum);
 		when(mockThreadDao.getThread(threadId, DiscussionFilter.NO_FILTER)).thenReturn(dto);
@@ -191,7 +212,11 @@ public class DiscussionThreadManagerImplTest {
 		assertEquals(createdThread, dto);
 		verify(mockTransactionalMessenger).sendMessageAfterCommit(createdThread.getId(), ObjectType.THREAD, dto.getEtag(), ChangeType.CREATE, userInfo.getId());
 		verify(mockSubscriptionDao).create(eq(userId.toString()), eq(dto.getId()), eq(SubscriptionObjectType.THREAD));
-		verify(mockThreadDao).insertEntityReference(any(List.class));
+		ArgumentCaptor<List> captor = ArgumentCaptor.forClass(List.class);
+		verify(mockThreadDao).insertEntityReference(captor.capture());
+		List<DiscussionThreadEntityReference> list = captor.getValue();
+		assertTrue(list.contains(entityRefs.get(0)));
+		assertTrue(list.contains(entityRefs.get(1)));
 	}
 
 	@Test (expected = IllegalArgumentException.class)
@@ -284,6 +309,7 @@ public class DiscussionThreadManagerImplTest {
 		when(mockThreadDao.updateTitle(Mockito.anyLong(), Mockito.anyString())).thenReturn(dto);
 
 		assertEquals(dto, threadManager.updateTitle(userInfo, threadId.toString(), newTitle));
+		verify(mockThreadDao).insertEntityReference(titleEntityRefs);
 	}
 
 	@Test (expected = IllegalArgumentException.class)
@@ -330,6 +356,24 @@ public class DiscussionThreadManagerImplTest {
 				.thenReturn(AuthorizationManagerUtil.AUTHORIZED);
 		threadManager.markThreadAsDeleted(userInfo, threadId.toString());
 		verify(mockThreadDao).markThreadAsDeleted(threadId);
+	}
+
+
+	@Test (expected = UnauthorizedException.class)
+	public void testRestoreUnauthorized() {
+		when(mockThreadDao.getProjectId(threadId.toString())).thenReturn(projectId);
+		when(mockAuthorizationManager.canAccess(userInfo, projectId, ObjectType.ENTITY, ACCESS_TYPE.MODERATE))
+				.thenReturn(AuthorizationManagerUtil.ACCESS_DENIED);
+		threadManager.markThreadAsNotDeleted(userInfo, threadId.toString());
+	}
+
+	@Test
+	public void testRestoreAuthorized() {
+		when(mockThreadDao.getProjectId(threadId.toString())).thenReturn(projectId);
+		when(mockAuthorizationManager.canAccess(userInfo, projectId, ObjectType.ENTITY, ACCESS_TYPE.MODERATE))
+				.thenReturn(AuthorizationManagerUtil.AUTHORIZED);
+		threadManager.markThreadAsNotDeleted(userInfo, threadId.toString());
+		verify(mockThreadDao).markThreadAsNotDeleted(threadId);
 	}
 
 	@Test (expected = UnauthorizedException.class)
@@ -635,5 +679,61 @@ public class DiscussionThreadManagerImplTest {
 		verify(mockAclDao).getAccessibleBenefactors(anySet(), eq(projectIds), eq(ObjectType.ENTITY), eq(ACCESS_TYPE.READ));
 		verify(mockThreadDao).getThreadCountForEntity(3L, DiscussionFilter.EXCLUDE_DELETED, projectIdsCanRead);
 		verify(mockThreadDao).getThreadsForEntity(3L, 2L, 0L, DiscussionThreadOrder.PINNED_AND_LAST_ACTIVITY, true, DiscussionFilter.EXCLUDE_DELETED, projectIdsCanRead);
+	}
+
+	@Test (expected = IllegalArgumentException.class)
+	public void testGetModeratorsWithNullUserInfo(){
+		threadManager.getModerators(null, forum.getId(), 10L, 0L);
+	}
+
+	@Test (expected = IllegalArgumentException.class)
+	public void testGetModeratorsWithNullForumId(){
+		threadManager.getModerators(userInfo, null, 10L, 0L);
+	}
+
+	@Test (expected = IllegalArgumentException.class)
+	public void testGetModeratorsWithNegativeLimit(){
+		threadManager.getModerators(userInfo, forum.getId(), -1L, 0L);
+	}
+
+	@Test (expected = IllegalArgumentException.class)
+	public void testGetModeratorsWithOverLimit(){
+		threadManager.getModerators(userInfo, forum.getId(), MAX_LIMIT+1, 0L);
+	}
+
+	@Test (expected = IllegalArgumentException.class)
+	public void testGetModeratorsWithNegativeOffset(){
+		threadManager.getModerators(userInfo, forum.getId(), 10L, -1L);
+	}
+
+	@Test (expected = NotFoundException.class)
+	public void testGetModeratorsWithNotFoundForum() {
+		when(mockForumDao.getForum(Long.parseLong(forum.getId()))).thenThrow(new NotFoundException());
+		threadManager.getModerators(userInfo, forum.getId(), 10L, 0L);
+	}
+
+	@Test
+	public void testGetModeratorsWithNotFoundModerators() {
+		when(mockAclDao.getPrincipalIds(projectId, ObjectType.ENTITY, ACCESS_TYPE.MODERATE)).thenReturn(new HashSet<String>());
+		PaginatedIds actual = threadManager.getModerators(userInfo, forum.getId(), 10L, 0L);
+		assertNotNull(actual);
+		assertEquals((Long)0L, actual.getTotalNumberOfResults());
+		assertTrue(actual.getResults().isEmpty());
+	}
+
+	@Test
+	public void testGetModerators() {
+		HashSet<String> userGroups = new HashSet<String>();
+		userGroups.addAll(Arrays.asList("1", "2"));
+		when(mockAclDao.getPrincipalIds(projectId, ObjectType.ENTITY, ACCESS_TYPE.MODERATE)).thenReturn(userGroups);
+		Set<String> individuals = new HashSet<String>();
+		individuals.addAll(Arrays.asList("2", "3", "4"));
+		when(mockGroupMembersDao.getIndividuals(userGroups, 10L, 0L)).thenReturn(individuals);
+		when(mockGroupMembersDao.getIndividualCount(userGroups)).thenReturn(3L);
+		PaginatedIds actual = threadManager.getModerators(userInfo, forum.getId(), 10L, 0L);
+		assertNotNull(actual);
+		assertEquals((Long)3L, actual.getTotalNumberOfResults());
+		assertTrue(individuals.containsAll(actual.getResults()));
+		assertTrue(actual.getResults().containsAll(individuals));
 	}
 }

@@ -16,7 +16,9 @@ import org.sagebionetworks.repo.manager.AuthorizationManagerUtil;
 import org.sagebionetworks.repo.model.ACCESS_TYPE;
 import org.sagebionetworks.repo.model.AccessControlListDAO;
 import org.sagebionetworks.repo.model.EntityIdList;
+import org.sagebionetworks.repo.model.GroupMembersDAO;
 import org.sagebionetworks.repo.model.ObjectType;
+import org.sagebionetworks.repo.model.PaginatedIds;
 import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UploadContentToS3DAO;
 import org.sagebionetworks.repo.model.UserInfo;
@@ -28,6 +30,7 @@ import org.sagebionetworks.repo.model.discussion.DiscussionFilter;
 import org.sagebionetworks.repo.model.discussion.DiscussionThreadOrder;
 import org.sagebionetworks.repo.model.discussion.EntityThreadCounts;
 import org.sagebionetworks.repo.model.discussion.DiscussionThreadBundle;
+import org.sagebionetworks.repo.model.discussion.DiscussionThreadEntityReference;
 import org.sagebionetworks.repo.model.discussion.MessageURL;
 import org.sagebionetworks.repo.model.discussion.ThreadCount;
 import org.sagebionetworks.repo.model.discussion.UpdateThreadMessage;
@@ -64,6 +67,8 @@ public class DiscussionThreadManagerImpl implements DiscussionThreadManager {
 	private TransactionalMessenger transactionalMessenger;
 	@Autowired
 	private AccessControlListDAO aclDao;
+	@Autowired
+	private GroupMembersDAO groupMembersDao;
 
 	@WriteTransactionReadCommitted
 	@Override
@@ -85,7 +90,9 @@ public class DiscussionThreadManagerImpl implements DiscussionThreadManager {
 		DiscussionThreadBundle thread = threadDao.createThread(createThread.getForumId(), id.toString(), createThread.getTitle(), messageKey, userInfo.getId());
 		transactionalMessenger.sendMessageAfterCommit(""+id, ObjectType.THREAD, thread.getEtag(),  ChangeType.CREATE, userInfo.getId());
 		subscriptionDao.create(userInfo.getId().toString(), id.toString(), SubscriptionObjectType.THREAD);
-		threadDao.insertEntityReference(DiscussionUtils.getEntityReferences(createThread.getMessageMarkdown(), thread.getId()));
+		List<DiscussionThreadEntityReference> entityRefs = DiscussionUtils.getEntityReferences(createThread.getMessageMarkdown(), thread.getId());
+		entityRefs.addAll(DiscussionUtils.getEntityReferences(createThread.getTitle(), thread.getId()));
+		threadDao.insertEntityReference(entityRefs);
 		return thread;
 	}
 
@@ -133,6 +140,7 @@ public class DiscussionThreadManagerImpl implements DiscussionThreadManager {
 		String author = threadDao.getAuthorForUpdate(threadId);
 		if (authorizationManager.isUserCreatorOrAdmin(userInfo, author)) {
 			DiscussionThreadBundle thread = threadDao.updateTitle(threadIdLong, newTitle.getTitle());
+			threadDao.insertEntityReference(DiscussionUtils.getEntityReferences(newTitle.getTitle(), thread.getId()));
 			return thread;
 		} else {
 			throw new UnauthorizedException("Only the user that created the thread can modify it.");
@@ -283,5 +291,38 @@ public class DiscussionThreadManagerImpl implements DiscussionThreadManager {
 		Set<Long> projectIds = threadDao.getDistinctProjectIdsOfThreadsReferencesEntityIds(entityIds);
 		projectIds = aclDao.getAccessibleBenefactors(userInfo.getGroups(), projectIds, ObjectType.ENTITY, ACCESS_TYPE.READ);
 		return threadDao.getThreadCounts(entityIds, projectIds);
+	}
+
+	@Override
+	public void markThreadAsNotDeleted(UserInfo userInfo, String threadId) {
+		checkPermission(userInfo, threadId, ACCESS_TYPE.MODERATE);
+		threadDao.markThreadAsNotDeleted(Long.parseLong(threadId));
+	}
+
+	@Override
+	public PaginatedIds getModerators(UserInfo userInfo, String forumId, Long limit, Long offset) {
+		ValidateArgument.required(forumId, "forumId");
+		UserInfo.validateUserInfo(userInfo);
+		if (limit == null) {
+			limit = MAX_LIMIT;
+		}
+		if (offset == null) {
+			offset = DEFAULT_OFFSET;
+		}
+		ValidateArgument.requirement(limit >= 0 && offset >= 0 && limit <= MAX_LIMIT,
+				"Limit and offset must be greater than 0, and limit must be smaller than or equal to "+MAX_LIMIT);
+
+		PaginatedIds results = new PaginatedIds();
+		List<String> userIds = new ArrayList<String>();
+		results.setResults(userIds);
+		String projectId = forumDao.getForum(Long.parseLong(forumId)).getProjectId();
+		Set<String> principalIds = aclDao.getPrincipalIds(projectId, ObjectType.ENTITY, ACCESS_TYPE.MODERATE);
+		if (principalIds.isEmpty()) {
+			results.setTotalNumberOfResults(0L);
+			return results;
+		}
+		userIds.addAll(groupMembersDao.getIndividuals(principalIds, limit, offset));
+		results.setTotalNumberOfResults(groupMembersDao.getIndividualCount(principalIds));
+		return results;
 	}
 }
