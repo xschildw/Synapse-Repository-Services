@@ -55,8 +55,7 @@ public class SynapseAdminClientImpl extends SynapseClientImpl implements Synapse
 	private static final String ADMIN_WAIT = ADMIN + "/wait";
 
 	private static final String MIGRATION = "/migration";
-	private static final String MIGRATION_ASYNC_START = MIGRATION + "/async/start";
-	private static final String MIGRATION_ASYNC_GET = MIGRATION + "/async/get";
+	public static final String MIGRATION_ASYNC = MIGRATION;
 	private static final String MIGRATION_COUNTS = MIGRATION + "/counts";
 	private static final String MIGRATION_COUNT = MIGRATION + "/count";
 	private static final String MIGRATION_ROWS = MIGRATION + "/rows";
@@ -161,33 +160,12 @@ public class SynapseAdminClientImpl extends SynapseClientImpl implements Synapse
 		return mtl;
 	}
 	
-	public AsyncJobId startAsyncMigrationRequest(AsyncMigrationRequest req) throws SynapseException {
-		String uri = MIGRATION_ASYNC_START;
-		AsyncJobId jobId = new AsyncJobId();;
-		try {
-			String json = EntityFactory.createJSONStringForEntity(req);
-			Map<String, String> params = new HashMap<String, String>();
-			JSONObject jsonObject = getSharedClientConnection().postJson(repoEndpoint, uri, json, getUserAgent(), params);
-			JSONObjectAdapter adapter = new JSONObjectAdapterImpl(jsonObject);
-			jobId.initializeFromJSONObject(adapter);
-		} catch (JSONObjectAdapterException e) {
-			throw new SynapseClientException(e);
-		}
-		return jobId;
+	public String startAsyncMigrationRequest(AsyncMigrationRequest req) throws SynapseException {
+		return startAsynchJob(AsynchJobType.AsyncMigration, req);
 	}
 	
 	public AsyncMigrationResponse getAsyncMigrationResponse(String asyncToken) throws SynapseException {
-		String uri = MIGRATION_ASYNC_GET + "?asyncToken=" + asyncToken;
-		AsyncMigrationResponse resp = null;
-		JSONObject jsonObject = null;
-		try {
-			jsonObject = getSharedClientConnection().getJson(repoEndpoint, uri, getUserAgent());
-			JSONObjectAdapter adapter = new JSONObjectAdapterImpl(jsonObject);
-			resp = EntityFactory.createEntityFromJSONObject(jsonObject, AsyncMigrationResponse.class);
-		} catch (JSONObjectAdapterException e) {
-			throw new SynapseClientException(e);
-		}
-		return resp;
+		return (AsyncMigrationResponse) getAsyncResult(AsynchJobType.AsyncMigration, asyncToken, (String) null);
 	}
 	
 	public MigrationTypeCounts getTypeCounts() throws SynapseException, JSONObjectAdapterException {
