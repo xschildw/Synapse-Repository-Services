@@ -55,8 +55,11 @@ public class ToolMigrationUtils {
 		List<MigrationType> types = conn.getMigrationTypes().getList();
 		for (MigrationType t: types) {
 			try {
-				MigrationTypeCount c = conn.getTypeCount(t);
-				typeCounts.add(c);
+				// Hack!!! Only migrate NODE for now
+				if (MigrationType.NODE == t) {
+					MigrationTypeCount c = conn.getTypeCount(t);
+					typeCounts.add(c);
+				}
 			} catch (org.sagebionetworks.client.exceptions.SynapseBadRequestException e) {
 				// Unsupported types not added to list 
 			}

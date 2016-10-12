@@ -21,6 +21,7 @@ import org.sagebionetworks.client.SynapseAdminClient;
 import org.sagebionetworks.client.exceptions.SynapseException;
 import org.sagebionetworks.repo.model.migration.MigrationType;
 import org.sagebionetworks.repo.model.migration.MigrationTypeCount;
+import org.sagebionetworks.repo.model.migration.MigrationTypeList;
 import org.sagebionetworks.repo.model.status.StackStatus;
 import org.sagebionetworks.repo.model.status.StatusEnum;
 import org.sagebionetworks.schema.adapter.JSONObjectAdapterException;
@@ -154,6 +155,10 @@ public class MigrationClient {
 		// Get the primary types for src and dest
 		List<MigrationType> srcPrimaryTypes = source.getPrimaryTypes().getList();
 		List<MigrationType> destPrimaryTypes = destination.getPrimaryTypes().getList();
+		// HACK!!! Only process NODE
+		destPrimaryTypes = new LinkedList<MigrationType>();
+		destPrimaryTypes.add(MigrationType.NODE);
+		
 		destPrimaryTypes = ToolMigrationUtils.filterTypes(destPrimaryTypes, destTypesToKeep);
 		
 		// Only migrate the src primary types that are at destination

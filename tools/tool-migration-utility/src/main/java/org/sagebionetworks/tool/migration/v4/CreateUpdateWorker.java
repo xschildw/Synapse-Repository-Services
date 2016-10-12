@@ -184,22 +184,27 @@ public class CreateUpdateWorker implements Callable<Long>, BatchWorker {
 				log.debug("Timeout waiting for daemon to complete");
 				throw new InterruptedException("Timed out waiting for the daemon to complete");
 			}
-			BackupRestoreStatus status = client.getStatus(daemonId);
-			progress.setMessage(String.format("\t Waiting for daemon: %1$s id: %2$s", status.getType().name(), status.getId()));
-			// Check to see if we failed.
-			if(DaemonStatus.FAILED == status.getStatus()){
-				log.debug("Daemon failure");
-				throw new DaemonFailedException("Failed: "+status.getType()+" message:"+status.getErrorMessage());
+			try {
+				BackupRestoreStatus status = client.getStatus(daemonId);
+				progress.setMessage(String.format("\t Waiting for daemon: %1$s id: %2$s", status.getType().name(), status.getId()));
+				// Check to see if we failed.
+				if(DaemonStatus.FAILED == status.getStatus()){
+					log.debug("Daemon failure");
+					throw new DaemonFailedException("Failed: "+status.getType()+" message:"+status.getErrorMessage());
+				}
+				// Are we done?
+				if (DaemonStatus.COMPLETED == status.getStatus()) {
+					logStatus(status);
+					return status;
+				} else {
+					logStatus(status);
+				}
+			} catch (SynapseException e) {
+				log.debug("Exception caught while checking daemon status!" + e.getStackTrace());
+			} finally {
+				// Wait either way
+				Thread.sleep(2000);
 			}
-			// Are we done?
-			if (DaemonStatus.COMPLETED == status.getStatus()) {
-				logStatus(status);
-				return status;
-			} else {
-				logStatus(status);
-			}
-			// Wait.
-			Thread.sleep(2000);
 		}
 	}
 	
