@@ -149,11 +149,11 @@ public class MigrationClient {
 		MigrationTypeNames srcMigrationTypeNames = source.getMigrationTypeNames();
 		MigrationTypeNames destMigrationTypeNames = destination.getMigrationTypeNames();
 		
-		MigrationTypeNames typeNamesToCount = getCommonMigrationTypeNames(srcMigrationTypeNames, destMigrationTypeNames);
+		List<MigrationType> typesToCount = getCommonMigrationTypeNames(srcMigrationTypeNames, destMigrationTypeNames);
 		
 		// Get the counts for all type from both the source and destination
-		List<MigrationTypeCount> startSourceCounts = getTypeCounts(source, typeNamesToCount);
-		List<MigrationTypeCount> startDestCounts = getTypeCounts(destination, typeNamesToCount);
+		List<MigrationTypeCount> startSourceCounts = getTypeCounts(source, typesToCount);
+		List<MigrationTypeCount> startDestCounts = getTypeCounts(destination, typesToCount);
  
 //		Set<MigrationType> destTypesToKeep = ToolMigrationUtils.getTypesFromTypeCounts(startDestCounts);
 //		startSourceCounts = ToolMigrationUtils.filterSourceByDestination(startSourceCounts, destTypesToKeep);
@@ -165,10 +165,10 @@ public class MigrationClient {
 		MigrationTypeNames srcPrimaryTypeNames = source.getPrimaryTypeNames();
 		MigrationTypeNames destPrimaryTypeNames = destination.getPrimaryTypeNames();
 		
-		MigrationTypeNames typeNamesToMigrate = getCommonMigrationTypeNames(srcPrimaryTypeNames, destPrimaryTypeNames);
+		List<MigrationType> typesToMigrate = getCommonMigrationTypeNames(srcPrimaryTypeNames, destPrimaryTypeNames);
 		List<MigrationType> primaryTypesToMigrate = new LinkedList<MigrationType>();
-		for (String tn: typeNamesToMigrate.getList()) {
-			primaryTypesToMigrate.add(MigrationType.valueOf(tn));
+		for (MigrationType t: typesToMigrate) {
+			primaryTypesToMigrate.add(t);
 		}
 		
 		// Get the metadata for the (primary) types to migrate
@@ -179,8 +179,8 @@ public class MigrationClient {
 		
 		// Print the final counts
 		// Get the counts for all type from both the source and destination
-		List<MigrationTypeCount> endSourceCounts = getTypeCounts(source, typeNamesToCount);
-		List<MigrationTypeCount> endDestCounts = getTypeCounts(destination, typeNamesToCount);
+		List<MigrationTypeCount> endSourceCounts = getTypeCounts(source, typesToCount);
+		List<MigrationTypeCount> endDestCounts = getTypeCounts(destination, typesToCount);
 
 		log.info("Ending diffs in  counts:");
 		printDiffsInCounts(endSourceCounts, endDestCounts);
@@ -432,14 +432,13 @@ public class MigrationClient {
 
 	}
 	
-	protected List<MigrationTypeCount> getTypeCounts(SynapseAdminClient conn, MigrationTypeNames typeNames) throws SynapseException, InterruptedException, JSONObjectAdapterException {
+	protected List<MigrationTypeCount> getTypeCounts(SynapseAdminClient conn, List<MigrationType> types) throws SynapseException, InterruptedException, JSONObjectAdapterException {
 		List<MigrationTypeCount> typeCounts = new LinkedList<MigrationTypeCount>();
-		for (String t: typeNames.getList()) {
-			MigrationType mType = MigrationType.valueOf(t);
+		for (MigrationType t: types) {;
 			try {
-				MigrationTypeCount c = getTypeCount(conn, mType);
+				MigrationTypeCount c = getTypeCount(conn, t);
 				typeCounts.add(c);
-			} catch (org.sagebionetworks.client.exceptions.SynapseBadRequestException e) {
+			} catch (WorkerFailedException e) {
 				// Unsupported types not added to list 
 			}
 		}
@@ -456,17 +455,15 @@ public class MigrationClient {
 		return res;
 	}
 	
-	protected MigrationTypeNames getCommonMigrationTypeNames(MigrationTypeNames srcTypeNames, MigrationTypeNames destTypeNames) {
-		MigrationTypeNames commonTypeNames = new MigrationTypeNames();
-		List<String> commonNames = new LinkedList<String>();
+	protected List<MigrationType> getCommonMigrationTypeNames(MigrationTypeNames srcTypeNames, MigrationTypeNames destTypeNames) {
+		List<MigrationType> commonTypes = new LinkedList<MigrationType>();
 		for (String typeName: destTypeNames.getList()) {
 			// Only keep the destination names that are in the source
 			if (srcTypeNames.getList().contains(typeName)) {
-				commonNames.add(typeName);
+				commonTypes.add(MigrationType.valueOf(typeName));
 			}
 		}
-		commonTypeNames.setList(commonNames);
-		return commonTypeNames;
+		return commonTypes;
 	}
 	
 }
