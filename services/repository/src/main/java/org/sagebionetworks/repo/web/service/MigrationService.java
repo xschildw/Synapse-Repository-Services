@@ -10,6 +10,7 @@ import org.sagebionetworks.repo.model.migration.MigrationTypeChecksum;
 import org.sagebionetworks.repo.model.migration.MigrationTypeCount;
 import org.sagebionetworks.repo.model.migration.MigrationTypeCounts;
 import org.sagebionetworks.repo.model.migration.MigrationTypeList;
+import org.sagebionetworks.repo.model.migration.MigrationTypeNames;
 import org.sagebionetworks.repo.model.migration.RowMetadataResult;
 import org.sagebionetworks.repo.web.NotFoundException;
 
@@ -124,6 +125,16 @@ public interface MigrationService {
 	MigrationTypeList getPrimaryTypes(Long userId) throws DatastoreException, NotFoundException;
 	
 	/**
+	 * The list of primary migration type names
+	 * @param userId
+	 * @return
+	 * @throws DatastoreException
+	 * @throws NotFoundException
+	 */
+	MigrationTypeNames getPrimaryTypeNames(Long userId) throws DatastoreException, NotFoundException;
+	
+	
+	/**
 	 * The list of migrations types
 	 * @param userId
 	 * @return
@@ -131,6 +142,15 @@ public interface MigrationService {
 	 * @throws NotFoundException
 	 */
 	MigrationTypeList getMigrationTypes(Long userId) throws DatastoreException, NotFoundException;
+	
+	/**
+	 * The list of migration type names
+	 * @param userId
+	 * @return
+	 * @throws DatastoreException
+	 * @throws NotFoundException
+	 */
+	MigrationTypeNames getMigrationTypeNames(Long userId) throws DatastoreException, NotFoundException;
 	
 	/**
 	 * A checksum for a range of ids and a migration type

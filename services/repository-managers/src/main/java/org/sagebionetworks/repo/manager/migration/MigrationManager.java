@@ -89,12 +89,28 @@ public interface MigrationManager {
 	public List<MigrationType> getPrimaryMigrationTypes(UserInfo user);
 	
 	/**
+	 * The list of primary migration type names
+	 * @param user
+	 * @return
+	 */
+	public List<String> getPrimaryMigrationTypeNames(UserInfo user);
+	
+	
+	/**
 	 * The list of all migration types
 	 * 
 	 * @param user
 	 * @return
 	 */
 	public List<MigrationType> getMigrationTypes(UserInfo user);
+	
+	/**
+	 * The list of all migration type names
+	 * @param user
+	 * @return
+	 */
+	public List<String> getMigrationTypeNames(UserInfo user);
+	
 	
 	/**
 	 * If this object is the 'owner' of other object, then it is a primary type. All secondary types should be returned in their

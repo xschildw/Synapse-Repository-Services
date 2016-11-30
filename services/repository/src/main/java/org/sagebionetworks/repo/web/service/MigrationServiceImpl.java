@@ -15,6 +15,7 @@ import org.sagebionetworks.repo.model.migration.MigrationTypeChecksum;
 import org.sagebionetworks.repo.model.migration.MigrationTypeCount;
 import org.sagebionetworks.repo.model.migration.MigrationTypeCounts;
 import org.sagebionetworks.repo.model.migration.MigrationTypeList;
+import org.sagebionetworks.repo.model.migration.MigrationTypeNames;
 import org.sagebionetworks.repo.model.migration.RowMetadataResult;
 import org.sagebionetworks.repo.web.NotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -128,11 +129,31 @@ public class MigrationServiceImpl implements MigrationService {
 	}
 	
 	@Override
+	public MigrationTypeNames getPrimaryTypeNames(Long userId) throws DatastoreException, NotFoundException {
+		if(userId == null) throw new IllegalArgumentException("userId cannot be null");
+		UserInfo user = userManager.getUserInfo(userId);
+		List<String> list = migrationManager.getPrimaryMigrationTypeNames(user);
+		MigrationTypeNames mtl = new MigrationTypeNames();
+		mtl.setList(list);
+		return mtl;
+	}
+	
+	@Override
 	public MigrationTypeList getMigrationTypes(Long userId) throws DatastoreException, NotFoundException {
 		if(userId == null) throw new IllegalArgumentException("userId cannot be null");
 		UserInfo user = userManager.getUserInfo(userId);
 		List<MigrationType> list = migrationManager.getMigrationTypes(user);
 		MigrationTypeList mtl = new MigrationTypeList();
+		mtl.setList(list);
+		return mtl;
+	}
+	
+	@Override
+	public MigrationTypeNames getMigrationTypeNames(Long userId) throws DatastoreException, NotFoundException {
+		if(userId == null) throw new IllegalArgumentException("userId cannot be null");
+		UserInfo user = userManager.getUserInfo(userId);
+		List<String> list = migrationManager.getMigrationTypeNames(user);
+		MigrationTypeNames mtl = new MigrationTypeNames();
 		mtl.setList(list);
 		return mtl;
 	}

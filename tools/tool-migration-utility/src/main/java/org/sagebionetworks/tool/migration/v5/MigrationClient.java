@@ -23,6 +23,7 @@ import org.sagebionetworks.repo.model.migration.AdminResponse;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountRequest;
 import org.sagebionetworks.repo.model.migration.MigrationType;
 import org.sagebionetworks.repo.model.migration.MigrationTypeCount;
+import org.sagebionetworks.repo.model.migration.MigrationTypeNames;
 import org.sagebionetworks.repo.model.status.StackStatus;
 import org.sagebionetworks.repo.model.status.StatusEnum;
 import org.sagebionetworks.schema.adapter.JSONObjectAdapterException;
@@ -144,6 +145,9 @@ public class MigrationClient {
 
 		SynapseAdminClient source = factory.createNewSourceClient();
 		SynapseAdminClient destination = factory.createNewDestinationClient();
+		
+//		MigrationTypeNames srcMigrationTypeNames = source.getMigrationTypeNames();
+//		MigrationTypeNames destMigrationTypeNames = destination.getMigrationTypeNames();
 		
 		// Get the counts for all type from both the source and destination
 		List<MigrationTypeCount> startSourceCounts = getTypeCounts(source);
