@@ -146,31 +146,29 @@ public class MigrationClient {
 		SynapseAdminClient source = factory.createNewSourceClient();
 		SynapseAdminClient destination = factory.createNewDestinationClient();
 		
-//		MigrationTypeNames srcMigrationTypeNames = source.getMigrationTypeNames();
-//		MigrationTypeNames destMigrationTypeNames = destination.getMigrationTypeNames();
+		MigrationTypeNames srcMigrationTypeNames = source.getMigrationTypeNames();
+		MigrationTypeNames destMigrationTypeNames = destination.getMigrationTypeNames();
+		
+		MigrationTypeNames typeNamesToCount = getCommonMigrationTypeNames(srcMigrationTypeNames, destMigrationTypeNames);
 		
 		// Get the counts for all type from both the source and destination
-		List<MigrationTypeCount> startSourceCounts = getTypeCounts(source);
-		// Should only contain the types for which we can get a count
-		List<MigrationTypeCount> startDestCounts = getTypeCounts(destination);
-		// 
-		Set<MigrationType> destTypesToKeep = ToolMigrationUtils.getTypesFromTypeCounts(startDestCounts);
-		startSourceCounts = ToolMigrationUtils.filterSourceByDestination(startSourceCounts, destTypesToKeep);
+		List<MigrationTypeCount> startSourceCounts = getTypeCounts(source, typeNamesToCount);
+		List<MigrationTypeCount> startDestCounts = getTypeCounts(destination, typeNamesToCount);
+ 
+//		Set<MigrationType> destTypesToKeep = ToolMigrationUtils.getTypesFromTypeCounts(startDestCounts);
+//		startSourceCounts = ToolMigrationUtils.filterSourceByDestination(startSourceCounts, destTypesToKeep);
 		
 		log.info("Starting diffs in counts:");
 		printDiffsInCounts(startSourceCounts, startDestCounts);
 		
 		// Get the primary types for src and dest
-		List<MigrationType> srcPrimaryTypes = source.getPrimaryTypes().getList();
-		List<MigrationType> destPrimaryTypes = destination.getPrimaryTypes().getList();
-		destPrimaryTypes = ToolMigrationUtils.filterTypes(destPrimaryTypes, destTypesToKeep);
+		MigrationTypeNames srcPrimaryTypeNames = source.getPrimaryTypeNames();
+		MigrationTypeNames destPrimaryTypeNames = destination.getPrimaryTypeNames();
 		
-		// Only migrate the src primary types that are at destination
+		MigrationTypeNames typeNamesToMigrate = getCommonMigrationTypeNames(srcPrimaryTypeNames, destPrimaryTypeNames);
 		List<MigrationType> primaryTypesToMigrate = new LinkedList<MigrationType>();
-		for (MigrationType pt: destPrimaryTypes) {
-			if (srcPrimaryTypes.contains(pt)) {
-				primaryTypesToMigrate.add(pt);
-			}
+		for (String tn: typeNamesToMigrate.getList()) {
+			primaryTypesToMigrate.add(MigrationType.valueOf(tn));
 		}
 		
 		// Get the metadata for the (primary) types to migrate
@@ -180,9 +178,10 @@ public class MigrationClient {
 		migrateAll(batchSize, timeoutMS, retryDenominator, typesToMigrateMetadata);
 		
 		// Print the final counts
-		List<MigrationTypeCount> endSourceCounts = getTypeCounts(source);
-		endSourceCounts = ToolMigrationUtils.filterSourceByDestination(endSourceCounts, destTypesToKeep);
-		List<MigrationTypeCount> endDestCounts = getTypeCounts(destination);
+		// Get the counts for all type from both the source and destination
+		List<MigrationTypeCount> endSourceCounts = getTypeCounts(source, typeNamesToCount);
+		List<MigrationTypeCount> endDestCounts = getTypeCounts(destination, typeNamesToCount);
+
 		log.info("Ending diffs in  counts:");
 		printDiffsInCounts(endSourceCounts, endDestCounts);
 		
@@ -433,12 +432,12 @@ public class MigrationClient {
 
 	}
 	
-	protected List<MigrationTypeCount> getTypeCounts(SynapseAdminClient conn) throws SynapseException, InterruptedException, JSONObjectAdapterException {
+	protected List<MigrationTypeCount> getTypeCounts(SynapseAdminClient conn, MigrationTypeNames typeNames) throws SynapseException, InterruptedException, JSONObjectAdapterException {
 		List<MigrationTypeCount> typeCounts = new LinkedList<MigrationTypeCount>();
-		List<MigrationType> types = conn.getMigrationTypes().getList();
-		for (MigrationType t: types) {
+		for (String t: typeNames.getList()) {
+			MigrationType mType = MigrationType.valueOf(t);
 			try {
-				MigrationTypeCount c = getTypeCount(conn, t);
+				MigrationTypeCount c = getTypeCount(conn, mType);
 				typeCounts.add(c);
 			} catch (org.sagebionetworks.client.exceptions.SynapseBadRequestException e) {
 				// Unsupported types not added to list 
@@ -455,6 +454,19 @@ public class MigrationClient {
 		AdminResponse resp = worker.call();
 		MigrationTypeCount res = (MigrationTypeCount)resp;
 		return res;
+	}
+	
+	protected MigrationTypeNames getCommonMigrationTypeNames(MigrationTypeNames srcTypeNames, MigrationTypeNames destTypeNames) {
+		MigrationTypeNames commonTypeNames = new MigrationTypeNames();
+		List<String> commonNames = new LinkedList<String>();
+		for (String typeName: destTypeNames.getList()) {
+			// Only keep the destination names that are in the source
+			if (srcTypeNames.getList().contains(typeName)) {
+				commonNames.add(typeName);
+			}
+		}
+		commonTypeNames.setList(commonNames);
+		return commonTypeNames;
 	}
 	
 }
