@@ -467,7 +467,8 @@ public class MigrationManagerImpl implements MigrationManager {
 	}
 
 	@Override
-	public MigrationTypeCounts processAsyncMigrationTypeCountsForTypesRequest(List<MigrationType> types) {
+	public MigrationTypeCounts processAsyncMigrationTypeCountsForTypesRequest(final UserInfo user, final List<MigrationType> types) {
+		validateUser(user);
 		List<MigrationTypeCount> res = new LinkedList<MigrationTypeCount>();
 		for (MigrationType t: types) {
 			MigrationTypeCount mtc = migratableTableDao.getMigrationTypeCount(t);

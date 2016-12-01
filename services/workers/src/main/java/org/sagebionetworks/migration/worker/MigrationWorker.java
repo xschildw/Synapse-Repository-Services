@@ -85,6 +85,8 @@ public class MigrationWorker implements MessageDrivenRunner {
 	AdminResponse processRequest(final UserInfo user, final AdminRequest req, final String jobId) throws DatastoreException, NotFoundException, IOException {
 		if (req instanceof AsyncMigrationTypeCountRequest) {
 			return migrationManager.processAsyncMigrationTypeCountRequest(user, (AsyncMigrationTypeCountRequest)req);
+		} else if (req instanceof AsyncMigrationTypeCountForTypesRequest) {
+			return migrationManager.processAsyncMigrationTypeChecksumRequest(user, (AsyncMigrationTypeChecksumRequest)req);
 		} else if (req instanceof AsyncMigrationTypeChecksumRequest) {
 			return migrationManager.processAsyncMigrationTypeChecksumRequest(user, (AsyncMigrationTypeChecksumRequest)req);
 		} else if (req instanceof AsyncMigrationRangeChecksumRequest) {
