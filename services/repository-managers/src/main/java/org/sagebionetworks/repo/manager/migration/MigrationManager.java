@@ -14,6 +14,7 @@ import org.sagebionetworks.repo.model.migration.MigrationRangeChecksum;
 import org.sagebionetworks.repo.model.migration.MigrationType;
 import org.sagebionetworks.repo.model.migration.MigrationTypeChecksum;
 import org.sagebionetworks.repo.model.migration.MigrationTypeCount;
+import org.sagebionetworks.repo.model.migration.MigrationTypeCounts;
 import org.sagebionetworks.repo.model.migration.RowMetadataResult;
 
 /**
@@ -146,6 +147,9 @@ public interface MigrationManager {
 	public RowMetadataResult getRowMetadataByRangeForType(UserInfo user, MigrationType type, long minId, long maxId, long limit, long offset);
 	
 	public MigrationTypeCount getMigrationTypeCount(UserInfo user, MigrationType type);
+	
+	public MigrationTypeCounts processAsyncMigrationTypeCountsForTypesRequest(
+			final UserInfo user, final List<MigrationType> types);
 	
 	public MigrationTypeCount processAsyncMigrationTypeCountRequest(
 			final UserInfo user, final AsyncMigrationTypeCountRequest mReq);
