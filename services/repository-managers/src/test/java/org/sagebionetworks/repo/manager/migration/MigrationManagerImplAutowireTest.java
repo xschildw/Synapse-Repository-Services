@@ -48,10 +48,12 @@ import org.sagebionetworks.repo.model.migration.AsyncMigrationRangeChecksumReque
 import org.sagebionetworks.repo.model.migration.AsyncMigrationRowMetadataRequest;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeChecksumRequest;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountRequest;
+import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountsRequest;
 import org.sagebionetworks.repo.model.migration.MigrationRangeChecksum;
 import org.sagebionetworks.repo.model.migration.MigrationType;
 import org.sagebionetworks.repo.model.migration.MigrationTypeChecksum;
 import org.sagebionetworks.repo.model.migration.MigrationTypeCount;
+import org.sagebionetworks.repo.model.migration.MigrationTypeCounts;
 import org.sagebionetworks.repo.model.migration.RowMetadata;
 import org.sagebionetworks.repo.model.migration.RowMetadataResult;
 import org.sagebionetworks.repo.model.status.StackStatus;
@@ -282,6 +284,29 @@ public class MigrationManagerImplAutowireTest {
 		
 		assertNotNull(amtcRes);
 		assertEquals(expectedCount, amtcRes);
+	}
+	
+	@Test
+	public void testProcessAsyncMigrationTypeCounts() {
+		MigrationTypeCounts expectedCounts = new MigrationTypeCounts();
+		MigrationTypeCount expectedCount = new MigrationTypeCount();
+		expectedCount.setType(MigrationType.FILE_HANDLE);
+		expectedCount.setMinid(migrationManager.getMinId(adminUser, MigrationType.FILE_HANDLE));
+		expectedCount.setMaxid(migrationManager.getMaxId(adminUser, MigrationType.FILE_HANDLE));
+		expectedCount.setCount(migrationManager.getCount(adminUser, MigrationType.FILE_HANDLE));
+		List<MigrationTypeCount> l = new LinkedList<MigrationTypeCount>();
+		l.add(expectedCount);
+		expectedCounts.setList(l);
+		
+		AsyncMigrationTypeCountsRequest asyncMigrationTypeCountsRequest = new AsyncMigrationTypeCountsRequest();
+		List<String> typeNames = new LinkedList<String>();
+		typeNames.add(MigrationType.FILE_HANDLE.name());
+		asyncMigrationTypeCountsRequest.setTypeNames(typeNames);
+		
+		MigrationTypeCounts amtcRes = migrationManager.processAsyncMigrationTypeCountsRequest(adminUser, asyncMigrationTypeCountsRequest);
+		
+		assertNotNull(amtcRes);
+		assertEquals(expectedCounts, amtcRes);
 	}
 	
 	@Test

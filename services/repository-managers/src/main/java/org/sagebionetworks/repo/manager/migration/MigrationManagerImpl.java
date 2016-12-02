@@ -20,6 +20,7 @@ import org.sagebionetworks.repo.model.migration.AsyncMigrationRequest;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationRowMetadataRequest;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeChecksumRequest;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountRequest;
+import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountsRequest;
 import org.sagebionetworks.repo.model.migration.ListBucketProvider;
 import org.sagebionetworks.repo.model.migration.MigrationRangeChecksum;
 import org.sagebionetworks.repo.model.migration.MigrationType;
@@ -467,10 +468,12 @@ public class MigrationManagerImpl implements MigrationManager {
 	}
 
 	@Override
-	public MigrationTypeCounts processAsyncMigrationTypeCountsForTypesRequest(final UserInfo user, final List<MigrationType> types) {
+	public MigrationTypeCounts processAsyncMigrationTypeCountsRequest(
+			final UserInfo user, final AsyncMigrationTypeCountsRequest mReq) {
 		validateUser(user);
 		List<MigrationTypeCount> res = new LinkedList<MigrationTypeCount>();
-		for (MigrationType t: types) {
+		for (String s: mReq.getTypeNames()) {
+			MigrationType t = MigrationType.valueOf(s);
 			MigrationTypeCount mtc = migratableTableDao.getMigrationTypeCount(t);
 			res.add(mtc);
 		}

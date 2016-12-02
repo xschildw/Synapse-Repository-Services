@@ -1,0 +1,17 @@
+{
+	"description": "Request count for migration types",
+	"implements": [
+		{
+			"$ref":"org.sagebionetworks.repo.model.migration.AdminRequest"
+		}
+	],
+	"properties": {
+		"typeNames": {
+			"type": "array",
+			"uniqueItems": false,
+			"items": {
+				"type": "string"
+			}
+		}
+	}
+}

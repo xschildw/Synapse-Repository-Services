@@ -23,6 +23,7 @@ import org.sagebionetworks.repo.model.migration.AsyncMigrationResponse;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationRowMetadataRequest;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeChecksumRequest;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountRequest;
+import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountsRequest;
 import org.sagebionetworks.repo.web.NotFoundException;
 import org.sagebionetworks.workers.util.aws.message.MessageDrivenRunner;
 import org.sagebionetworks.workers.util.aws.message.RecoverableMessageException;
@@ -85,8 +86,8 @@ public class MigrationWorker implements MessageDrivenRunner {
 	AdminResponse processRequest(final UserInfo user, final AdminRequest req, final String jobId) throws DatastoreException, NotFoundException, IOException {
 		if (req instanceof AsyncMigrationTypeCountRequest) {
 			return migrationManager.processAsyncMigrationTypeCountRequest(user, (AsyncMigrationTypeCountRequest)req);
-		} else if (req instanceof AsyncMigrationTypeCountForTypesRequest) {
-			return migrationManager.processAsyncMigrationTypeChecksumRequest(user, (AsyncMigrationTypeChecksumRequest)req);
+		} else if (req instanceof AsyncMigrationTypeCountsRequest) {
+			return migrationManager.processAsyncMigrationTypeCountsRequest(user, (AsyncMigrationTypeCountsRequest)req);
 		} else if (req instanceof AsyncMigrationTypeChecksumRequest) {
 			return migrationManager.processAsyncMigrationTypeChecksumRequest(user, (AsyncMigrationTypeChecksumRequest)req);
 		} else if (req instanceof AsyncMigrationRangeChecksumRequest) {
