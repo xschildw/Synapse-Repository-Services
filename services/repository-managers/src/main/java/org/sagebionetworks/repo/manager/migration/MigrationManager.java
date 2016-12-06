@@ -10,10 +10,12 @@ import org.sagebionetworks.repo.model.migration.AsyncMigrationRequest;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationRowMetadataRequest;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeChecksumRequest;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountRequest;
+import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountsRequest;
 import org.sagebionetworks.repo.model.migration.MigrationRangeChecksum;
 import org.sagebionetworks.repo.model.migration.MigrationType;
 import org.sagebionetworks.repo.model.migration.MigrationTypeChecksum;
 import org.sagebionetworks.repo.model.migration.MigrationTypeCount;
+import org.sagebionetworks.repo.model.migration.MigrationTypeCounts;
 import org.sagebionetworks.repo.model.migration.RowMetadataResult;
 
 /**
@@ -89,12 +91,28 @@ public interface MigrationManager {
 	public List<MigrationType> getPrimaryMigrationTypes(UserInfo user);
 	
 	/**
+	 * The list of primary migration type names
+	 * @param user
+	 * @return
+	 */
+	public List<String> getPrimaryMigrationTypeNames(UserInfo user);
+	
+	
+	/**
 	 * The list of all migration types
 	 * 
 	 * @param user
 	 * @return
 	 */
 	public List<MigrationType> getMigrationTypes(UserInfo user);
+	
+	/**
+	 * The list of all migration type names
+	 * @param user
+	 * @return
+	 */
+	public List<String> getMigrationTypeNames(UserInfo user);
+	
 	
 	/**
 	 * If this object is the 'owner' of other object, then it is a primary type. All secondary types should be returned in their
@@ -130,6 +148,9 @@ public interface MigrationManager {
 	public RowMetadataResult getRowMetadataByRangeForType(UserInfo user, MigrationType type, long minId, long maxId, long limit, long offset);
 	
 	public MigrationTypeCount getMigrationTypeCount(UserInfo user, MigrationType type);
+	
+	public MigrationTypeCounts processAsyncMigrationTypeCountsRequest(
+			final UserInfo user, final AsyncMigrationTypeCountsRequest mReq);
 	
 	public MigrationTypeCount processAsyncMigrationTypeCountRequest(
 			final UserInfo user, final AsyncMigrationTypeCountRequest mReq);

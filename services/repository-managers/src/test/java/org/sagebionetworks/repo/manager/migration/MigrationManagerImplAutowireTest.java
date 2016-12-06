@@ -48,10 +48,12 @@ import org.sagebionetworks.repo.model.migration.AsyncMigrationRangeChecksumReque
 import org.sagebionetworks.repo.model.migration.AsyncMigrationRowMetadataRequest;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeChecksumRequest;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountRequest;
+import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountsRequest;
 import org.sagebionetworks.repo.model.migration.MigrationRangeChecksum;
 import org.sagebionetworks.repo.model.migration.MigrationType;
 import org.sagebionetworks.repo.model.migration.MigrationTypeChecksum;
 import org.sagebionetworks.repo.model.migration.MigrationTypeCount;
+import org.sagebionetworks.repo.model.migration.MigrationTypeCounts;
 import org.sagebionetworks.repo.model.migration.RowMetadata;
 import org.sagebionetworks.repo.model.migration.RowMetadataResult;
 import org.sagebionetworks.repo.model.status.StackStatus;
@@ -285,6 +287,29 @@ public class MigrationManagerImplAutowireTest {
 	}
 	
 	@Test
+	public void testProcessAsyncMigrationTypeCounts() {
+		MigrationTypeCounts expectedCounts = new MigrationTypeCounts();
+		MigrationTypeCount expectedCount = new MigrationTypeCount();
+		expectedCount.setType(MigrationType.FILE_HANDLE);
+		expectedCount.setMinid(migrationManager.getMinId(adminUser, MigrationType.FILE_HANDLE));
+		expectedCount.setMaxid(migrationManager.getMaxId(adminUser, MigrationType.FILE_HANDLE));
+		expectedCount.setCount(migrationManager.getCount(adminUser, MigrationType.FILE_HANDLE));
+		List<MigrationTypeCount> l = new LinkedList<MigrationTypeCount>();
+		l.add(expectedCount);
+		expectedCounts.setList(l);
+		
+		AsyncMigrationTypeCountsRequest asyncMigrationTypeCountsRequest = new AsyncMigrationTypeCountsRequest();
+		List<MigrationType> types = new LinkedList<MigrationType>();
+		types.add(MigrationType.FILE_HANDLE);
+		asyncMigrationTypeCountsRequest.setTypes(types);
+		
+		MigrationTypeCounts amtcRes = migrationManager.processAsyncMigrationTypeCountsRequest(adminUser, asyncMigrationTypeCountsRequest);
+		
+		assertNotNull(amtcRes);
+		assertEquals(expectedCounts, amtcRes);
+	}
+	
+	@Test
 	public void testGetChecksumForIdRange() {
 		long max = migrationManager.getMaxId(adminUser, MigrationType.FILE_HANDLE);
 		String salt = "salt";
@@ -479,6 +504,28 @@ public class MigrationManagerImplAutowireTest {
 		List<MigrationType> expected = new LinkedList<MigrationType>(Arrays.asList(MigrationType.values()));
 		List<MigrationType> actual = migrationManager.getMigrationTypes(adminUser);
 		assertEquals(expected, actual);
+	}
+	
+	@Test
+	public void testGetMigrationTypeNames() {
+		List<MigrationType> expectedTypes = new LinkedList<MigrationType>(Arrays.asList(MigrationType.values()));
+		List<String> expectedTypeNames = new LinkedList<String>();
+		for (MigrationType t: expectedTypes) {
+			expectedTypeNames.add(t.name());
+		}
+		List<String> actual = migrationManager.getMigrationTypeNames(adminUser);
+		assertEquals(expectedTypeNames, actual);
+	}
+	
+	@Test
+	public void testGetPrimaryTypeNames() {
+		List<MigrationType> expectedTypes = migrationManager.getPrimaryMigrationTypes(adminUser);
+		List<String> expectedTypeNames = new LinkedList<String>();
+		for (MigrationType t: expectedTypes) {
+			expectedTypeNames.add(t.name());
+		}
+		List<String> actual = migrationManager.getPrimaryMigrationTypeNames(adminUser);
+		assertEquals(expectedTypeNames, actual);
 	}
 	
 	@Test

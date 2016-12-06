@@ -28,6 +28,7 @@ import org.sagebionetworks.repo.model.migration.MigrationTypeChecksum;
 import org.sagebionetworks.repo.model.migration.MigrationTypeCount;
 import org.sagebionetworks.repo.model.migration.MigrationTypeCounts;
 import org.sagebionetworks.repo.model.migration.MigrationTypeList;
+import org.sagebionetworks.repo.model.migration.MigrationTypeNames;
 import org.sagebionetworks.repo.model.migration.RowMetadataResult;
 import org.sagebionetworks.repo.model.status.StackStatus;
 import org.sagebionetworks.schema.adapter.JSONObjectAdapter;
@@ -62,7 +63,9 @@ public class SynapseAdminClientImpl extends SynapseClientImpl implements Synapse
 	private static final String MIGRATION_DELETE = MIGRATION + "/delete";
 	private static final String MIGRATION_STATUS = MIGRATION + "/status";
 	private static final String MIGRATION_PRIMARY = MIGRATION + "/primarytypes";
+	private static final String MIGRATION_PRIMARY_NAMES = MIGRATION_PRIMARY + "/names";
 	private static final String MIGRATION_TYPES = MIGRATION + "/types";
+	private static final String MIGRATION_TYPE_NAMES = MIGRATION_TYPES + "/names";
 	private static final String MIGRATION_RANGE_CHECKSUM = MIGRATION + "/rangechecksum";
 	private static final String MIGRATION_TYPE_CHECKSUM = MIGRATION + "/typechecksum";
 
@@ -149,11 +152,29 @@ public class SynapseAdminClientImpl extends SynapseClientImpl implements Synapse
 		return mtl;
 	}
 	
+	public MigrationTypeNames getPrimaryTypeNames() throws SynapseException, JSONObjectAdapterException {
+		String uri = MIGRATION_PRIMARY_NAMES;
+		JSONObject jsonObj = getSharedClientConnection().getJson(repoEndpoint, uri, getUserAgent());
+		JSONObjectAdapter adapter = new JSONObjectAdapterImpl(jsonObj);
+		MigrationTypeNames mtl = new MigrationTypeNames();
+		mtl.initializeFromJSONObject(adapter);
+		return mtl;
+	}
+	
 	public MigrationTypeList getMigrationTypes() throws SynapseException, JSONObjectAdapterException {
 		String uri = MIGRATION_TYPES;
 		JSONObject jsonObj = getSharedClientConnection().getJson(repoEndpoint, uri, getUserAgent());
 		JSONObjectAdapter adapter = new JSONObjectAdapterImpl(jsonObj);
 		MigrationTypeList mtl = new MigrationTypeList();
+		mtl.initializeFromJSONObject(adapter);
+		return mtl;
+	}
+	
+	public MigrationTypeNames getMigrationTypeNames() throws SynapseException, JSONObjectAdapterException {
+		String uri = MIGRATION_TYPE_NAMES;
+		JSONObject jsonObj = getSharedClientConnection().getJson(repoEndpoint, uri, getUserAgent());
+		JSONObjectAdapter adapter = new JSONObjectAdapterImpl(jsonObj);
+		MigrationTypeNames mtl = new MigrationTypeNames();
 		mtl.initializeFromJSONObject(adapter);
 		return mtl;
 	}

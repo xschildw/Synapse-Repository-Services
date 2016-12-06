@@ -25,6 +25,7 @@ import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountRequest;
 import org.sagebionetworks.repo.model.migration.MigrationType;
 import org.sagebionetworks.repo.model.migration.MigrationTypeChecksum;
 import org.sagebionetworks.repo.model.migration.MigrationTypeCount;
+import org.sagebionetworks.repo.model.migration.MigrationTypeNames;
 import org.sagebionetworks.repo.model.status.StackStatus;
 import org.sagebionetworks.repo.model.status.StatusEnum;
 import org.sagebionetworks.schema.adapter.JSONObjectAdapterException;
@@ -147,28 +148,29 @@ public class MigrationClient {
 		SynapseAdminClient source = factory.createNewSourceClient();
 		SynapseAdminClient destination = factory.createNewDestinationClient();
 		
+		MigrationTypeNames srcMigrationTypeNames = source.getMigrationTypeNames();
+		MigrationTypeNames destMigrationTypeNames = destination.getMigrationTypeNames();
+		
+		List<MigrationType> typesToCount = getCommonMigrationTypeNames(srcMigrationTypeNames, destMigrationTypeNames);
+		
 		// Get the counts for all type from both the source and destination
-		List<MigrationTypeCount> startSourceCounts = getTypeCounts(source);
-		// Should only contain the types for which we can get a count
-		List<MigrationTypeCount> startDestCounts = getTypeCounts(destination);
-		// 
-		Set<MigrationType> destTypesToKeep = ToolMigrationUtils.getTypesFromTypeCounts(startDestCounts);
-		startSourceCounts = ToolMigrationUtils.filterSourceByDestination(startSourceCounts, destTypesToKeep);
+		List<MigrationTypeCount> startSourceCounts = getTypeCounts(source, typesToCount);
+		List<MigrationTypeCount> startDestCounts = getTypeCounts(destination, typesToCount);
+ 
+//		Set<MigrationType> destTypesToKeep = ToolMigrationUtils.getTypesFromTypeCounts(startDestCounts);
+//		startSourceCounts = ToolMigrationUtils.filterSourceByDestination(startSourceCounts, destTypesToKeep);
 		
 		log.info("Starting diffs in counts:");
 		printDiffsInCounts(startSourceCounts, startDestCounts);
 		
 		// Get the primary types for src and dest
-		List<MigrationType> srcPrimaryTypes = source.getPrimaryTypes().getList();
-		List<MigrationType> destPrimaryTypes = destination.getPrimaryTypes().getList();
-		destPrimaryTypes = ToolMigrationUtils.filterTypes(destPrimaryTypes, destTypesToKeep);
+		MigrationTypeNames srcPrimaryTypeNames = source.getPrimaryTypeNames();
+		MigrationTypeNames destPrimaryTypeNames = destination.getPrimaryTypeNames();
 		
-		// Only migrate the src primary types that are at destination
+		List<MigrationType> typesToMigrate = getCommonMigrationTypeNames(srcPrimaryTypeNames, destPrimaryTypeNames);
 		List<MigrationType> primaryTypesToMigrate = new LinkedList<MigrationType>();
-		for (MigrationType pt: destPrimaryTypes) {
-			if (srcPrimaryTypes.contains(pt)) {
-				primaryTypesToMigrate.add(pt);
-			}
+		for (MigrationType t: typesToMigrate) {
+			primaryTypesToMigrate.add(t);
 		}
 		
 		// Get the metadata for the (primary) types to migrate
@@ -178,9 +180,10 @@ public class MigrationClient {
 		migrateAll(batchSize, timeoutMS, retryDenominator, typesToMigrateMetadata);
 		
 		// Print the final counts
-		List<MigrationTypeCount> endSourceCounts = getTypeCounts(source);
-		endSourceCounts = ToolMigrationUtils.filterSourceByDestination(endSourceCounts, destTypesToKeep);
-		List<MigrationTypeCount> endDestCounts = getTypeCounts(destination);
+		// Get the counts for all type from both the source and destination
+		List<MigrationTypeCount> endSourceCounts = getTypeCounts(source, typesToCount);
+		List<MigrationTypeCount> endDestCounts = getTypeCounts(destination, typesToCount);
+
 		log.info("Ending diffs in  counts:");
 		printDiffsInCounts(endSourceCounts, endDestCounts);
 		
@@ -443,10 +446,9 @@ public class MigrationClient {
 
 	}
 	
-	protected List<MigrationTypeCount> getTypeCounts(SynapseAdminClient conn) throws SynapseException, InterruptedException, JSONObjectAdapterException {
+	protected List<MigrationTypeCount> getTypeCounts(SynapseAdminClient conn, List<MigrationType> types) throws SynapseException, InterruptedException, JSONObjectAdapterException {
 		List<MigrationTypeCount> typeCounts = new LinkedList<MigrationTypeCount>();
-		List<MigrationType> types = conn.getMigrationTypes().getList();
-		for (MigrationType t: types) {
+		for (MigrationType t: types) {;
 			try {
 				MigrationTypeCount c = getTypeCount(conn, t);
 				typeCounts.add(c);
@@ -470,6 +472,17 @@ public class MigrationClient {
 			res = (MigrationTypeCount)resp;
 		}
 		return res;
+	}
+	
+	protected List<MigrationType> getCommonMigrationTypeNames(MigrationTypeNames srcTypeNames, MigrationTypeNames destTypeNames) {
+		List<MigrationType> commonTypes = new LinkedList<MigrationType>();
+		for (String typeName: destTypeNames.getList()) {
+			// Only keep the destination names that are in the source
+			if (srcTypeNames.getList().contains(typeName)) {
+				commonTypes.add(MigrationType.valueOf(typeName));
+			}
+		}
+		return commonTypes;
 	}
 	
 }

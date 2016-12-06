@@ -16,6 +16,7 @@ import org.sagebionetworks.repo.model.migration.MigrationTypeChecksum;
 import org.sagebionetworks.repo.model.migration.MigrationTypeCount;
 import org.sagebionetworks.repo.model.migration.MigrationTypeCounts;
 import org.sagebionetworks.repo.model.migration.MigrationTypeList;
+import org.sagebionetworks.repo.model.migration.MigrationTypeNames;
 import org.sagebionetworks.repo.model.migration.RowMetadataResult;
 import org.sagebionetworks.repo.web.NotFoundException;
 import org.sagebionetworks.repo.web.UrlHelpers;
@@ -273,6 +274,22 @@ public class MigrationController extends BaseController {
 	}
 	
 	/**
+	 * The list of primary migration type names
+	 * @param userId
+	 * @return
+	 * @throws DatastoreException
+	 * @throws NotFoundException
+	 */
+	@ResponseStatus(HttpStatus.OK)
+	@RequestMapping(value = { UrlHelpers.MIGRATION_PRIMARY_NAMES }, method = RequestMethod.GET)
+	public @ResponseBody
+	MigrationTypeNames getPrimaryTypeNames(
+			@RequestParam(value = AuthorizationConstants.USER_ID_PARAM) Long userId) throws DatastoreException, NotFoundException {
+		return serviceProvider.getMigrationService().getPrimaryTypeNames(userId);
+	}
+	
+	
+	/**
 	 * The list of  migration types.
 	 * @param userId
 	 * @return
@@ -283,6 +300,21 @@ public class MigrationController extends BaseController {
 	MigrationTypeList getMigrationTypes(
 			@RequestParam(value = AuthorizationConstants.USER_ID_PARAM) Long userId) throws DatastoreException, NotFoundException {
 		return serviceProvider.getMigrationService().getMigrationTypes(userId);
+	}
+	
+	/**
+	 * The list of primary migration type names
+	 * @param userId
+	 * @return
+	 * @throws DatastoreException
+	 * @throws NotFoundException
+	 */
+	@ResponseStatus(HttpStatus.OK)
+	@RequestMapping(value = { UrlHelpers.MIGRATION_TYPE_NAMES }, method = RequestMethod.GET)
+	public @ResponseBody
+	MigrationTypeNames getMigrationTypeNames(
+			@RequestParam(value = AuthorizationConstants.USER_ID_PARAM) Long userId) throws DatastoreException, NotFoundException {
+		return serviceProvider.getMigrationService().getMigrationTypeNames(userId);
 	}
 	
 	/**

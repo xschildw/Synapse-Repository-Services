@@ -20,11 +20,13 @@ import org.sagebionetworks.repo.model.migration.AsyncMigrationRequest;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationRowMetadataRequest;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeChecksumRequest;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountRequest;
+import org.sagebionetworks.repo.model.migration.AsyncMigrationTypeCountsRequest;
 import org.sagebionetworks.repo.model.migration.ListBucketProvider;
 import org.sagebionetworks.repo.model.migration.MigrationRangeChecksum;
 import org.sagebionetworks.repo.model.migration.MigrationType;
 import org.sagebionetworks.repo.model.migration.MigrationTypeChecksum;
 import org.sagebionetworks.repo.model.migration.MigrationTypeCount;
+import org.sagebionetworks.repo.model.migration.MigrationTypeCounts;
 import org.sagebionetworks.repo.model.migration.MigrationUtils;
 import org.sagebionetworks.repo.model.migration.RowMetadata;
 import org.sagebionetworks.repo.model.migration.RowMetadataResult;
@@ -323,10 +325,32 @@ public class MigrationManagerImpl implements MigrationManager {
 	}
 	
 	@Override
+	public List<String> getPrimaryMigrationTypeNames(UserInfo user) {
+		validateUser(user);
+		List<MigrationType> types = migratableTableDao.getPrimaryMigrationTypes();
+		List<String> typeNames = new LinkedList<String>();
+		for (MigrationType t: types) {
+			typeNames.add(t.name());
+		}
+		return typeNames;
+	}
+	
+	@Override
 	public List<MigrationType> getMigrationTypes(UserInfo user) {
 		validateUser(user);
 		List<MigrationType> l = new LinkedList<MigrationType>(Arrays.asList(MigrationType.values()));
 		return l;
+	}
+	
+	@Override
+	public List<String> getMigrationTypeNames(UserInfo user) {
+		validateUser(user);
+		List<MigrationType> types = new LinkedList<MigrationType>(Arrays.asList(MigrationType.values()));
+		List<String> typeNames = new LinkedList<String>();
+		for (MigrationType t: types) {
+			typeNames.add(t.name());
+		}
+		return typeNames;
 	}
 
 	@Override
@@ -441,6 +465,20 @@ public class MigrationManagerImpl implements MigrationManager {
 		String t = mReq.getType();
 		MigrationType mt = MigrationType.valueOf(t);
 		return getMigrationTypeCount(user, mt);
+	}
+
+	@Override
+	public MigrationTypeCounts processAsyncMigrationTypeCountsRequest(
+			final UserInfo user, final AsyncMigrationTypeCountsRequest mReq) {
+		validateUser(user);
+		List<MigrationTypeCount> res = new LinkedList<MigrationTypeCount>();
+		for (MigrationType t: mReq.getTypes()) {
+			MigrationTypeCount mtc = migratableTableDao.getMigrationTypeCount(t);
+			res.add(mtc);
+		}
+		MigrationTypeCounts mtRes = new MigrationTypeCounts();
+		mtRes.setList(res);
+		return mtRes;
 	}
 
 	@Override

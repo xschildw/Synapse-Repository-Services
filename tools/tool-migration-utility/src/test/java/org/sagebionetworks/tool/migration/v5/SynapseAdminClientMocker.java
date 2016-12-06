@@ -48,6 +48,7 @@ import org.sagebionetworks.repo.model.migration.MigrationType;
 import org.sagebionetworks.repo.model.migration.MigrationTypeCount;
 import org.sagebionetworks.repo.model.migration.MigrationTypeCounts;
 import org.sagebionetworks.repo.model.migration.MigrationTypeList;
+import org.sagebionetworks.repo.model.migration.MigrationTypeNames;
 import org.sagebionetworks.repo.model.migration.RowMetadata;
 import org.sagebionetworks.repo.model.migration.RowMetadataResult;
 import org.sagebionetworks.repo.model.status.StackStatus;
@@ -214,6 +215,24 @@ public class SynapseAdminClientMocker {
 			
 		});
 		
+		when(client.getPrimaryTypeNames()).then(new Answer<MigrationTypeNames>() {
+			
+			@Override
+			public MigrationTypeNames answer(InvocationOnMock invocation) throws Throwable {
+				List<String> list = new LinkedList<String>();
+				Iterator<Entry<MigrationType, List<RowMetadata>>> it = state.metadata
+						.entrySet().iterator();
+				while (it.hasNext()) {
+					Entry<MigrationType, List<RowMetadata>> entry = it.next();
+					MigrationType type = entry.getKey();
+					list.add(type.name());
+				}
+				MigrationTypeNames result = new MigrationTypeNames();
+				result.setList(list);
+				return result;
+			}
+		});
+		
 		when(client.getMigrationTypes()).thenAnswer(new Answer<MigrationTypeList>() {
 			@Override
 			public MigrationTypeList answer(InvocationOnMock invocation) throws Throwable {
@@ -223,6 +242,22 @@ public class SynapseAdminClientMocker {
 				for (MigrationType t: MigrationType.values()) {
 					if (state.metadata.keySet().contains(t)) {
 						l.add(t);
+					}
+				}
+				res.setList(l);
+				return res;
+			}
+		});
+		
+		when(client.getMigrationTypeNames()).thenAnswer(new Answer<MigrationTypeNames>() {
+			@Override
+			public MigrationTypeNames answer(InvocationOnMock invocation) throws Throwable {
+				MigrationTypeNames res = new MigrationTypeNames();
+				// Retun types in correct order
+				List<String> l = new LinkedList<String>();
+				for (MigrationType t: MigrationType.values()) {
+					if (state.metadata.keySet().contains(t)) {
+						l.add(t.name());
 					}
 				}
 				res.setList(l);
