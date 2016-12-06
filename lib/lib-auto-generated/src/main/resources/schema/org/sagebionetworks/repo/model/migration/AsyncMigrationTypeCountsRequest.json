@@ -6,11 +6,11 @@
 		}
 	],
 	"properties": {
-		"typeNames": {
+		"types": {
 			"type": "array",
 			"uniqueItems": false,
 			"items": {
-				"type": "string"
+				"$ref": "org.sagebionetworks.repo.model.migration.MigrationType"
 			}
 		}
 	}

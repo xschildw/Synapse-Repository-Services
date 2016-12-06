@@ -299,9 +299,9 @@ public class MigrationManagerImplAutowireTest {
 		expectedCounts.setList(l);
 		
 		AsyncMigrationTypeCountsRequest asyncMigrationTypeCountsRequest = new AsyncMigrationTypeCountsRequest();
-		List<String> typeNames = new LinkedList<String>();
-		typeNames.add(MigrationType.FILE_HANDLE.name());
-		asyncMigrationTypeCountsRequest.setTypeNames(typeNames);
+		List<MigrationType> types = new LinkedList<MigrationType>();
+		types.add(MigrationType.FILE_HANDLE);
+		asyncMigrationTypeCountsRequest.setTypes(types);
 		
 		MigrationTypeCounts amtcRes = migrationManager.processAsyncMigrationTypeCountsRequest(adminUser, asyncMigrationTypeCountsRequest);
 		

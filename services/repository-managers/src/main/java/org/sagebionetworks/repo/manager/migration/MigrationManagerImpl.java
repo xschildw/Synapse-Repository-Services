@@ -472,8 +472,7 @@ public class MigrationManagerImpl implements MigrationManager {
 			final UserInfo user, final AsyncMigrationTypeCountsRequest mReq) {
 		validateUser(user);
 		List<MigrationTypeCount> res = new LinkedList<MigrationTypeCount>();
-		for (String s: mReq.getTypeNames()) {
-			MigrationType t = MigrationType.valueOf(s);
+		for (MigrationType t: mReq.getTypes()) {
 			MigrationTypeCount mtc = migratableTableDao.getMigrationTypeCount(t);
 			res.add(mtc);
 		}
