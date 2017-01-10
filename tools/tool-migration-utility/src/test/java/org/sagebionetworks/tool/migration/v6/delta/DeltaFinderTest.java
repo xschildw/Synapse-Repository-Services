@@ -23,9 +23,9 @@ import org.sagebionetworks.repo.model.migration.AsyncMigrationRequest;
 import org.sagebionetworks.repo.model.migration.AsyncMigrationResponse;
 import org.sagebionetworks.repo.model.migration.MigrationRangeChecksum;
 import org.sagebionetworks.repo.model.migration.MigrationType;
-import org.sagebionetworks.tool.migration.v4.delta.DeltaRanges;
-import org.sagebionetworks.tool.migration.v4.utils.TypeToMigrateMetadata;
-import org.sagebionetworks.tool.migration.v5.delta.DeltaFinder;
+import org.sagebionetworks.tool.migration.v6.delta.DeltaRanges;
+import org.sagebionetworks.tool.migration.v6.utils.TypeToMigrateMetadata;
+import org.sagebionetworks.tool.migration.v6.delta.DeltaFinder;
 
 public class DeltaFinderTest {
 	
