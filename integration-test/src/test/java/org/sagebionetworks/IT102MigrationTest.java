@@ -1,25 +1,13 @@
 package org.sagebionetworks;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.sagebionetworks.client.SynapseAdminClient;
 import org.sagebionetworks.client.SynapseAdminClientImpl;
 import org.sagebionetworks.client.exceptions.SynapseException;
 import org.sagebionetworks.repo.model.Entity;
-import org.sagebionetworks.repo.model.Folder;
 import org.sagebionetworks.repo.model.IdList;
 import org.sagebionetworks.repo.model.Project;
 import org.sagebionetworks.repo.model.asynch.AsynchronousJobStatus;
@@ -27,18 +15,16 @@ import org.sagebionetworks.repo.model.daemon.BackupRestoreStatus;
 import org.sagebionetworks.repo.model.daemon.DaemonStatus;
 import org.sagebionetworks.repo.model.daemon.RestoreSubmission;
 import org.sagebionetworks.repo.model.message.FireMessagesResult;
-import org.sagebionetworks.repo.model.migration.AsyncMigrationRangeChecksumRequest;
-import org.sagebionetworks.repo.model.migration.AsyncMigrationRequest;
-import org.sagebionetworks.repo.model.migration.MigrationRangeChecksum;
-import org.sagebionetworks.repo.model.migration.MigrationType;
-import org.sagebionetworks.repo.model.migration.MigrationTypeCount;
-import org.sagebionetworks.repo.model.migration.MigrationTypeCounts;
-import org.sagebionetworks.repo.model.migration.MigrationTypeList;
+import org.sagebionetworks.repo.model.migration.*;
 import org.sagebionetworks.schema.adapter.JSONObjectAdapterException;
 import org.sagebionetworks.tool.migration.v5.AsyncMigrationWorker;
 import org.sagebionetworks.tool.progress.BasicProgress;
 import org.sagebionetworks.util.Clock;
 import org.sagebionetworks.util.DefaultClock;
+
+import java.util.*;
+
+import static org.junit.Assert.*;
 
 
 public class IT102MigrationTest {
@@ -188,6 +174,28 @@ public class IT102MigrationTest {
 		AsyncMigrationWorker worker = new AsyncMigrationWorker(adminSynapse, req, ASYNC_MIGRATION_MAX_WAIT_MS, progress);
 		MigrationRangeChecksum checksum1 = (MigrationRangeChecksum) worker.call();
 		assertNotNull(checksum1);
+	}
+
+	@Test
+	public void testGetPrimaryTypeNames() throws Exception {
+		MigrationTypeList mtList = adminSynapse.getPrimaryTypes();
+		List<String> expectedNames = new LinkedList<String>();
+		for (MigrationType t: mtList.getList()) {
+			expectedNames.add(t.name());
+		}
+		MigrationTypeNames mtNames = adminSynapse.getPrimaryTypeNames();
+		assertEquals(expectedNames, mtNames.getList());
+	}
+
+	@Test
+	public void testGetMigrationTypeNames() throws Exception {
+		MigrationTypeList mtList = adminSynapse.getMigrationTypes();
+		List<String> expectedNames = new LinkedList<String>();
+		for (MigrationType t: mtList.getList()) {
+			expectedNames.add(t.name());
+		}
+		MigrationTypeNames mtNames = adminSynapse.getMigrationTypeNames();
+		assertEquals(expectedNames, mtNames.getList());
 	}
 
 }
