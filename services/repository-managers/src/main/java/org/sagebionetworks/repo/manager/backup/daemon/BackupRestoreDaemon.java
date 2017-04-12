@@ -256,7 +256,6 @@ public class BackupRestoreDaemon implements Runnable{
 
 	/**
 	 * Start this daemon for a backup..
-	 * @param user
 	 * @return
 	 * @throws UnauthorizedException
 	 * @throws DatastoreException
@@ -268,8 +267,6 @@ public class BackupRestoreDaemon implements Runnable{
 	
 	/**
 	 * Start this daemon for a restore.
-	 * @param userName
-	 * @param backupFileUrl
 	 * @return
 	 * @throws DatastoreException
 	 */
@@ -309,7 +306,6 @@ public class BackupRestoreDaemon implements Runnable{
 	/**
 	 * Upload the file to S3
 	 * @param toUpload
-	 * @param id
 	 */
 	private String uploadFileToS3(File toUpload, MigrationType type) {
 		String s3Key = type.name() +"-"+ toUpload.getName();

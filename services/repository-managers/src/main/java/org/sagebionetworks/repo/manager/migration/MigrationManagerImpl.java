@@ -2,10 +2,7 @@ package org.sagebionetworks.repo.manager.migration;
 
 import java.io.InputStream;
 import java.io.Writer;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.Callable;
 
 import org.sagebionetworks.repo.model.StackStatusDao;
@@ -496,5 +493,12 @@ public class MigrationManagerImpl implements MigrationManager {
 		Long limit = mReq.getLimit();
 		Long offset = mReq.getOffset();
 		return getRowMetadataByRangeForType(user, mt, minId, maxId, limit, offset);
+	}
+
+	@Override
+	public MigrationBackupFileInfo processAsyncMigrationBackupRequest(UserInfo user, AsyncMigrationBackupRequest mReq) {
+		MigrationType mt = mReq.getType();
+		Set<String> idsToBackup = mReq.getEntityIdsToBackup();
+		return null;
 	}
 }

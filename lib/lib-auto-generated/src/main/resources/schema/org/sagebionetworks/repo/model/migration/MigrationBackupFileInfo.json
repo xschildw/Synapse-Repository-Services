@@ -1,0 +1,17 @@
+{
+  "description": "Url of the backup file for primary type 'type'",
+  "implements":[
+    {
+      "$ref":"org.sagebionetworks.repo.model.migration.AdminResponse"
+    }
+  ],
+  "properties": {
+    "type": {
+      "$ref": "org.sagebionetworks.repo.model.migration.MigrationType"
+    },
+    "fileName":{
+      "type":"string",
+      "description":"The url of the backup file to restore."
+    }
+  }
+}

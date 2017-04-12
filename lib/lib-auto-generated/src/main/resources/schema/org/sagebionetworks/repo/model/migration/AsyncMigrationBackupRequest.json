@@ -1,0 +1,21 @@
+{
+  "description": "Request to backup a list of ids for given type.",
+  "implements": [
+    {
+      "$ref":"org.sagebionetworks.repo.model.migration.AdminRequest"
+    }
+  ],
+  "properties": {
+    "type": {
+      "$ref": "org.sagebionetworks.repo.model.migration.MigrationType"
+    },
+    "entityIdsToBackup":{
+      "type":"array",
+      "uniqueItems":"true",
+      "description":"The list of entity ids to be included in this backup.",
+      "items":{
+        "type":"string"
+      }
+    }
+  }
+}

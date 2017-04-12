@@ -1,0 +1,17 @@
+{
+  "description": "Request checksum for given type.",
+  "implements": [
+    {
+      "$ref":"org.sagebionetworks.repo.model.migration.AdminRequest"
+    }
+  ],
+  "properties": {
+    "type": {
+      "$ref": "org.sagebionetworks.repo.model.migration.MigrationType"
+    },
+    "fileName":{
+      "type":"string",
+      "description":"The file name of the backup file to restore."
+    }
+  }
+}
