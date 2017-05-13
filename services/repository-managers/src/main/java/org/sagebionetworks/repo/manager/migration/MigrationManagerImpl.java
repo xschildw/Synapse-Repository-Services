@@ -5,6 +5,10 @@ import java.io.Writer;
 import java.util.*;
 import java.util.concurrent.Callable;
 
+import org.sagebionetworks.common.util.progress.ProgressCallback;
+import org.sagebionetworks.repo.manager.asynch.AsynchJobStatusManager;
+import org.sagebionetworks.repo.manager.backup.agent.BackupAgent;
+import org.sagebionetworks.repo.manager.backup.agent.BackupAgentFactory;
 import org.sagebionetworks.repo.model.StackStatusDao;
 import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UserInfo;
@@ -27,10 +31,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class MigrationManagerImpl implements MigrationManager {
 	
 	@Autowired
-	MigratableTableDAO migratableTableDao;
+	private MigratableTableDAO migratableTableDao;
 	@Autowired
-	StackStatusDao stackStatusDao;
-	
+	private StackStatusDao stackStatusDao;
+	@Autowired
+	private BackupAgentFactory backupAgentFactory;
+
 	/**
 	 * The list of migration listeners
 	 */
@@ -496,9 +502,20 @@ public class MigrationManagerImpl implements MigrationManager {
 	}
 
 	@Override
-	public MigrationBackupFileInfo processAsyncMigrationBackupRequest(UserInfo user, AsyncMigrationBackupRequest mReq) {
+	public MigrationBackupFileInfo processAsyncMigrationBackupRequest(ProgressCallback<Void> callback, UserInfo user, AsyncMigrationBackupRequest mReq) {
 		MigrationType mt = mReq.getType();
 		Set<String> idsToBackup = mReq.getEntityIdsToBackup();
+		BackupAgent backupAgent = backupAgentFactory.getBackupAgent(callback, user, mt, convertToLongs(idsToBackup));
+
 		return null;
+	}
+
+	private static List<Long> convertToLongs(Set<String> ids) {
+		List<Long> backupIds = new LinkedList<Long>();
+		for (String id: ids) {
+			Long l = Long.parseLong(id);
+			backupIds.add(l);
+		}
+		return backupIds;
 	}
 }

@@ -58,16 +58,29 @@ public class MigrationWorker implements MessageDrivenRunner {
 			final AsyncMigrationRequest mReq, final String jobId) throws Throwable {
 
 		try {
-			callWithAutoProgress(progressCallback, new Callable<Void>() {
-				@Override
-				public Void call() throws Exception {
-					AdminResponse resp = processRequest(user, mReq.getAdminRequest(), jobId);
-					AsyncMigrationResponse mResp = new AsyncMigrationResponse();
-					mResp.setAdminResponse(resp);
-					asynchJobStatusManager.setComplete(jobId, mResp);
-					return null;
-				}
-			});
+			final AdminRequest adminRequest = mReq.getAdminRequest();
+			/*
+				AsyncMigrationBackupRequest and AsyncMigrationRestoreRequest use ProgressingCallBack
+			 */
+			if ((adminRequest instanceof AsyncMigrationBackupRequest) || (adminRequest instanceof AsyncMigrationRestoreRequest)) {
+				// TODO: Add RestoreRequest handling
+				AsyncMigrationBackupRequest backupReq = (AsyncMigrationBackupRequest)adminRequest;
+				AsyncMigrationResponse mResp = new AsyncMigrationResponse();
+				MigrationBackupFileInfo backupFileInfo = migrationManager.processAsyncMigrationBackupRequest(progressCallback, user, backupReq);
+				mResp.setAdminResponse(backupFileInfo);
+				asynchJobStatusManager.setComplete(jobId, mResp);
+			} else {
+				callWithAutoProgress(progressCallback, new Callable<Void>() {
+					@Override
+					public Void call() throws Exception {
+						AdminResponse resp = processRequest(user, adminRequest, jobId);
+						AsyncMigrationResponse mResp = new AsyncMigrationResponse();
+						mResp.setAdminResponse(resp);
+						asynchJobStatusManager.setComplete(jobId, mResp);
+						return null;
+					}
+				});
+			}
 		} catch (Throwable e) {
 			// Record the error
 			asynchJobStatusManager.setJobFailed(jobId, e);
@@ -75,6 +88,7 @@ public class MigrationWorker implements MessageDrivenRunner {
 		}
 	}
 	
+	// TODO: Remove unused jobId param
 	AdminResponse processRequest(final UserInfo user, final AdminRequest req, final String jobId) throws DatastoreException, NotFoundException, IOException {
 		if (req instanceof AsyncMigrationTypeCountRequest) {
 			return migrationManager.processAsyncMigrationTypeCountRequest(user, (AsyncMigrationTypeCountRequest)req);

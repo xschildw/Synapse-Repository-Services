@@ -4,6 +4,7 @@ import java.io.InputStream;
 import java.io.Writer;
 import java.util.List;
 
+import org.sagebionetworks.common.util.progress.ProgressCallback;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.migration.*;
 
@@ -162,6 +163,6 @@ public interface MigrationManager {
 			final UserInfo user, final AsyncMigrationRowMetadataRequest mReq);
 
 	public MigrationBackupFileInfo processAsyncMigrationBackupRequest(
-			final UserInfo user, final AsyncMigrationBackupRequest mReq);
+			final ProgressCallback<Void> callback, final UserInfo user, final AsyncMigrationBackupRequest mReq);
 
 }
