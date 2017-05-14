@@ -431,12 +431,15 @@ public class JDOSecondaryPropertyUtilsTest {
 		annos.getAdditionalAnnotations().addAnnotation("aLong", 123L);
 		annos.getAdditionalAnnotations().addAnnotation("aDouble", 1.22);
 		annos.getAdditionalAnnotations().addAnnotation("aDate", new Date(444L));
+		//  add a primary annotation
+		annos.getPrimaryAnnotations().addAnnotation("aPrimary", "primaryValue");
 		
 		List<AnnotationDTO> expected = Lists.newArrayList(
 				new AnnotationDTO(entityId, "aString", AnnotationType.STRING, "someSt"),
 				new AnnotationDTO(entityId, "aLong", AnnotationType.LONG, "123"),
 				new AnnotationDTO(entityId, "aDouble", AnnotationType.DOUBLE, "1.22"),
-				new AnnotationDTO(entityId, "aDate", AnnotationType.DATE, "444")
+				new AnnotationDTO(entityId, "aDate", AnnotationType.DATE, "444"),
+				new AnnotationDTO(entityId, "aPrimary", AnnotationType.STRING, "primar")
 		);
 		
 		List<AnnotationDTO> results = JDOSecondaryPropertyUtils.translate(entityId, annos, maxAnnotationChars);
@@ -482,6 +485,47 @@ public class JDOSecondaryPropertyUtilsTest {
 		List<AnnotationDTO> results = JDOSecondaryPropertyUtils.translate(entityId, annos, maxAnnotationChars);
 		assertNotNull(results);
 		assertEquals(0, results.size());
+	}
+	
+	/**
+	 * Test for PLFM-4371.
+	 * Duplicate keys in both the Addition and Primary annotations.
+	 */
+	@Test
+	public void testTranslateWithDuplicateKeysPrimaryAdditional(){
+		long entityId = 123;
+		int maxAnnotationChars = 100;
+		NamedAnnotations annos = new NamedAnnotations();
+		String key = "duplicateKey";
+		annos.getAdditionalAnnotations().addAnnotation(key, "valueOne");
+		annos.getPrimaryAnnotations().addAnnotation(key, "valueTwo");
+		List<AnnotationDTO> results = JDOSecondaryPropertyUtils.translate(entityId, annos, maxAnnotationChars);
+		assertNotNull(results);
+		// only the primary annotation should remain.
+		assertEquals(1, results.size());
+		AnnotationDTO dto = results.get(0);
+		assertEquals("valueTwo", dto.getValue());
+	}
+	
+	/**
+	 * Test for PLFM-4371.
+	 * 
+	 * Duplicate keys with two different types.
+	 */
+	@Test
+	public void testTranslateWithDuplicateKeysAdditional(){
+		long entityId = 123;
+		int maxAnnotationChars = 100;
+		NamedAnnotations annos = new NamedAnnotations();
+		String key = "duplicateKey";
+		annos.getAdditionalAnnotations().addAnnotation(key, "valueOne");
+		annos.getAdditionalAnnotations().addAnnotation(key, 123.1);
+		List<AnnotationDTO> results = JDOSecondaryPropertyUtils.translate(entityId, annos, maxAnnotationChars);
+		assertNotNull(results);
+		// only the double annotation should remain.
+		assertEquals(1, results.size());
+		AnnotationDTO dto = results.get(0);
+		assertEquals("123.1", dto.getValue());
 	}
 
 	@Test

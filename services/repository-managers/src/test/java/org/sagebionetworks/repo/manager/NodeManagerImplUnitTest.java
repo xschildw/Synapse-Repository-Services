@@ -1,7 +1,6 @@
 package org.sagebionetworks.repo.manager;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -45,6 +44,8 @@ import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.VersionInfo;
 import org.sagebionetworks.repo.model.bootstrap.EntityBootstrapper;
+import org.sagebionetworks.repo.model.message.ChangeType;
+import org.sagebionetworks.repo.model.message.TransactionalMessenger;
 import org.sagebionetworks.repo.model.provenance.Activity;
 import org.sagebionetworks.repo.web.NotFoundException;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -69,13 +70,13 @@ public class NodeManagerImplUnitTest {
 	@Mock
 	private EntityBootstrapper mockEntityBootstrapper;
 	@Mock
-	private NodeInheritanceManager mockNodeInheritanceManager = null;
-	@Mock
 	private ActivityManager mockActivityManager;
 	@Mock
 	private ProjectSettingsManager projectSettingsManager;
 	@Mock
 	private Node mockNode;
+	@Mock
+	private TransactionalMessenger transactionalMessenger;
 	
 	private NodeManagerImpl nodeManager = null;
 		
@@ -86,6 +87,7 @@ public class NodeManagerImplUnitTest {
 	String parentId;
 	EntityType type;
 	Set<EntityType> entityTypesWithCountLimits;
+	String newEtag;
 	
 	@Before
 	public void before() throws Exception {
@@ -96,9 +98,9 @@ public class NodeManagerImplUnitTest {
 		ReflectionTestUtils.setField(nodeManager, "authorizationManager", mockAuthManager);
 		ReflectionTestUtils.setField(nodeManager, "aclDAO", mockAclDao);
 		ReflectionTestUtils.setField(nodeManager, "entityBootstrapper", mockEntityBootstrapper);
-		ReflectionTestUtils.setField(nodeManager, "nodeInheritanceManager", mockNodeInheritanceManager);
 		ReflectionTestUtils.setField(nodeManager, "activityManager", mockActivityManager);
 		ReflectionTestUtils.setField(nodeManager, "projectSettingsManager", projectSettingsManager);
+		ReflectionTestUtils.setField(nodeManager, "transactionalMessenger", transactionalMessenger);
 
 		mockUserInfo = new UserInfo(false, 101L);
 		
@@ -106,6 +108,7 @@ public class NodeManagerImplUnitTest {
 		
 		nodeId = "123";
 		parentId = "456";
+		newEtag = "newEtag";
 		
 		when(mockNode.getId()).thenReturn(nodeId);
 		when(mockNode.getParentId()).thenReturn(parentId);
@@ -118,12 +121,14 @@ public class NodeManagerImplUnitTest {
 		// Types that have count limits
 		entityTypesWithCountLimits = Sets.newHashSet(EntityType.file, EntityType.folder, EntityType.link);
 				
-		when(mockAuthManager.canCreate(any(UserInfo.class), any(Node.class))).thenReturn(AuthorizationManagerUtil.AUTHORIZED);
+		when(mockAuthManager.canCreate(any(UserInfo.class), any(String.class), any(EntityType.class))).thenReturn(AuthorizationManagerUtil.AUTHORIZED);
 		when(mockAuthManager.canAccess(any(UserInfo.class), anyString(), eq(ObjectType.ENTITY), any(ACCESS_TYPE.class))).thenReturn(AuthorizationManagerUtil.AUTHORIZED);
 		when(mockAuthManager.canUserMoveRestrictedEntity(any(UserInfo.class),  anyString(),  anyString())).thenReturn(AuthorizationManagerUtil.AUTHORIZED);
 		when(mockAuthManager.canAccessRawFileHandleById(any(UserInfo.class), anyString())).thenReturn(AuthorizationManagerUtil.AUTHORIZED);
 		when(mockAuthManager.canAccessActivity(any(UserInfo.class), anyString())).thenReturn(AuthorizationManagerUtil.AUTHORIZED);
 		when(mockActivityManager.doesActivityExist(anyString())).thenReturn(true);
+		
+		when(mockNodeDao.lockNodeAndIncrementEtag(anyString(), anyString(), any(ChangeType.class))).thenReturn(newEtag);
 	}
 	
 	@Test(expected=IllegalArgumentException.class)
@@ -214,7 +219,7 @@ public class NodeManagerImplUnitTest {
 		newNode.setId("101");
 		when(mockNodeDao.createNewNode(argument.capture())).thenReturn(newNode);
 		UserInfo userInfo = anonUserInfo;
-		when(mockAuthManager.canCreate(eq(userInfo), (Node)any())).thenReturn(AuthorizationManagerUtil.AUTHORIZED);
+		when(mockAuthManager.canCreate(eq(userInfo), any(String.class), any(EntityType.class))).thenReturn(AuthorizationManagerUtil.AUTHORIZED);
 		// Make the actual call
 		String id = nodeManager.createNewNode(newNode, userInfo);
 		// Now validate that t
@@ -428,22 +433,6 @@ public class NodeManagerImplUnitTest {
 		assertEquals(copy, annos);
 	}
 	
-	/**
-	 * See PLFM-1533
-	 */
-	@Test
-	public void testIsParentIDChange(){
-		// test the various flavors of parent id change
-		assertTrue(NodeManagerImpl.isParentIdChange(null, "syn123"));
-		assertTrue(NodeManagerImpl.isParentIdChange("syn123", null));
-		assertTrue(NodeManagerImpl.isParentIdChange("syn1", "syn2"));
-		assertTrue(NodeManagerImpl.isParentIdChange("syn2", "syn1"));
-		assertFalse(NodeManagerImpl.isParentIdChange(null, null));
-		assertFalse(NodeManagerImpl.isParentIdChange("syn1", "syn1"));
-		assertFalse(NodeManagerImpl.isParentIdChange("1", "syn1"));
-		assertFalse(NodeManagerImpl.isParentIdChange("syn1", "1"));
-	}
-	
 	@Test
 	public void testGetActivityForNode() throws Exception {		
 		String nodeId = "123";
@@ -600,6 +589,54 @@ public class NodeManagerImplUnitTest {
 		nodeManager.update(mockUserInfo, mockNode);
 		// count check should occur
 		verify(mockNodeDao).getChildCount(newParentId);
+	}
+	
+	@Test
+	public void testUpdateNewParentIdFolder(){
+		String currentParentId = "syn111";
+		String newParentId = "syn222";
+		when(mockNode.getParentId()).thenReturn(newParentId);
+		when(mockNode.getNodeType()).thenReturn(EntityType.folder);
+		when(mockNodeDao.getParentId(nodeId)).thenReturn(currentParentId);
+		Node oldNode = mock(Node.class);
+		when(oldNode.getParentId()).thenReturn(currentParentId);
+		when(mockNodeDao.getNode(nodeId)).thenReturn(oldNode);
+		// call under test
+		nodeManager.update(mockUserInfo, mockNode);
+		// count check should occur
+		verify(transactionalMessenger).sendMessageAfterCommit(nodeId, ObjectType.ENTITY_CONTAINER, newEtag, ChangeType.UPDATE);
+	}
+	
+	@Test
+	public void testUpdateNewParentIdFile(){
+		String currentParentId = "syn111";
+		String newParentId = "syn222";
+		when(mockNode.getParentId()).thenReturn(newParentId);
+		when(mockNode.getNodeType()).thenReturn(EntityType.file);
+		when(mockNodeDao.getParentId(nodeId)).thenReturn(currentParentId);
+		Node oldNode = mock(Node.class);
+		when(oldNode.getParentId()).thenReturn(currentParentId);
+		when(mockNodeDao.getNode(nodeId)).thenReturn(oldNode);
+		// call under test
+		nodeManager.update(mockUserInfo, mockNode);
+		// message should not be sent for a file.
+		verify(transactionalMessenger, never()).sendMessageAfterCommit(anyString(), any(ObjectType.class), anyString(), any(ChangeType.class));
+	}
+	
+	@Test
+	public void testUpdateSameParentFolder(){
+		String currentParentId = "syn222";
+		String newParentId = "syn222";
+		when(mockNode.getParentId()).thenReturn(newParentId);
+		when(mockNode.getNodeType()).thenReturn(EntityType.folder);
+		when(mockNodeDao.getParentId(nodeId)).thenReturn(currentParentId);
+		Node oldNode = mock(Node.class);
+		when(oldNode.getParentId()).thenReturn(currentParentId);
+		when(mockNodeDao.getNode(nodeId)).thenReturn(oldNode);
+		// call under test
+		nodeManager.update(mockUserInfo, mockNode);
+		// message should not be sent since this is not a parent change.
+		verify(transactionalMessenger, never()).sendMessageAfterCommit(anyString(), any(ObjectType.class), anyString(), any(ChangeType.class));
 	}
 	
 	@Test

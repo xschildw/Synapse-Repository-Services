@@ -6,9 +6,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.sagebionetworks.repo.model.ACCESS_TYPE;
 import org.sagebionetworks.repo.model.Annotations;
@@ -20,6 +20,7 @@ import org.sagebionetworks.repo.model.jdo.AuthorizationSqlUtil;
 import org.sagebionetworks.repo.model.jdo.JDOSecondaryPropertyUtils;
 import org.sagebionetworks.repo.model.jdo.KeyFactory;
 import org.sagebionetworks.repo.model.query.FieldType;
+import org.sagebionetworks.repo.model.query.entity.NodeToEntity;
 
 public class QueryUtils {
 	
@@ -39,51 +40,6 @@ public class QueryUtils {
 		
 		// This is a bit of a hack to filter on layers.
 		primaryFields.add(SqlConstants.INPUT_DATA_LAYER_DATASET_ID);
-	}
-
-	/**
-	 * What is the table name for a given field type.
-	 * 
-	 * @param type
-	 * @return
-	 * @throws AttributeDoesNotExist
-	 */
-	public static String getTableNameForFieldType(FieldType type) {
-		// Get the class and use it to lookup the table
-		if(FieldType.BLOB_ATTRIBUTE == type){
-			throw new UnsupportedOperationException("Blob annotaions are no longer supported");
-		}else if(FieldType.DATE_ATTRIBUTE == type){
-			return SqlConstants.TABLE_DATE_ANNOTATIONS;
-		}else if(FieldType.DOUBLE_ATTRIBUTE == type){
-			return SqlConstants.TABLE_DOUBLE_ANNOTATIONS;
-		}else if(FieldType.STRING_ATTRIBUTE == type){
-			return SqlConstants.TABLE_STRING_ANNOTATIONS;
-		}else if(FieldType.LONG_ATTRIBUTE == type){
-			return SqlConstants.TABLE_LONG_ANNOTATIONS;
-		}else{
-			throw new IllegalArgumentException("Unknown type: "+type);
-		}
-	}
-
-	/**
-	 * Build up the authorization filter
-	 * 
-	 * @param userInfo
-	 * @param parameters a mutable parameter list
-	 * @param nodeAlias TODO
-	 * @param groupIndexToStartFrom
-	 * @return
-	 * @throws DatastoreException
-	 */
-	public static String buildAuthorizationFilter(boolean isAdmin, Set<Long> groups, Map<String, Object> parameters, String nodeAlias,
-			int groupIndexToStartFrom)
-			throws DatastoreException {
-		// First off, if the user is an administrator then there is no filter
-		if (isAdmin) {
-			return "";
-		}
-		String sql = buildAuthorizationSelect(groups, parameters, groupIndexToStartFrom);
-		return nodeAlias + "." + SqlConstants.COL_NODE_BENEFACTOR_ID + " in (" + sql + ")";
 	}
 
 	public static String buildAuthorizationSelect(Collection<Long> groups, Map<String, Object> parameters, int groupIndexToStartFrom) {
@@ -110,28 +66,6 @@ public class QueryUtils {
 		return sql;
 	}
 
-	/**
-	 * Build up "on (oneAlias.oneColumn = twoAias.twoColumn)"
-	 * 
-	 * @param builder
-	 * @param oneAlias
-	 * @param oneColumn
-	 * @param twoAlias
-	 * @param twoColumn
-	 */
-	private static void buildJoinOn(StringBuilder builder, String oneAlias,
-			String oneColumn, String twoAlias, String twoColumn) {
-		builder.append(" on (");
-		builder.append(oneAlias);
-		builder.append(".");
-		builder.append(oneColumn);
-		builder.append(" = ");
-		builder.append(twoAlias);
-		builder.append(".");
-		builder.append(twoColumn);
-		builder.append(")");
-	}
-
 	public static String buildPaging(long offset, long limit,
 			Map<String, Object> parameters) {
 		// We need to convert from offset and limit to "fromIncl" and "toExcl"
@@ -145,6 +79,19 @@ public class QueryUtils {
 		parameters.put("limitVal", limit);
 		parameters.put("offsetVal", offset);
 		return paging;
+	}
+	
+	/**
+	 * Create an empty result.
+	 * 
+	 * @return
+	 */
+	public static NodeQueryResults createEmptyResults(){
+		NodeQueryResults results = new NodeQueryResults();
+		results.setAllSelectedData(new LinkedList<Map<String,Object>>());
+		results.setResultIds(new LinkedList<String>());
+		results.setTotalNumberOfResults(0);
+		return results;
 	}
 
 	/**
@@ -172,6 +119,9 @@ public class QueryUtils {
 				} catch (IOException e) {
 					throw new DatastoreException(e);
 				}
+			}else{
+				// Convert convert annotation values
+				convertAnnotationValuesToLists(row);
 			}
 			// Replace the ID with a string if needed
 			Long idLong = (Long) row.remove(NodeField.ID.getFieldName());
@@ -190,6 +140,43 @@ public class QueryUtils {
 		}
 		// Return the results.
 		return new NodeQueryResults(idList, fromDB, totalCount);
+	}
+	
+	/**
+	 * Convert any annotation values in the row to a list of the type.
+	 * @param row
+	 */
+	public static void convertAnnotationValuesToLists(Map<String, Object> row){
+		for(String key: row.keySet()){
+			Object value = row.get(key);
+			if(!NodeToEntity.isNodeField(key)){
+				List list = new LinkedList<>();
+				list.add(convertAnnotationString(value));
+				row.put(key, list);
+			}
+		}
+	}
+	
+	/**
+	 * Convert a string annotation value to the original annotation type.
+	 */
+	public static Object convertAnnotationString(Object value){
+		if(value == null){
+			return null;
+		}
+		if(!(value instanceof String)){
+			throw new IllegalArgumentException("Unknown value type: "+value.getClass().getName());
+		}
+		String stringValue = (String) value;
+		try{
+			return Long.parseLong(stringValue);
+		}catch(IllegalArgumentException e){
+			try{
+				return Double.parseDouble(stringValue);
+			}catch(IllegalArgumentException e1){
+				return stringValue;
+			}
+		}
 	}
 	
 	

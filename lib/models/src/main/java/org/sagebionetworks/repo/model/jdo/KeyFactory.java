@@ -3,6 +3,7 @@ package org.sagebionetworks.repo.model.jdo;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -67,7 +68,7 @@ public class KeyFactory {
 	 * @return the decoded key
 	 * @throws DatastoreException
 	 */
-	public static List<Long> stringToKey(List<String> ids) throws DatastoreException {
+	public static List<Long> stringToKey(Collection<String> ids) throws DatastoreException {
 		ValidateArgument.required(ids, "ids");
 		List<Long> resutls = new LinkedList<Long>();
 		for(String key: ids){
@@ -92,5 +93,23 @@ public class KeyFactory {
 		} catch (UnsupportedEncodingException e) {
 			throw new DatastoreException(e);
 		}
+	}
+	
+	/**
+	 * Are the two Entity Ids equal?
+	 * 
+	 * @param idOne
+	 * @param idTwo
+	 * @return
+	 */
+	public static boolean equals(String idOne, String idTwo){
+		if(idOne == null){
+			return idTwo == null;
+		}
+		if(idTwo == null){
+			return false;
+		}
+		// ignore syn for the final equals
+		return KeyFactory.stringToKey(idOne).equals(KeyFactory.stringToKey(idTwo));
 	}
 }

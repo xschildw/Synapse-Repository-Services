@@ -1,11 +1,16 @@
 package org.sagebionetworks.repo.manager;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anySetOf;
+import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
@@ -17,10 +22,10 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.sagebionetworks.StackConfiguration;
 import org.sagebionetworks.repo.model.ACCESS_TYPE;
+import org.sagebionetworks.repo.model.AccessControlList;
 import org.sagebionetworks.repo.model.AccessControlListDAO;
 import org.sagebionetworks.repo.model.AccessRequirementDAO;
 import org.sagebionetworks.repo.model.AuthorizationConstants.BOOTSTRAP_PRINCIPAL;
-import org.sagebionetworks.repo.model.AccessControlList;
 import org.sagebionetworks.repo.model.EntityType;
 import org.sagebionetworks.repo.model.Node;
 import org.sagebionetworks.repo.model.NodeDAO;
@@ -30,7 +35,8 @@ import org.sagebionetworks.repo.model.RestrictableObjectType;
 import org.sagebionetworks.repo.model.UserGroupDAO;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.auth.UserEntityPermissions;
-import org.sagebionetworks.repo.model.dao.PermissionDao;
+import org.sagebionetworks.repo.model.message.ChangeType;
+import org.sagebionetworks.repo.model.message.TransactionalMessenger;
 import org.sagebionetworks.repo.model.util.AccessControlListUtil;
 import org.sagebionetworks.util.ReflectionStaticTestUtils;
 
@@ -43,12 +49,14 @@ public class EntityPermissionsManagerImplUnitTest {
 	private UserInfo certifiedUserInfo;
 	private static final String projectId = "syn123";
 	private static final String folderId = "syn456";
+	private static final String fileId = "syn333";
 	private static final String dockerRepoId = "syn789";
 	private static final String projectParentId = "syn000";
 	private static final String folderParentId = "syn999";
 	private static final String benefactorId = "syn987";
 	private Node project;
 	private Node folder;
+	private Node file;
 	private Node dockerRepo;
 	
 	@Mock
@@ -59,10 +67,6 @@ public class EntityPermissionsManagerImplUnitTest {
 	private AccessControlListDAO mockAclDAO;
 	@Mock
 	private AccessRequirementDAO  mockAccessRequirementDAO;
-	@Mock
-	private PermissionDao mockPermissionDao;
-	@Mock
-	private NodeInheritanceManager mockNodeInheritanceManager;
 	@Mock
 	private UserManager mockUserManager;
 	@Mock
@@ -75,9 +79,14 @@ public class EntityPermissionsManagerImplUnitTest {
 	private UserInfo mockUser;
 	@Mock
 	private ProjectStatsManager mockProjectStatsManager;
+	@Mock
+	private TransactionalMessenger mockTransactionalMessenger;
 	
 	Set<Long> mockUsersGroups;
 	Set<Long> nonvisibleIds;
+	
+	String entityId;
+	Long userId;
 
 	// here we set up a certified and a non-certified user, a project and a non-project Node
 	@Before
@@ -101,9 +110,11 @@ public class EntityPermissionsManagerImplUnitTest {
     	when(mockAuthenticationManager.hasUserAcceptedTermsOfUse(nonCertifiedUserInfo.getId())).thenReturn(true);
     	when(mockAuthenticationManager.hasUserAcceptedTermsOfUse(certifiedUserInfo.getId())).thenReturn(true);
 
+    	userId = 111L;
+    	
     	project = new Node();
     	project.setId(projectId);
-    	project.setCreatedByPrincipalId(111111L);
+    	project.setCreatedByPrincipalId(userId);
     	project.setNodeType(EntityType.project);
        	project.setParentId(projectParentId);
     	when(mockNodeDao.getNode(projectId)).thenReturn(project);
@@ -111,15 +122,25 @@ public class EntityPermissionsManagerImplUnitTest {
     	
     	folder = new Node();
     	folder.setId(folderId);
-    	folder.setCreatedByPrincipalId(111111L);
+    	folder.setCreatedByPrincipalId(userId);
         folder.setParentId(folderParentId);
     	folder.setNodeType(EntityType.folder);
     	when(mockNodeDao.getNode(folderId)).thenReturn(folder);
     	when(mockNodeDao.getNodeTypeById(folderId)).thenReturn(EntityType.folder);
+    	
+    	file = new Node();
+    	file.setId(fileId);
+    	file.setCreatedByPrincipalId(userId);
+    	file.setParentId(folderParentId);
+    	file.setNodeType(EntityType.file);
+    	when(mockNodeDao.getNode(fileId)).thenReturn(file);
+    	when(mockNodeDao.getNodeTypeById(fileId)).thenReturn(EntityType.file);
+    	
+    	when(mockNodeDao.getBenefactor(anyString())).thenReturn(benefactorId);
    	
     	dockerRepo = new Node();
     	dockerRepo.setId(dockerRepoId);
-    	dockerRepo.setCreatedByPrincipalId(111111L);
+    	dockerRepo.setCreatedByPrincipalId(userId);
     	dockerRepo.setParentId(folderParentId);
     	dockerRepo.setNodeType(EntityType.dockerrepo);
     	when(mockNodeDao.getNode(dockerRepoId)).thenReturn(dockerRepo);
@@ -129,12 +150,7 @@ public class EntityPermissionsManagerImplUnitTest {
     	anonymousUser.setId(BOOTSTRAP_PRINCIPAL.ANONYMOUS_USER.getPrincipalId());
     	when(mockUserManager.getUserInfo(BOOTSTRAP_PRINCIPAL.ANONYMOUS_USER.getPrincipalId())).thenReturn(anonymousUser);
 
-		when(mockNodeInheritanceManager.getBenefactor(projectId)).thenReturn(benefactorId);
-		when(mockNodeInheritanceManager.getBenefactor(folderId)).thenReturn(benefactorId);
-		when(mockNodeInheritanceManager.getBenefactor(dockerRepoId)).thenReturn(benefactorId);
-		when(mockNodeInheritanceManager.getBenefactor(projectParentId)).thenReturn(benefactorId);
-		when(mockNodeInheritanceManager.getBenefactor(folderParentId)).thenReturn(benefactorId);
-		when(mockNodeInheritanceManager.getBenefactor(benefactorId)).thenReturn(benefactorId);
+		when(mockNodeDao.getBenefactor(anyString())).thenReturn(benefactorId);
 		
 		// we make the given user a fully authorized 'owner' of the entity
 		when(mockAclDAO.canAccess(eq(certifiedUserInfo.getGroups()), eq(benefactorId), eq(ObjectType.ENTITY), (ACCESS_TYPE)any())).
@@ -150,12 +166,17 @@ public class EntityPermissionsManagerImplUnitTest {
 				Collections.singletonList(projectId), RestrictableObjectType.ENTITY, nonCertifiedUserInfo.getGroups(), 
 				Collections.singletonList(ACCESS_TYPE.DOWNLOAD))).thenReturn(Collections.singletonList(77777L));
 		
-		when(mockUser.getId()).thenReturn(111L);
+		when(mockUser.getId()).thenReturn(userId);
 		when(mockUser.isAdmin()).thenReturn(false);
 		mockUsersGroups = Sets.newHashSet(444L,555L);
 		when(mockUser.getGroups()).thenReturn(mockUsersGroups);
 		nonvisibleIds = Sets.newHashSet(888L,999L);
 		when(mockAclDAO.getNonVisibleChilrenOfEntity(anySetOf(Long.class), anyString())).thenReturn(nonvisibleIds);
+		
+		entityId = "syn888";
+		when(mockNodeDao.getBenefactor(entityId)).thenReturn(entityId);
+		when(mockAclDAO.canAccess(mockUser.getGroups(), entityId, ObjectType.ENTITY, ACCESS_TYPE.CHANGE_PERMISSIONS)).
+		thenReturn(true);
 	}
 
 	@Test
@@ -178,7 +199,7 @@ public class EntityPermissionsManagerImplUnitTest {
 		assertTrue(uep.getIsCertifiedUser());
 		assertTrue(uep.getCanModerate());
 		
-		assertTrue(entityPermissionsManager.canCreate(project, certifiedUserInfo).getAuthorized());
+		assertTrue(entityPermissionsManager.canCreate(project.getParentId(), project.getNodeType(), certifiedUserInfo).getAuthorized());
 		
 		assertTrue(entityPermissionsManager.canCreateWiki(projectId, certifiedUserInfo).getAuthorized());
 	}
@@ -203,7 +224,7 @@ public class EntityPermissionsManagerImplUnitTest {
 		assertFalse(uep.getIsCertifiedUser()); // not certified!
 		assertTrue(uep.getCanModerate());
 		
-		assertTrue(entityPermissionsManager.canCreate(project, nonCertifiedUserInfo).getAuthorized());
+		assertTrue(entityPermissionsManager.canCreate(project.getParentId(), project.getNodeType(), nonCertifiedUserInfo).getAuthorized());
 		
 		assertTrue(entityPermissionsManager.canCreateWiki(projectId, nonCertifiedUserInfo).getAuthorized());
 	}
@@ -228,7 +249,42 @@ public class EntityPermissionsManagerImplUnitTest {
 		assertTrue(uep.getIsCertifiedUser());
 		assertTrue(uep.getCanModerate());
 		
-		assertTrue(entityPermissionsManager.canCreate(folder, certifiedUserInfo).getAuthorized());
+		assertTrue(entityPermissionsManager.canCreate(folder.getParentId(), folder.getNodeType(), certifiedUserInfo).getAuthorized());
+		
+		assertTrue(entityPermissionsManager.canCreateWiki(folderId, certifiedUserInfo).getAuthorized());
+	}
+	
+	@Test
+	public void testReadButNotDownload() throws Exception {
+		// if READ is in the ACL but DOWNLOAD is not in the ACL, then I can't download
+		when(mockAclDAO.canAccess(eq(certifiedUserInfo.getGroups()), eq(benefactorId), 
+				eq(ObjectType.ENTITY), eq(ACCESS_TYPE.DOWNLOAD))).thenReturn(false);
+		// check that my mocks are set up correctly
+		assertTrue(mockAclDAO.canAccess(certifiedUserInfo.getGroups(), benefactorId, 
+				ObjectType.ENTITY, ACCESS_TYPE.READ));
+		assertFalse(mockAclDAO.canAccess(certifiedUserInfo.getGroups(), benefactorId, 
+				ObjectType.ENTITY, ACCESS_TYPE.DOWNLOAD));
+		
+		// now on to the test:
+		UserEntityPermissions uep = entityPermissionsManager.
+				getUserPermissionsForEntity(certifiedUserInfo, folderId);
+		
+		assertTrue(uep.getCanAddChild());
+		assertTrue(uep.getCanChangePermissions()); 
+		assertTrue(uep.getCanChangeSettings()); 
+		assertTrue(uep.getCanDelete());
+		assertTrue(uep.getCanEdit());
+		assertTrue(uep.getCanEnableInheritance());
+		assertFalse(uep.getCanPublicRead());
+		assertTrue(uep.getCanView());
+		assertFalse(uep.getCanDownload());
+		assertTrue(uep.getCanUpload());
+		assertTrue(uep.getCanCertifiedUserAddChild());
+		assertTrue(uep.getCanCertifiedUserEdit());
+		assertTrue(uep.getIsCertifiedUser());
+		assertTrue(uep.getCanModerate());
+		
+		assertTrue(entityPermissionsManager.canCreate(folder.getParentId(), folder.getNodeType(), certifiedUserInfo).getAuthorized());
 		
 		assertTrue(entityPermissionsManager.canCreateWiki(folderId, certifiedUserInfo).getAuthorized());
 	}
@@ -253,35 +309,9 @@ public class EntityPermissionsManagerImplUnitTest {
 		assertFalse(uep.getIsCertifiedUser()); // not certified!
 		assertTrue(uep.getCanModerate());
 		
-		assertFalse(entityPermissionsManager.canCreate(folder, nonCertifiedUserInfo).getAuthorized());
+		assertFalse(entityPermissionsManager.canCreate(folder.getParentId(), folder.getNodeType(), nonCertifiedUserInfo).getAuthorized());
 		
 		assertFalse(entityPermissionsManager.canCreateWiki(folderId, nonCertifiedUserInfo).getAuthorized());
-	}
-	
-	@Test
-	public void testHasAccessDockerRepoDownload() throws Exception {
-		// create a 'baseline case' in which the user has full access via the benefactor acl
-		assertTrue(entityPermissionsManager.
-				hasAccess(dockerRepoId, ACCESS_TYPE.DOWNLOAD, certifiedUserInfo).getAuthorized());
-		// ... but not via any evaluation queue
-		when(mockPermissionDao.isEntityInEvaluationWithAccess(
-				dockerRepoId, new ArrayList(certifiedUserInfo.getGroups()), 
-				ACCESS_TYPE.READ_PRIVATE_SUBMISSION)).thenReturn(false);
-		// now remove the ACL permission
-		when(mockAclDAO.canAccess(eq(certifiedUserInfo.getGroups()), 
-				eq(benefactorId), eq(ObjectType.ENTITY), (ACCESS_TYPE)any())).
-					thenReturn(false);
-		// the permission is now gone
-		assertFalse(entityPermissionsManager.
-				hasAccess(dockerRepoId, ACCESS_TYPE.DOWNLOAD, certifiedUserInfo).getAuthorized());
-		// but give access via a submission queue
-		when(mockPermissionDao.isEntityInEvaluationWithAccess(
-				dockerRepoId, new ArrayList(certifiedUserInfo.getGroups()), 
-				ACCESS_TYPE.READ_PRIVATE_SUBMISSION)).thenReturn(true);
-		// and the permission is restored
-		when(mockAclDAO.canAccess(eq(certifiedUserInfo.getGroups()), 
-				eq(benefactorId), eq(ObjectType.ENTITY), (ACCESS_TYPE)any())).
-					thenReturn(true);
 	}
 	
 	@Test
@@ -353,7 +383,6 @@ public class EntityPermissionsManagerImplUnitTest {
 	
 	@Test
 	public void testUpdateAcl(){
-		String entityId = "syn123";
 		Long addedPrincipalId = 444L;
 		AccessControlList oldAcl = AccessControlListUtil.createACLToGrantEntityAdminAccess(entityId, mockUser, new Date());
 		AccessControlList updatedAcl = AccessControlListUtil.createACLToGrantEntityAdminAccess(entityId, mockUser, new Date());
@@ -363,9 +392,6 @@ public class EntityPermissionsManagerImplUnitTest {
 		access.setPrincipalId(addedPrincipalId);
 		updatedAcl.getResourceAccess().add(access);
 		
-		when(mockNodeInheritanceManager.getBenefactor(entityId)).thenReturn(entityId);
-		when(mockAclDAO.canAccess(mockUser.getGroups(), entityId, ObjectType.ENTITY, ACCESS_TYPE.CHANGE_PERMISSIONS)).
-		thenReturn(true);
 		when(mockNodeDao.getCreatedBy(entityId)).thenReturn(111L);
 		when(mockAclDAO.get(entityId, ObjectType.ENTITY)).thenReturn(oldAcl);
 		
@@ -373,5 +399,69 @@ public class EntityPermissionsManagerImplUnitTest {
 		entityPermissionsManager.updateACL(updatedAcl, mockUser);
 		// project stats should be called for all new users
 		verify(mockProjectStatsManager).updateProjectStats(eq(addedPrincipalId), eq(entityId), eq(ObjectType.ENTITY), any(Date.class));
+	}
+	
+	@Test
+	public void testOverrideInheritanceProject(){
+		when(mockAclDAO.canAccess(anySetOf(Long.class), anyString(), any(ObjectType.class), any(ACCESS_TYPE.class))).
+		thenReturn(true);
+		AccessControlList acl = AccessControlListUtil.createACLToGrantEntityAdminAccess(projectId, mockUser, new Date());
+		when(mockAclDAO.get(projectId, ObjectType.ENTITY)).thenReturn(acl);
+		// call under test
+		entityPermissionsManager.overrideInheritance(acl, mockUser);
+		verify(mockTransactionalMessenger).sendMessageAfterCommit(projectId, ObjectType.ENTITY_CONTAINER, acl.getEtag(), ChangeType.CREATE);
+	}
+	
+	@Test
+	public void testOverrideInheritanceFolder(){
+		when(mockAclDAO.canAccess(anySetOf(Long.class), anyString(), any(ObjectType.class), any(ACCESS_TYPE.class))).
+		thenReturn(true);
+		AccessControlList acl = AccessControlListUtil.createACLToGrantEntityAdminAccess(folderId, mockUser, new Date());
+		when(mockAclDAO.get(folderId, ObjectType.ENTITY)).thenReturn(acl);
+		// call under test
+		entityPermissionsManager.overrideInheritance(acl, mockUser);
+		verify(mockTransactionalMessenger).sendMessageAfterCommit(folderId, ObjectType.ENTITY_CONTAINER, acl.getEtag(), ChangeType.CREATE);
+	}
+	
+	@Test
+	public void testOverrideInheritanceFile(){
+		when(mockAclDAO.canAccess(anySetOf(Long.class), anyString(), any(ObjectType.class), any(ACCESS_TYPE.class))).
+		thenReturn(true);
+		AccessControlList acl = AccessControlListUtil.createACLToGrantEntityAdminAccess(fileId, mockUser, new Date());
+		when(mockAclDAO.get(fileId, ObjectType.ENTITY)).thenReturn(acl);
+		// call under test
+		entityPermissionsManager.overrideInheritance(acl, mockUser);
+		// file should not trigger container message
+		verify(mockTransactionalMessenger, never()).sendMessageAfterCommit(anyString(), any(ObjectType.class), anyString(), any(ChangeType.class));
+	}
+	
+	@Test
+	public void testRestoreInheritanceProject(){
+		when(mockNodeDao.getBenefactor(project.getId())).thenReturn(project.getId());
+		when(mockAclDAO.canAccess(anySetOf(Long.class), anyString(), any(ObjectType.class), any(ACCESS_TYPE.class))).
+		thenReturn(true);
+		// call under test
+		entityPermissionsManager.restoreInheritance(projectId, mockUser);
+		verify(mockTransactionalMessenger).sendDeleteMessageAfterCommit(projectId, ObjectType.ENTITY_CONTAINER);
+	}
+	
+	@Test
+	public void testRestoreInheritanceFolder(){
+		when(mockNodeDao.getBenefactor(folder.getId())).thenReturn(folder.getId());
+		when(mockAclDAO.canAccess(anySetOf(Long.class), anyString(), any(ObjectType.class), any(ACCESS_TYPE.class))).
+		thenReturn(true);
+		// call under test
+		entityPermissionsManager.restoreInheritance(folderId, mockUser);
+		verify(mockTransactionalMessenger).sendDeleteMessageAfterCommit(folderId, ObjectType.ENTITY_CONTAINER);
+	}
+	
+	@Test
+	public void testRestoreInheritanceFile(){
+		when(mockNodeDao.getBenefactor(file.getId())).thenReturn(file.getId());
+		when(mockAclDAO.canAccess(anySetOf(Long.class), anyString(), any(ObjectType.class), any(ACCESS_TYPE.class))).
+		thenReturn(true);
+		// call under test
+		entityPermissionsManager.restoreInheritance(fileId, mockUser);
+		verify(mockTransactionalMessenger, never()).sendDeleteMessageAfterCommit(anyString(), any(ObjectType.class));
 	}
 }

@@ -63,8 +63,6 @@ public class NodeManagerAuthorizationTest {
 	@Mock
 	private EntityBootstrapper mockEntityBootstrapper;
 	@Mock
-	private NodeInheritanceManager mockInheritanceManager;
-	@Mock
 	private ActivityManager mockActivityManager;
 	@Mock
 	private ProjectSettingsManager mockProjectSettingsManager;;
@@ -80,7 +78,6 @@ public class NodeManagerAuthorizationTest {
 		ReflectionTestUtils.setField(nodeManager, "authorizationManager", mockAuthDao);
 		ReflectionTestUtils.setField(nodeManager, "aclDAO", mockAclDao);
 		ReflectionTestUtils.setField(nodeManager, "entityBootstrapper", mockEntityBootstrapper);
-		ReflectionTestUtils.setField(nodeManager, "nodeInheritanceManager", mockInheritanceManager);
 		ReflectionTestUtils.setField(nodeManager, "activityManager", mockActivityManager);
 		ReflectionTestUtils.setField(nodeManager, "projectSettingsManager", mockProjectSettingsManager);
 		// The mocks user for tests
@@ -98,7 +95,7 @@ public class NodeManagerAuthorizationTest {
 	
 	@Test (expected=UnauthorizedException.class)
 	public void testUnauthorizedCreateNewNode() throws DatastoreException, InvalidModelException, NotFoundException, UnauthorizedException{
-		when(mockAuthDao.canCreate(mockUserInfo, mockNode)).thenReturn(AuthorizationManagerUtil.ACCESS_DENIED);
+		when(mockAuthDao.canCreate(mockUserInfo, mockNode.getParentId(), mockNode.getNodeType())).thenReturn(AuthorizationManagerUtil.ACCESS_DENIED);
 		// Should fail
 		nodeManager.createNewNode(mockNode, mockUserInfo);
 	}
@@ -107,7 +104,7 @@ public class NodeManagerAuthorizationTest {
 	public void testUnauthorizedCreateNewNodeFileHandle() throws DatastoreException, InvalidModelException, NotFoundException, UnauthorizedException{
 		// The user is allowed to create the file handle but not allowed to use the file handle.
 		String fileHandleId = "123456";
-		when(mockAuthDao.canCreate(mockUserInfo, mockNode)).thenReturn(AuthorizationManagerUtil.AUTHORIZED);
+		when(mockAuthDao.canCreate(mockUserInfo, mockNode.getParentId(), mockNode.getNodeType())).thenReturn(AuthorizationManagerUtil.AUTHORIZED);
 		when(mockAuthDao.canAccessRawFileHandleById(mockUserInfo, fileHandleId)).thenReturn(AuthorizationManagerUtil.ACCESS_DENIED);
 		when(mockNode.getFileHandleId()).thenReturn(fileHandleId);
 		// Should fail
@@ -118,7 +115,7 @@ public class NodeManagerAuthorizationTest {
 	public void testAuthorizedCreateNewNodeFileHandle() throws DatastoreException, InvalidModelException, NotFoundException, UnauthorizedException{
 		// The user is allowed to create the file handle but not allowed to use the file handle.
 		String fileHandleId = "123456";
-		when(mockAuthDao.canCreate(mockUserInfo, mockNode)).thenReturn(AuthorizationManagerUtil.AUTHORIZED);
+		when(mockAuthDao.canCreate(mockUserInfo, mockNode.getParentId(), mockNode.getNodeType())).thenReturn(AuthorizationManagerUtil.AUTHORIZED);
 		when(mockAuthDao.canAccessRawFileHandleById(mockUserInfo, fileHandleId)).thenReturn(AuthorizationManagerUtil.AUTHORIZED);
 		when(mockNode.getFileHandleId()).thenReturn(fileHandleId);
 		when(mockEntityBootstrapper.getChildAclSchemeForPath(any(String.class))).thenReturn(ACL_SCHEME.INHERIT_FROM_PARENT);

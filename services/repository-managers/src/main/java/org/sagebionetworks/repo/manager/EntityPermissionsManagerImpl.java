@@ -10,7 +10,6 @@ import static org.sagebionetworks.repo.model.ACCESS_TYPE.READ;
 import static org.sagebionetworks.repo.model.ACCESS_TYPE.UPDATE;
 import static org.sagebionetworks.repo.model.ACCESS_TYPE.UPLOAD;
 
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -38,8 +37,10 @@ import org.sagebionetworks.repo.model.ResourceAccess;
 import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.auth.UserEntityPermissions;
-import org.sagebionetworks.repo.model.dao.PermissionDao;
+import org.sagebionetworks.repo.model.dbo.dao.NodeUtils;
 import org.sagebionetworks.repo.model.jdo.KeyFactory;
+import org.sagebionetworks.repo.model.message.ChangeType;
+import org.sagebionetworks.repo.model.message.TransactionalMessenger;
 import org.sagebionetworks.repo.model.project.ExternalSyncSetting;
 import org.sagebionetworks.repo.model.project.ProjectSettingsType;
 import org.sagebionetworks.repo.transactions.WriteTransaction;
@@ -63,8 +64,6 @@ public class EntityPermissionsManagerImpl implements EntityPermissionsManager {
 	@Autowired
 	private AccessRequirementDAO  accessRequirementDAO;
 	@Autowired
-	private NodeInheritanceManager nodeInheritanceManager;
-	@Autowired
 	private UserManager userManager;
 	@Autowired
 	private AuthenticationManager authenticationManager;
@@ -72,16 +71,17 @@ public class EntityPermissionsManagerImpl implements EntityPermissionsManager {
 	private ProjectSettingsManager projectSettingsManager;
 	@Autowired
 	private StackConfiguration configuration;
-	@Autowired
-	private PermissionDao permissionDao;
+
 	@Autowired
 	private ProjectStatsManager projectStatsManager;
+	@Autowired
+	private TransactionalMessenger transactionalMessenger;
 
 
 	@Override
 	public AccessControlList getACL(String nodeId, UserInfo userInfo) throws NotFoundException, DatastoreException, ACLInheritanceException {
 		// Get the id that this node inherits its permissions from
-		String benefactor = nodeInheritanceManager.getBenefactor(nodeId);		
+		String benefactor = nodeDao.getBenefactor(nodeId);		
 		// This is a fix for PLFM-398
 		if (!benefactor.equals(nodeId)) {
 			throw new ACLInheritanceException("Cannot access the ACL of a node that inherits it permissions. This node inherits its permissions from: "+benefactor, benefactor);
@@ -101,7 +101,7 @@ public class EntityPermissionsManagerImpl implements EntityPermissionsManager {
 	@Override
 	public AccessControlList updateACL(AccessControlList acl, UserInfo userInfo) throws NotFoundException, DatastoreException, InvalidModelException, UnauthorizedException, ConflictingUpdateException {
 		String rId = acl.getId();
-		String benefactor = nodeInheritanceManager.getBenefactor(rId);
+		String benefactor = nodeDao.getBenefactor(rId);
 		if (!benefactor.equals(rId)) throw new UnauthorizedException("Cannot update ACL for a resource which inherits its permissions.");
 		// check permissions of user to change permissions for the resource
 		AuthorizationManagerUtil.checkAuthorizationAndThrowException(
@@ -141,49 +141,60 @@ public class EntityPermissionsManagerImpl implements EntityPermissionsManager {
 	@WriteTransaction
 	@Override
 	public AccessControlList overrideInheritance(AccessControlList acl, UserInfo userInfo) throws NotFoundException, DatastoreException, InvalidModelException, UnauthorizedException, ConflictingUpdateException {
-		String rId = acl.getId();
-		String benefactor = nodeInheritanceManager.getBenefactor(rId);
-		if (benefactor.equals(rId)) throw new UnauthorizedException("Resource already has an ACL.");
+		String entityId = acl.getId();
+		Node node = nodeDao.getNode(entityId);
+		String benefactorId = nodeDao.getBenefactor(entityId);
+		if(KeyFactory.equals(benefactorId, entityId)){
+			throw new UnauthorizedException("Resource already has an ACL.");
+		}
 		// check permissions of user to change permissions for the resource
 		AuthorizationManagerUtil.checkAuthorizationAndThrowException(
-				hasAccess(benefactor, CHANGE_PERMISSIONS, userInfo));
+				hasAccess(benefactorId, CHANGE_PERMISSIONS, userInfo));
 		
-		// validate content
-		Long ownerId = nodeDao.getCreatedBy(acl.getId());
-		PermissionsManagerUtils.validateACLContent(acl, userInfo, ownerId);
-		Node node = nodeDao.getNode(rId);
+		// validate the Entity owners will still have access.
+		PermissionsManagerUtils.validateACLContent(acl, userInfo, node.getCreatedByPrincipalId());
 		// Before we can update the ACL we must grab the lock on the node.
 		nodeDao.lockNodeAndIncrementEtag(node.getId(), node.getETag());
-		// set permissions 'benefactor' for resource and all resource's descendants to resource
-		nodeInheritanceManager.setNodeToInheritFromItself(rId);
 		// persist acl and return
 		aclDAO.create(acl, ObjectType.ENTITY);
 		acl = aclDAO.get(acl.getId(), ObjectType.ENTITY);
+		// Send a container message for projects or folders.
+		if(NodeUtils.isProjectOrFolder(node.getNodeType())){
+			// Notify listeners of the hierarchy change to this container.
+			transactionalMessenger.sendMessageAfterCommit(entityId, ObjectType.ENTITY_CONTAINER, acl.getEtag(), ChangeType.CREATE);
+		}
 		return acl;
 	}
 
 	@WriteTransaction
 	@Override
-	public AccessControlList restoreInheritance(String rId, UserInfo userInfo) throws NotFoundException, DatastoreException, UnauthorizedException, ConflictingUpdateException {
+	public AccessControlList restoreInheritance(String entityId, UserInfo userInfo) throws NotFoundException, DatastoreException, UnauthorizedException, ConflictingUpdateException {
+		// Before we can update the ACL we must grab the lock on the node.
+		Node node = nodeDao.getNode(entityId);
+		String benefactorId = nodeDao.getBenefactor(entityId);
 		// check permissions of user to change permissions for the resource
 		AuthorizationManagerUtil.checkAuthorizationAndThrowException(
-				hasAccess(rId, CHANGE_PERMISSIONS, userInfo));
-		String benefactor = nodeInheritanceManager.getBenefactor(rId);
-		if (!benefactor.equals(rId)) throw new UnauthorizedException("Resource already inherits its permissions.");	
+				hasAccess(entityId, CHANGE_PERMISSIONS, userInfo));
+		if(!KeyFactory.equals(entityId, benefactorId)){
+			throw new UnauthorizedException("Resource already inherits its permissions.");	
+		}
 
 		// if parent is root, than can't inherit, must have own ACL
-		if (nodeDao.isNodesParentRoot(rId)) throw new UnauthorizedException("Cannot restore inheritance for resource which has no parent.");
-
-		// Before we can update the ACL we must grab the lock on the node.
-		Node node = nodeDao.getNode(rId);
+		if (nodeDao.isNodesParentRoot(entityId)) throw new UnauthorizedException("Cannot restore inheritance for resource which has no parent.");
+		
 		nodeDao.lockNodeAndIncrementEtag(node.getId(), node.getETag());
-		nodeInheritanceManager.setNodeToInheritFromNearestParent(rId);
 		
 		// delete access control list
-		aclDAO.delete(rId, ObjectType.ENTITY);
+		aclDAO.delete(entityId, ObjectType.ENTITY);
 		
 		// now find the newly governing ACL
-		benefactor = nodeInheritanceManager.getBenefactor(rId);
+		String benefactor = nodeDao.getBenefactor(entityId);
+		
+		// Send a container message for projects or folders.
+		if(NodeUtils.isProjectOrFolder(node.getNodeType())){
+			// Notify listeners of the hierarchy change to this container.
+			transactionalMessenger.sendDeleteMessageAfterCommit(entityId, ObjectType.ENTITY_CONTAINER);
+		}
 		
 		return aclDAO.get(benefactor, ObjectType.ENTITY);
 	}	
@@ -199,11 +210,11 @@ public class EntityPermissionsManagerImpl implements EntityPermissionsManager {
 		Node node = nodeDao.getNode(parentId);
 		nodeDao.lockNodeAndIncrementEtag(node.getId(), node.getETag());
 
-		String benefactorId = nodeInheritanceManager.getBenefactor(parentId);
+		String benefactorId = nodeDao.getBenefactor(parentId);
 		applyInheritanceToChildrenHelper(parentId, benefactorId, userInfo);
 
 		// return governing parent ACL
-		return aclDAO.get(nodeInheritanceManager.getBenefactor(parentId), ObjectType.ENTITY);
+		return aclDAO.get(nodeDao.getBenefactor(parentId), ObjectType.ENTITY);
 	}
 	
 	private void applyInheritanceToChildrenHelper(final String parentId, final String benefactorId, UserInfo userInfo)
@@ -225,8 +236,6 @@ public class EntityPermissionsManagerImpl implements EntityPermissionsManager {
 					// delete ACL
 					aclDAO.delete(idToChange, ObjectType.ENTITY);
 				}								
-				// set benefactor ACL
-				nodeInheritanceManager.addBeneficiary(idToChange, benefactorId);
 			}
 		}
 	}
@@ -244,17 +253,16 @@ public class EntityPermissionsManagerImpl implements EntityPermissionsManager {
 	}
 	
 	@Override
-	public AuthorizationStatus canCreate(Node node, UserInfo userInfo) 
+	public AuthorizationStatus canCreate(String parentId, EntityType nodeType, UserInfo userInfo) 
 			throws DatastoreException, NotFoundException {
 		if (userInfo.isAdmin()) {
 			return AuthorizationManagerUtil.AUTHORIZED;
 		}
-		String parentId = node.getParentId();
 		if (parentId == null) {
 			return AuthorizationManagerUtil.accessDenied("Cannot create a entity having no parent.");
 		}
 
-		if (!isCertifiedUserOrFeatureDisabled(userInfo) && !EntityType.project.equals(node.getNodeType())) 
+		if (!isCertifiedUserOrFeatureDisabled(userInfo) && !EntityType.project.equals(nodeType)) 
 			return AuthorizationManagerUtil.accessDenied("Only certified users may create content in Synapse.");
 		
 		return certifiedUserHasAccess(parentId, null, CREATE, userInfo);
@@ -319,7 +327,7 @@ public class EntityPermissionsManagerImpl implements EntityPermissionsManager {
 		// In the case of the trash can, throw the EntityInTrashCanException
 		// The only operations allowed over the trash can is CREATE (i.e. moving
 		// items into the trash can) and DELETE (i.e. purging the trash).
-		final String benefactor = nodeInheritanceManager.getBenefactor(entityId);
+		final String benefactor = nodeDao.getBenefactor(entityId);
 		if (TRASH_FOLDER_ID.equals(KeyFactory.stringToKey(benefactor))
 				&& !CREATE.equals(accessType)
 				&& !DELETE.equals(accessType)) {
@@ -359,7 +367,7 @@ public class EntityPermissionsManagerImpl implements EntityPermissionsManager {
 	 */
 	@Override
 	public String getPermissionBenefactor(String nodeId, UserInfo userInfo) throws NotFoundException, DatastoreException {
-		return nodeInheritanceManager.getBenefactor(nodeId);
+		return nodeDao.getBenefactor(nodeId);
 	}
 
 	@Override
@@ -368,7 +376,7 @@ public class EntityPermissionsManagerImpl implements EntityPermissionsManager {
 
 		Node node = nodeDao.getNode(entityId);
 		
-		String benefactor = nodeInheritanceManager.getBenefactor(entityId);
+		String benefactor = nodeDao.getBenefactor(entityId);
 
 		UserEntityPermissions permissions = new UserEntityPermissions();
 		permissions.setCanAddChild(hasAccess(entityId, CREATE, userInfo).getAuthorized());
@@ -404,39 +412,27 @@ public class EntityPermissionsManagerImpl implements EntityPermissionsManager {
 	@Override
 	public boolean hasLocalACL(String resourceId) {
 		try {
-			return nodeInheritanceManager.getBenefactor(resourceId).equals(resourceId);
+			return nodeDao.getBenefactor(resourceId).equals(resourceId);
 		} catch (Exception e) {
 			return false;
 		}
 	}
 
-	// non-docker entities have to meet access requirements (ARs)
-	// docker entities either have to (1) meet ARs AND have read access or (2) be associated
-	// with a downloadable submission
+	// entities have to meet access requirements (ARs)
 	private AuthorizationStatus canDownload(UserInfo userInfo, String entityId, String benefactor, EntityType entityType)
 			throws DatastoreException, NotFoundException {
+		if (userInfo.isAdmin()) return AuthorizationManagerUtil.AUTHORIZED;
 		
 		// if the ACL and access requirements permit DOWNLOAD, then its permitted,
 		// and this applies to any type of entity
-		boolean canRead = aclDAO.canAccess(userInfo.getGroups(), benefactor, ObjectType.ENTITY, ACCESS_TYPE.READ);
+		boolean aclAllowsDownload = aclDAO.canAccess(userInfo.getGroups(), benefactor, ObjectType.ENTITY, ACCESS_TYPE.DOWNLOAD);
 		AuthorizationStatus meetsAccessRequirements = meetsAccessRequirements(userInfo, entityId);
-		if (meetsAccessRequirements.getAuthorized() && canRead) {
+		if (meetsAccessRequirements.getAuthorized() && aclAllowsDownload) {
 			return AuthorizationManagerUtil.AUTHORIZED;
 		}
 		
-		// if the ACL doesn't permit access but it's a Docker repository entity
-		// then DOWNLOAD access can be permitted via a submission queue
-		if (entityType==EntityType.dockerrepo) {
-			if (permissionDao.isEntityInEvaluationWithAccess(entityId, 
-					new ArrayList<Long>(userInfo.getGroups()), ACCESS_TYPE.READ_PRIVATE_SUBMISSION)) {
-				return AuthorizationManagerUtil.AUTHORIZED;
-			} else {
-				return AuthorizationManagerUtil.ACCESS_DENIED;
-			}
-		}
-		
-		// at this point the entity is NOT authorized via ACL+access requirements and is NOT an Docker repo
-		if (!canRead) return new AuthorizationStatus(false, "You lack 'read' access to the requested entity.");
+		// at this point the entity is NOT authorized via ACL+access requirements
+		if (!aclAllowsDownload) return new AuthorizationStatus(false, "You lack DOWNLOAD access to the requested entity.");
 		return meetsAccessRequirements;
 	}
 	

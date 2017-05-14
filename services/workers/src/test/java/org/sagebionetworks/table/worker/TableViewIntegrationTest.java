@@ -58,7 +58,6 @@ import org.sagebionetworks.repo.model.table.PartialRow;
 import org.sagebionetworks.repo.model.table.PartialRowSet;
 import org.sagebionetworks.repo.model.table.QueryResultBundle;
 import org.sagebionetworks.repo.model.table.Row;
-import org.sagebionetworks.repo.model.table.RowSet;
 import org.sagebionetworks.repo.model.table.SortItem;
 import org.sagebionetworks.repo.model.table.TableFailedException;
 import org.sagebionetworks.repo.model.table.TableSchemaChangeRequest;
@@ -468,6 +467,58 @@ public class TableViewIntegrationTest {
 					"The size of the column 'aString' is too small.  The column size needs to be at least 7 characters.",
 					expected.getStatus().getErrorMessage());
 		}
+	}
+	
+	/**
+	 * See PLFM-4371.
+	 * 
+	 */
+	@Test
+	public void testPLFM_4371() throws Exception {
+		String fileId = fileIds.get(0);
+		// Add a string column to the view
+		ColumnModel stringColumn = new ColumnModel();
+		stringColumn.setName("concreteType");
+		stringColumn.setColumnType(ColumnType.STRING);
+		stringColumn.setMaximumSize(500L);
+		stringColumn = columnModelManager.createColumnModel(adminUserInfo,
+				stringColumn);
+		defaultColumnIds.add(stringColumn.getId());
+		tableViewMangaer.setViewSchemaAndScope(adminUserInfo, defaultColumnIds,
+				Lists.newArrayList(project.getId()), ViewType.file, fileViewId);
+
+		// Add an annotation with a duplicate name as a primary annotation.
+		Annotations annos = entityManager.getAnnotations(adminUserInfo, fileId);
+		annos.addAnnotation(stringColumn.getName(), "this is a duplicate value");
+		entityManager.updateAnnotations(adminUserInfo, fileId, annos);
+		// For PLFM-4371 the replication was failing due to the duplicate name
+		waitForEntityReplication(fileViewId, fileId);
+	}
+	
+	/**
+	 * Test for PLFM-4366. To reproduce:
+	 * <ol>
+	 * <li>Create a view with at least one column and one row.</li>
+	 * <li>Wait for the view to become available for query.</li>
+	 * <li>Change the view's state to processing</li>
+	 * </ol>
+	 * Result: The view would remain in PROCESSING. The problem was the view
+	 * worker would detect that the view was up-to-date and do nothing. If there
+	 * is no work to do then the worker needs to ensure the view is AVAILABLE.
+	 */
+	@Test
+	public void testPLFM_4366() throws Exception{
+		// wait for the view to be available for query
+		waitForEntityReplication(fileViewId, fileViewId);
+		// query the view as a user that does not permission
+		String sql = "select * from "+fileViewId;
+		QueryResultBundle results = waitForConsistentQuery(adminUserInfo, sql);
+		assertNotNull(results);
+		// Set the view to processing without making any real changes
+		tableManagerSupport.setTableToProcessingAndTriggerUpdate(fileViewId);
+		// The view should become available again.
+		results = waitForConsistentQuery(adminUserInfo, sql);
+		assertNotNull(results);
 	}
 	
 	/**

@@ -21,16 +21,11 @@
 	<bean id="transactionalMessenger"
 		class="org.sagebionetworks.repo.model.message.TransactionalMessengerImpl" />
 
-	<bean id="dboAnnotationsDao"
-		class="org.sagebionetworks.repo.model.dbo.dao.DBOAnnotationsDaoImpl" />
-
 	<bean id="uploadDaemonStatusDao"
 		class="org.sagebionetworks.repo.model.dbo.dao.DBOUploadDaemonStatusDaoImpl" />
 
 	<bean id="nodeDao" class="org.sagebionetworks.repo.model.dbo.dao.NodeDAOImpl"
 		depends-on="idGenerator" />
-		
-	<bean id="permissionDao" class="org.sagebionetworks.repo.model.dbo.dao.PermissionDaoImpl"/>
 		
 	<bean id="dockerNodeDao" class="org.sagebionetworks.repo.model.dbo.dao.DockerNodeDaoImpl"
 		depends-on="idGenerator" />
@@ -44,10 +39,6 @@
 		
 	<bean id="fileHandleDao"
 		class="org.sagebionetworks.repo.model.dbo.dao.DBOFileHandleDaoImpl" />
-
-	<!-- Controls how nodes inherit their permissions -->
-	<bean id="nodeInheritanceDao"
-		class="org.sagebionetworks.repo.model.jdo.JDONodeInheritanceDAOImpl" />
 		
 	<!-- DO NOT CHANGE ANY OF THESE NAMES OR IDS as they represent real objects in production -->
 	<util:list id="bootstrapPrincipals">
@@ -259,11 +250,6 @@
 			</list>
 		</property>
 	</bean>
-
-	<!-- The node query dao singleton -->
-	<bean id="nodeQueryDao"
-		class="org.sagebionetworks.repo.model.query.jdo.JDONodeQueryDaoImpl"
-		depends-on="entityBootstrapper" />
 		
 	<bean id="queryDAO"
 		class="org.sagebionetworks.repo.model.query.QueryDAOImpl" />
@@ -277,10 +263,6 @@
 
 	<bean id="multipartUplaodDAO" class="org.sagebionetworks.repo.model.dbo.file.MultipartUploadDAOImpl"
 		scope="singleton" />
-
-	<!-- DAO used by asynchronous RDS works to update RDS tables acting as indicies -->
-	<bean id="asynchronousDAO"
-		class="org.sagebionetworks.repo.model.dbo.dao.AsynchronousDAOImpl" />
 
 	<!-- DAO for Evaluation objects -->
 	<bean id="evaluationDAO" class="org.sagebionetworks.evaluation.dao.EvaluationDAOImpl"
@@ -340,12 +322,15 @@
 	<bean id="throttleRulesDao"
 		class="org.sagebionetworks.repo.model.dbo.dao.throttle.DBOThrottleRulesDAOImpl" />
 
-	<!-- DAO for DataAccessRequest Feature -->
+	<!-- DAO for Data Access Feature -->
 	<bean id="researchProjectDao"
 		class="org.sagebionetworks.repo.model.dbo.dao.dataaccess.DBOResearchProjectDAOImpl" />
-	<bean id="dataAccessRequestDao"
-		class="org.sagebionetworks.repo.model.dbo.dao.dataaccess.DBODataAccessRequestDAOImpl" />
-	<bean id="dataAccessSubmissionDao"
-		class="org.sagebionetworks.repo.model.dbo.dao.dataaccess.DBODataAccessSubmissionDAOImpl" />
+	<bean id="requestDao"
+		class="org.sagebionetworks.repo.model.dbo.dao.dataaccess.DBORequestDAOImpl" />
+	<bean id="submissionDao"
+		class="org.sagebionetworks.repo.model.dbo.dao.dataaccess.DBOSubmissionDAOImpl" />
+		
+	<bean id="nodeQueryDaoFactory"
+		class="org.sagebionetworks.repo.model.query.entity.NodeQueryDaoFactoryImpl" />
 	
 </beans>

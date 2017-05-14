@@ -2,6 +2,7 @@ package org.sagebionetworks.evaluation.dbo;
 
 import static org.sagebionetworks.evaluation.dbo.DBOConstants.PARAM_SUBMISSION_CREATED_ON;
 import static org.sagebionetworks.evaluation.dbo.DBOConstants.PARAM_SUBMISSION_DOCKER_DIGEST;
+import static org.sagebionetworks.evaluation.dbo.DBOConstants.PARAM_SUBMISSION_DOCKER_REPOSITORY_NAME;
 import static org.sagebionetworks.evaluation.dbo.DBOConstants.PARAM_SUBMISSION_ENTITY_BUNDLE;
 import static org.sagebionetworks.evaluation.dbo.DBOConstants.PARAM_SUBMISSION_ENTITY_ID;
 import static org.sagebionetworks.evaluation.dbo.DBOConstants.PARAM_SUBMISSION_ENTITY_VERSION;
@@ -13,6 +14,7 @@ import static org.sagebionetworks.evaluation.dbo.DBOConstants.PARAM_SUBMISSION_T
 import static org.sagebionetworks.evaluation.dbo.DBOConstants.PARAM_SUBMISSION_USER_ID;
 import static org.sagebionetworks.repo.model.query.SQLConstants.COL_SUBMISSION_CREATED_ON;
 import static org.sagebionetworks.repo.model.query.SQLConstants.COL_SUBMISSION_DOCKER_DIGEST;
+import static org.sagebionetworks.repo.model.query.SQLConstants.COL_SUBMISSION_DOCKER_REPO_NAME;
 import static org.sagebionetworks.repo.model.query.SQLConstants.COL_SUBMISSION_ENTITY_BUNDLE;
 import static org.sagebionetworks.repo.model.query.SQLConstants.COL_SUBMISSION_ENTITY_ID;
 import static org.sagebionetworks.repo.model.query.SQLConstants.COL_SUBMISSION_ENTITY_VERSION;
@@ -31,11 +33,17 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.sagebionetworks.repo.model.Entity;
+import org.sagebionetworks.repo.model.EntityBundle;
 import org.sagebionetworks.repo.model.dbo.FieldColumn;
 import org.sagebionetworks.repo.model.dbo.MigratableDatabaseObject;
 import org.sagebionetworks.repo.model.dbo.TableMapping;
 import org.sagebionetworks.repo.model.dbo.migration.MigratableTableTranslation;
+import org.sagebionetworks.repo.model.docker.DockerRepository;
 import org.sagebionetworks.repo.model.migration.MigrationType;
+import org.sagebionetworks.schema.adapter.org.json.EntityFactory;
 
 /**
  * The database object for a Submission to a Synapse Evaluation
@@ -55,6 +63,7 @@ public class SubmissionDBO implements MigratableDatabaseObject<SubmissionDBO, Su
 			new FieldColumn(PARAM_SUBMISSION_CREATED_ON, COL_SUBMISSION_CREATED_ON),
 			new FieldColumn(PARAM_SUBMISSION_SUBMITTER_ALIAS, COL_SUBMISSION_SUBMITTER_ALIAS),
 			new FieldColumn(PARAM_SUBMISSION_TEAM_ID, COL_SUBMISSION_TEAM_ID),
+			new FieldColumn(PARAM_SUBMISSION_DOCKER_REPOSITORY_NAME, COL_SUBMISSION_DOCKER_REPO_NAME),
 			new FieldColumn(PARAM_SUBMISSION_DOCKER_DIGEST, COL_SUBMISSION_DOCKER_DIGEST)
 			};
 
@@ -71,6 +80,7 @@ public class SubmissionDBO implements MigratableDatabaseObject<SubmissionDBO, Su
 				sub.setVersionNumber(rs.getLong(COL_SUBMISSION_ENTITY_VERSION));
 				sub.setName(rs.getString(COL_SUBMISSION_NAME));
 				sub.setCreatedOn(rs.getLong(COL_SUBMISSION_CREATED_ON));
+				sub.setDockerRepositoryName(rs.getString(COL_SUBMISSION_DOCKER_REPO_NAME));
 				sub.setDockerDigest(rs.getString(COL_SUBMISSION_DOCKER_DIGEST));
 				java.sql.Blob blob = rs.getBlob(COL_SUBMISSION_ENTITY_BUNDLE);
 				if(blob != null){
@@ -111,6 +121,7 @@ public class SubmissionDBO implements MigratableDatabaseObject<SubmissionDBO, Su
 	private Long createdOn;
 	private String name;
 	private Long teamId;
+	private String dockerRepositoryName;
 	private String dockerDigest;
 	
 	public Long getId() {
@@ -150,8 +161,8 @@ public class SubmissionDBO implements MigratableDatabaseObject<SubmissionDBO, Su
 	public byte[] getEntityBundle() {
 		return entityBundle;
 	}
-	public void setEntityBundle(byte[] node) {
-		this.entityBundle = node;
+	public void setEntityBundle(byte[] entityBundle) {
+		this.entityBundle = entityBundle;
 	}
 	public Long getVersionNumber() {
 		return versionNumber;
@@ -173,7 +184,6 @@ public class SubmissionDBO implements MigratableDatabaseObject<SubmissionDBO, Su
 		this.name = name;
 	}
 	
-	
 	public Long getTeamId() {
 		return teamId;
 	}
@@ -181,6 +191,12 @@ public class SubmissionDBO implements MigratableDatabaseObject<SubmissionDBO, Su
 		this.teamId = teamId;
 	}
 	
+	public String getDockerRepositoryName() {
+		return dockerRepositoryName;
+	}
+	public void setDockerRepositoryName(String dockerRepositoryName) {
+		this.dockerRepositoryName = dockerRepositoryName;
+	}
 	public String getDockerDigest() {
 		return dockerDigest;
 	}
@@ -197,6 +213,10 @@ public class SubmissionDBO implements MigratableDatabaseObject<SubmissionDBO, Su
 				+ ((createdOn == null) ? 0 : createdOn.hashCode());
 		result = prime * result
 				+ ((dockerDigest == null) ? 0 : dockerDigest.hashCode());
+		result = prime
+				* result
+				+ ((dockerRepositoryName == null) ? 0 : dockerRepositoryName
+						.hashCode());
 		result = prime * result + Arrays.hashCode(entityBundle);
 		result = prime * result
 				+ ((entityId == null) ? 0 : entityId.hashCode());
@@ -229,6 +249,11 @@ public class SubmissionDBO implements MigratableDatabaseObject<SubmissionDBO, Su
 			if (other.dockerDigest != null)
 				return false;
 		} else if (!dockerDigest.equals(other.dockerDigest))
+			return false;
+		if (dockerRepositoryName == null) {
+			if (other.dockerRepositoryName != null)
+				return false;
+		} else if (!dockerRepositoryName.equals(other.dockerRepositoryName))
 			return false;
 		if (!Arrays.equals(entityBundle, other.entityBundle))
 			return false;
@@ -281,12 +306,23 @@ public class SubmissionDBO implements MigratableDatabaseObject<SubmissionDBO, Su
 				+ ", entityId=" + entityId + ", entityBundle="
 				+ Arrays.toString(entityBundle) + ", versionNumber="
 				+ versionNumber + ", createdOn=" + createdOn + ", name=" + name
-				+ ", teamId=" + teamId + ", dockerDigest=" + dockerDigest + "]";
+				+ ", teamId=" + teamId + ", dockerRepositoryName="
+				+ dockerRepositoryName + ", dockerDigest=" + dockerDigest + "]";
 	}
 	@Override
 	public MigrationType getMigratableTableType() {
 		return MigrationType.SUBMISSION;
 	}
+	
+	
+	private static Object getFromJSONIfPresent(JSONObject jsonObject, String key) throws JSONException {
+		if (jsonObject.has(key)) {
+			return jsonObject.get(key);
+		} else {
+			return null;
+		}
+	}
+	
 	@Override
 	public MigratableTableTranslation<SubmissionDBO, SubmissionDBO> getTranslator() {
 		return new MigratableTableTranslation<SubmissionDBO, SubmissionDBO>(){
@@ -294,6 +330,21 @@ public class SubmissionDBO implements MigratableDatabaseObject<SubmissionDBO, Su
 			@Override
 			public SubmissionDBO createDatabaseObjectFromBackup(
 					SubmissionDBO backup) {
+				if (backup.getDockerRepositoryName()==null) {
+					try {
+						JSONObject jsonObject = new JSONObject(new String(backup.getEntityBundle()));
+						JSONObject entity = (JSONObject)getFromJSONIfPresent(jsonObject, "entity");
+						if (entity!=null) {
+							String entityType = (String)getFromJSONIfPresent(entity, "concreteType");
+							if (entityType!=null && entityType.equals(DockerRepository.class.getName())) {
+								String repositoryName = (String)getFromJSONIfPresent(entity, "repositoryName");
+								backup.setDockerRepositoryName(repositoryName);
+							}
+						}
+					} catch (JSONException e) {
+						throw new RuntimeException(e);
+					}
+				}
 				return backup;
 			}
 

@@ -198,6 +198,7 @@ public class UrlHelpers {
 	public static final String ENTITY_ALIAS = ENTITY + "/alias" + "/{alias}";
 	
 	public static final String ENTITY_CHILDREN = ENTITY+"/children";
+	public static final String ENTITY_CHILD = ENTITY+"/child";
 	
 	public static final String ENTITY_BUNDLE = ENTITY+BUNDLE;
 	public static final String ENTITY_ID_BUNDLE = ENTITY_ID+BUNDLE;
@@ -966,7 +967,9 @@ public class UrlHelpers {
 			ACCESS_REQUIREMENT_WITH_REQUIREMENT_ID + "/submissions";
 	public static final String ACCESS_REQUIREMENT_ID_STATUS =
 			ACCESS_REQUIREMENT_WITH_REQUIREMENT_ID + "/status";
-	public static final String ENTITY_ID_RESTRICTION_INFORMATION = ENTITY_ID + "/restrictionInformation";
+	public static final String RESTRICTION_INFORMATION = "/restrictionInformation";
+	public static final String DATA_ACCESS_SUBMISSION_OPEN_SUBMISSIONS = DATA_ACCESS_SUBMISSION+"/openSubmissions";
+	public static final String ACCESS_APPROVAL_BATCH = ACCESS_APPROVAL+"/batch";
 
 	/**
 	 * APIs for DynamoDB related operations.

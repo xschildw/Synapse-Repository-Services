@@ -14,7 +14,6 @@ import javax.servlet.http.HttpServletRequest;
 import org.sagebionetworks.repo.manager.EntityQueryManager;
 import org.sagebionetworks.repo.manager.UserManager;
 import org.sagebionetworks.repo.model.DatastoreException;
-import org.sagebionetworks.repo.model.NodeQueryDao;
 import org.sagebionetworks.repo.model.NodeQueryResults;
 import org.sagebionetworks.repo.model.QueryResults;
 import org.sagebionetworks.repo.model.UnauthorizedException;
@@ -51,8 +50,6 @@ public class NodeQueryServiceImpl implements NodeQueryService {
 	}
 
 	@Autowired
-	private NodeQueryDao nodeQueryDao;
-	@Autowired
 	private UserManager userManager;
 	@Autowired
 	private EntityQueryManager entityQueryManager;
@@ -77,7 +74,7 @@ public class NodeQueryServiceImpl implements NodeQueryService {
 			throw new IllegalArgumentException("Query cannot be null");
 		}
 		UserInfo userInfo = userManager.getUserInfo(userId);
-		NodeQueryResults results = nodeQueryDao.executeQuery(query, userInfo);
+		NodeQueryResults results = entityQueryManager.executeQuery(query, userInfo);
 		return new QueryResults(results.getAllSelectedData(), results.getTotalNumberOfResults());
 	}
 
