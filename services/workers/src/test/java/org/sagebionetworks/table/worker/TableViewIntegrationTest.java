@@ -34,6 +34,7 @@ import org.sagebionetworks.repo.model.AuthorizationConstants.BOOTSTRAP_PRINCIPAL
 import org.sagebionetworks.repo.model.DatastoreException;
 import org.sagebionetworks.repo.model.Entity;
 import org.sagebionetworks.repo.model.FileEntity;
+import org.sagebionetworks.repo.model.Folder;
 import org.sagebionetworks.repo.model.Project;
 import org.sagebionetworks.repo.model.ResourceAccess;
 import org.sagebionetworks.repo.model.UnauthorizedException;
@@ -98,7 +99,7 @@ public class TableViewIntegrationTest {
 	@Autowired
 	private ColumnModelManager columnModelManager;
 	@Autowired
-	private TableViewManager tableViewMangaer;
+	private TableViewManager tableViewManager;
 	@Autowired
 	private TableQueryManager tableQueryManger;
 	@Autowired
@@ -110,7 +111,7 @@ public class TableViewIntegrationTest {
 	@Autowired
 	private IdGenerator idGenerator;
 	
-	ProgressCallback<Void> mockProgressCallbackVoid;
+	ProgressCallback mockProgressCallbackVoid;
 	
 	List<String> entitiesToDelete;
 	UserInfo adminUserInfo;
@@ -144,7 +145,7 @@ public class TableViewIntegrationTest {
 		userInfo = userManager.getUserInfo(userId);
 		
 		// create a shared fileHandle
-		S3FileHandle sharedHandle = new S3FileHandle();
+		sharedHandle = new S3FileHandle();
 		sharedHandle.setBucketName("fakeBucket");
 		sharedHandle.setKey("fakeKey");
 		sharedHandle.setContentMd5("md5");
@@ -193,18 +194,39 @@ public class TableViewIntegrationTest {
 			}
 			defaultColumnIds.add(cm.getId());
 		}
-		
-		// Create a new file view
-		EntityView fileView = new EntityView();
-		fileView.setName("aFileView");
-		fileView.setParentId(project.getId());
-		fileView.setColumnIds(defaultColumnIds);
-		fileView.setScopeIds(Lists.newArrayList(project.getId()));
-		fileView.setType(ViewType.file);
-		fileViewId = entityManager.createEntity(adminUserInfo, fileView, null);
-		fileView = entityManager.getEntity(adminUserInfo, fileViewId, EntityView.class);
-		tableViewMangaer.setViewSchemaAndScope(adminUserInfo, fileView.getColumnIds(), fileView.getScopeIds(), fileView.getType(), fileViewId);
 	}
+
+	/**
+	 * Create a File View using the project as a scope.
+	 * 
+	 */
+	private void createFileView(){
+		ViewType type = ViewType.file;
+		List<String> scope = Lists.newArrayList(project.getId());
+		fileViewId = createView(type, scope);
+	}
+	
+
+	/**
+	 * Create a view of the given type and scope.
+	 * 
+	 * @param type
+	 * @param scope
+	 */
+	private String createView(ViewType type, List<String> scope) {
+		// Create a new file view
+		EntityView view = new EntityView();
+		view.setName("aFileView");
+		view.setParentId(project.getId());
+		view.setColumnIds(defaultColumnIds);
+		view.setScopeIds(scope);
+		view.setType(type);
+		String viewId = entityManager.createEntity(adminUserInfo, view, null);
+		view = entityManager.getEntity(adminUserInfo, viewId, EntityView.class);
+		tableViewManager.setViewSchemaAndScope(adminUserInfo, view.getColumnIds(), view.getScopeIds(), view.getType(), viewId);
+		return viewId;
+	}
+	
 	
 	@After
 	public void after(){	
@@ -227,6 +249,7 @@ public class TableViewIntegrationTest {
 	
 	@Test
 	public void testFileView() throws Exception{
+		createFileView();
 		Long fileId = KeyFactory.stringToKey(fileIds.get(0));
 		// wait for replication
 		waitForEntityReplication(fileViewId, fileViewId);
@@ -245,11 +268,7 @@ public class TableViewIntegrationTest {
 		waitForEntityReplication(fileViewId, fileViewId);
 		// run the query again
 		QueryResultBundle results = waitForConsistentQuery(userInfo, sql);
-		assertNotNull(results);
-		assertNotNull(results.getQueryResult());
-		assertNotNull(results.getQueryResult().getQueryResults());
-		assertNotNull(results.getQueryResult().getQueryResults().getRows());
-		List<Row> rows = results.getQueryResult().getQueryResults().getRows();
+		List<Row> rows  = extractRows(results);
 		assertTrue("The user has no access to the files in the project so the view should appear empty",rows.isEmpty());
 		// since the user has no access to files the results should be empty
 		assertEquals(new Long(0), results.getQueryCount());
@@ -276,6 +295,7 @@ public class TableViewIntegrationTest {
 	
 	@Test
 	public void testContentUpdate() throws Exception {
+		createFileView();
 		Long fileId = KeyFactory.stringToKey(fileIds.get(0));
 		// lookup the file
 		FileEntity file = entityManager.getEntity(adminUserInfo, ""+fileId, FileEntity.class);
@@ -314,6 +334,7 @@ public class TableViewIntegrationTest {
 	
 	@Test
 	public void testForPLFM_4031() throws Exception{
+		createFileView();
 		Long fileId = KeyFactory.stringToKey(fileIds.get(0));
 		// lookup the file
 		FileEntity file = entityManager.getEntity(adminUserInfo, ""+fileId, FileEntity.class);
@@ -352,6 +373,7 @@ public class TableViewIntegrationTest {
 	
 	@Test
 	public void testUpdateAnnotationsWithPartialRowSet() throws Exception {
+		createFileView();
 		Long fileId = KeyFactory.stringToKey(fileIds.get(0));
 		// lookup the file
 		FileEntity file = entityManager.getEntity(adminUserInfo, ""+fileId, FileEntity.class);
@@ -406,6 +428,7 @@ public class TableViewIntegrationTest {
 	 */
 	@Test
 	public void testQueryEntityColumnType() throws Exception {
+		createFileView();
 		String fileId = fileIds.get(0);
 		assertTrue(fileId.startsWith("syn"));
 		// lookup the file
@@ -414,11 +437,7 @@ public class TableViewIntegrationTest {
 		
 		String sql = "select id, parentId, projectId, benefactorId from "+fileViewId+" where id = "+fileId;
 		QueryResultBundle results = waitForConsistentQuery(adminUserInfo, sql);
-		assertNotNull(results);
-		assertNotNull(results.getQueryResult());
-		assertNotNull(results.getQueryResult().getQueryResults());
-		assertNotNull(results.getQueryResult().getQueryResults().getRows());
-		List<Row> rows = results.getQueryResult().getQueryResults().getRows();
+		List<Row> rows  = extractRows(results);
 		assertEquals(1, rows.size());
 		Row row = rows.get(0);
 		assertNotNull(row);
@@ -439,6 +458,7 @@ public class TableViewIntegrationTest {
 	 */
 	@Test
 	public void testPLFM_4235() throws Exception {
+		createFileView();
 		String fileId = fileIds.get(0);
 		// Add a string column to the view
 		ColumnModel stringColumn = new ColumnModel();
@@ -448,7 +468,7 @@ public class TableViewIntegrationTest {
 		stringColumn = columnModelManager.createColumnModel(adminUserInfo,
 				stringColumn);
 		defaultColumnIds.add(stringColumn.getId());
-		tableViewMangaer.setViewSchemaAndScope(adminUserInfo, defaultColumnIds,
+		tableViewManager.setViewSchemaAndScope(adminUserInfo, defaultColumnIds,
 				Lists.newArrayList(project.getId()), ViewType.file, fileViewId);
 
 		// Add an annotation with the same name and a value larger than the size
@@ -475,6 +495,7 @@ public class TableViewIntegrationTest {
 	 */
 	@Test
 	public void testPLFM_4371() throws Exception {
+		createFileView();
 		String fileId = fileIds.get(0);
 		// Add a string column to the view
 		ColumnModel stringColumn = new ColumnModel();
@@ -484,7 +505,7 @@ public class TableViewIntegrationTest {
 		stringColumn = columnModelManager.createColumnModel(adminUserInfo,
 				stringColumn);
 		defaultColumnIds.add(stringColumn.getId());
-		tableViewMangaer.setViewSchemaAndScope(adminUserInfo, defaultColumnIds,
+		tableViewManager.setViewSchemaAndScope(adminUserInfo, defaultColumnIds,
 				Lists.newArrayList(project.getId()), ViewType.file, fileViewId);
 
 		// Add an annotation with a duplicate name as a primary annotation.
@@ -508,6 +529,7 @@ public class TableViewIntegrationTest {
 	 */
 	@Test
 	public void testPLFM_4366() throws Exception{
+		createFileView();
 		// wait for the view to be available for query
 		waitForEntityReplication(fileViewId, fileViewId);
 		// query the view as a user that does not permission
@@ -519,6 +541,162 @@ public class TableViewIntegrationTest {
 		// The view should become available again.
 		results = waitForConsistentQuery(adminUserInfo, sql);
 		assertNotNull(results);
+	}
+	
+	@Test
+	public void testProjectView() throws Exception{
+		// Create some projects
+		List<Project> projects = new LinkedList<Project>();
+		projects.add(project);
+		// Create a scope using even projects
+		List<String> scope = new LinkedList<String>();
+		String lastProjectId = null;
+		// create some projects
+		for(int i=0; i<6; i++){
+			Project nextProject = new Project();
+			nextProject.setName(UUID.randomUUID().toString());
+			lastProjectId = entityManager.createEntity(adminUserInfo, nextProject, null);
+			nextProject = entityManager.getEntity(adminUserInfo, lastProjectId, Project.class);
+			entitiesToDelete.add(lastProjectId);
+			projects.add(nextProject);
+			if(i%2 == 0){
+				scope.add(lastProjectId);
+			}
+		}
+		// Create a project view
+		String viewId = createView(ViewType.project, scope);
+		waitForEntityReplication(viewId, lastProjectId);
+		// query the view as a user that does not permission
+		String sql = "select * from "+viewId;
+		QueryResultBundle results = waitForConsistentQuery(adminUserInfo, sql, scope.size());
+		List<Row> rows  = extractRows(results);
+		assertEquals("Should have one row for each scope.",scope.size(), rows.size());
+	}
+	
+	/**
+	 * PLFM-4413 and PLFM-4410 are both bugs where view contents are incorrect after
+	 * ACLs are added/removed to the scopes of a view.  This test covers both issues.
+	 * @throws InterruptedException 
+	 */
+	@Test
+	public void testPLFM_4413() throws Exception {
+		// Add a folder to the existing project
+		Folder folder = new Folder();
+		folder.setParentId(project.getId());
+		folder.setName("StartsWithACL");
+		String folderId = entityManager.createEntity(adminUserInfo, folder, null);
+		// Add an ACL on the folder
+		AccessControlList acl = AccessControlListUtil.createACL(folderId, adminUserInfo, Sets.newHashSet(ACCESS_TYPE.READ), new Date(System.currentTimeMillis()));
+		entityPermissionsManager.overrideInheritance(acl, adminUserInfo);
+		// Add a file to the folder
+		FileEntity file = new FileEntity();
+		file.setName("ChangingBenefactor");
+		file.setDataFileHandleId(sharedHandle.getId());
+		file.setParentId(folderId);
+		String fileId = entityManager.createEntity(adminUserInfo, file, null);
+		Long fileIdLong = KeyFactory.stringToKey(fileId);
+		// create the view for this scope
+		createFileView();
+		// wait for the view to be available for query
+		waitForEntityReplication(fileViewId, fileViewId);
+		// query for the file that inherits from the folder.
+		String sql = "select * from "+fileViewId+" where benefactorId="+folderId+" and id = "+fileId;
+		int expectedRowCount = 1;
+		QueryResultBundle results = waitForConsistentQuery(adminUserInfo, sql, expectedRowCount);
+		List<Row> rows  = extractRows(results);
+		assertEquals(1, rows.size());
+		Row row = rows.get(0);
+		assertEquals(fileIdLong, row.getRowId());
+		
+		/*
+		 * Removing the ACL on the folder should set the file's benefactor to be
+		 * the project. This should be reflected in the view.
+		 */
+		entityPermissionsManager.restoreInheritance(folderId, adminUserInfo);
+
+		// Query for the the file with the project as its benefactor.
+		sql = "select * from "+fileViewId+" where benefactorId="+project.getId()+" and id = "+fileId;
+		expectedRowCount = 1;
+		results = waitForConsistentQuery(adminUserInfo, sql, expectedRowCount);
+		rows  = extractRows(results);
+		assertEquals(1, rows.size());
+		row = rows.get(0);
+		assertEquals(fileIdLong, row.getRowId());
+	}
+	
+	/**
+	 * The fix for PLFM-4399 involved adding a worker to reconcile 
+	 * entity replication with the truth.  This test ensure that when
+	 * replication data is missing for a FileView, a query of the
+	 * view triggers the reconciliation.
+	 * @throws Exception 
+	 * 
+	 */
+	@Test
+	public void testFileViewReconciliation() throws Exception{
+		createFileView();
+		String firstFileId = fileIds.get(0);
+		Long firtFileIdLong = KeyFactory.stringToKey(firstFileId);
+		// wait for the view to be available for query
+		waitForEntityReplication(fileViewId, firstFileId);
+		// query the view as a user that does not permission
+		String sql = "select * from "+fileViewId+" where id ="+firstFileId;
+		int rowCount = 1;
+		waitForConsistentQuery(adminUserInfo, sql, rowCount);
+		
+		// manually delete the replicated data the file to simulate a data loss.
+		TableIndexDAO indexDao = tableConnectionFactory.getConnection(fileViewId);
+		indexDao.truncateReplicationSyncExpiration();
+		indexDao.deleteEntityData(mockProgressCallbackVoid, Lists.newArrayList(firtFileIdLong));
+		
+		// This query should trigger the reconciliation to repair the lost data.
+		// If the query returns a single row, then the deleted data was restored.
+		waitForConsistentQuery(adminUserInfo, sql, rowCount);
+	}
+
+	
+	/**
+	 * The fix for PLFM-4399 involved adding a worker to reconcile 
+	 * entity replication with the truth.  This test ensure that when
+	 * replication data is missing for a ProjectView, a query of the
+	 * view triggers the reconciliation.
+	 * @throws Exception 
+	 * 
+	 */
+	@Test
+	public void testProjectViewReconciliation() throws Exception{
+		String projectId = project.getId();
+		Long projectIdLong = KeyFactory.stringToKey(projectId);
+		List<String> scope = Lists.newArrayList(projectId);
+		String viewId = createView(ViewType.project, scope);
+		// wait for the view.
+		waitForEntityReplication(viewId, projectId);
+		// query the view as a user that does not permission
+		String sql = "select * from "+viewId+" where id ="+projectId;
+		int rowCount = 1;
+		waitForConsistentQuery(adminUserInfo, sql, rowCount);
+		
+		// manually delete the replicated data of the project to simulate a data loss.
+		TableIndexDAO indexDao = tableConnectionFactory.getConnection(viewId);
+		indexDao.truncateReplicationSyncExpiration();
+		indexDao.deleteEntityData(mockProgressCallbackVoid, Lists.newArrayList(projectIdLong));
+		
+		// This query should trigger the reconciliation to repair the lost data.
+		// If the query returns a single row, then the deleted data was restored.
+		waitForConsistentQuery(adminUserInfo, sql, rowCount);
+	}
+	/**
+	 * Helper to get the rows from a query.
+	 * 
+	 * @param results
+	 * @return
+	 */
+	private List<Row> extractRows(QueryResultBundle results) {
+		assertNotNull(results);
+		assertNotNull(results.getQueryResult());
+		assertNotNull(results.getQueryResult().getQueryResults());
+		assertNotNull(results.getQueryResult().getQueryResults().getRows());
+		return results.getQueryResult().getQueryResults().getRows();
 	}
 	
 	/**
@@ -545,6 +723,28 @@ public class TableViewIntegrationTest {
 			case COMPLETE:
 				return (T)status.getResponseBody();
 			}
+		}
+	}
+	
+	/**
+	 * Wait for a query to return the expected number of rows.
+	 * @param user
+	 * @param sql
+	 * @param rowCount
+	 * @return
+	 * @throws Exception
+	 */
+	private QueryResultBundle waitForConsistentQuery(UserInfo user, String sql, int rowCount) throws Exception {
+		long start = System.currentTimeMillis();
+		while(true){
+			QueryResultBundle results = waitForConsistentQuery(user, sql);
+			List<Row> rows = extractRows(results);
+			if(rows.size() == rowCount){
+				return results;
+			}
+			System.out.println("Waiting for row count: "+rowCount+". Current count: "+rows.size());
+			assertTrue("Timed out waiting for table view worker to make the table available.", (System.currentTimeMillis()-start) <  MAX_WAIT_MS);
+			Thread.sleep(1000);
 		}
 	}
 	

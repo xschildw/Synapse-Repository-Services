@@ -31,10 +31,13 @@ import org.sagebionetworks.repo.model.AccessApproval;
 import org.sagebionetworks.repo.model.AccessControlList;
 import org.sagebionetworks.repo.model.AccessRequirement;
 import org.sagebionetworks.repo.model.Annotations;
+import org.sagebionetworks.repo.model.BatchAccessApprovalInfoRequest;
+import org.sagebionetworks.repo.model.BatchAccessApprovalInfoResponse;
 import org.sagebionetworks.repo.model.Challenge;
 import org.sagebionetworks.repo.model.ChallengePagedResults;
 import org.sagebionetworks.repo.model.ChallengeTeam;
 import org.sagebionetworks.repo.model.ChallengeTeamPagedResults;
+import org.sagebionetworks.repo.model.Count;
 import org.sagebionetworks.repo.model.Entity;
 import org.sagebionetworks.repo.model.EntityBundle;
 import org.sagebionetworks.repo.model.EntityBundleCreate;
@@ -58,6 +61,7 @@ import org.sagebionetworks.repo.model.ProjectListType;
 import org.sagebionetworks.repo.model.Reference;
 import org.sagebionetworks.repo.model.ResponseMessage;
 import org.sagebionetworks.repo.model.RestrictableObjectDescriptor;
+import org.sagebionetworks.repo.model.RestrictableObjectDescriptorResponse;
 import org.sagebionetworks.repo.model.RestrictionInformationRequest;
 import org.sagebionetworks.repo.model.RestrictionInformationResponse;
 import org.sagebionetworks.repo.model.Team;
@@ -82,9 +86,11 @@ import org.sagebionetworks.repo.model.dataaccess.SubmissionOrder;
 import org.sagebionetworks.repo.model.dataaccess.SubmissionPage;
 import org.sagebionetworks.repo.model.dataaccess.SubmissionState;
 import org.sagebionetworks.repo.model.dataaccess.OpenSubmissionPage;
+import org.sagebionetworks.repo.model.dataaccess.AccessRequirementConversionRequest;
 import org.sagebionetworks.repo.model.dataaccess.AccessRequirementStatus;
-import org.sagebionetworks.repo.model.dataaccess.BatchAccessApprovalRequest;
-import org.sagebionetworks.repo.model.dataaccess.BatchAccessApprovalResult;
+import org.sagebionetworks.repo.model.dataaccess.AccessorGroupRequest;
+import org.sagebionetworks.repo.model.dataaccess.AccessorGroupResponse;
+import org.sagebionetworks.repo.model.dataaccess.CreateSubmissionRequest;
 import org.sagebionetworks.repo.model.dataaccess.ResearchProject;
 import org.sagebionetworks.repo.model.discussion.CreateDiscussionReply;
 import org.sagebionetworks.repo.model.discussion.CreateDiscussionThread;
@@ -116,6 +122,7 @@ import org.sagebionetworks.repo.model.file.BatchPresignedUploadUrlResponse;
 import org.sagebionetworks.repo.model.file.BulkFileDownloadRequest;
 import org.sagebionetworks.repo.model.file.BulkFileDownloadResponse;
 import org.sagebionetworks.repo.model.file.ExternalFileHandle;
+import org.sagebionetworks.repo.model.file.ExternalObjectStoreFileHandle;
 import org.sagebionetworks.repo.model.file.FileHandle;
 import org.sagebionetworks.repo.model.file.FileHandleAssociation;
 import org.sagebionetworks.repo.model.file.FileHandleResults;
@@ -500,7 +507,7 @@ public interface SynapseClient extends BaseClient {
 
 	public void deleteAccessApproval(Long approvalId) throws SynapseException;
 
-	public void deleteAccessApprovals(String requirementId, String accessorId) throws SynapseException;
+	public void revokeAccessApprovals(String requirementId, String accessorId) throws SynapseException;
 
 	public JSONObject getEntity(String uri) throws SynapseException;
 
@@ -558,7 +565,17 @@ public interface SynapseClient extends BaseClient {
 	 */
 	ProxyFileHandle createExternalProxyFileHandle(ProxyFileHandle handle)
 			throws SynapseException;
-	
+
+	/**
+	 * Create a new ExternalObjectStoreFileHandle. Note: ExternalObjectStoreFileHandle.storageLocationId
+	 * must be set to reference a valid ExternalObjectStorageLocationSetting.
+	 * @param handle
+	 * @return
+	 * @throws SynapseException
+	 */
+	ExternalObjectStoreFileHandle createExternalObjectStoreFileHandle(ExternalObjectStoreFileHandle handle)
+			throws SynapseException;
+
 	/**
 	 * Create an S3FileHandle using a pre-configured ExternalS3StorageLocationSetting ID.
 	 * @param handle
@@ -1557,6 +1574,13 @@ public interface SynapseClient extends BaseClient {
 	 * @throws SynapseException
 	 */
 	void deleteMembershipInvitation(String invitationId) throws SynapseException;
+
+	/**
+	 * Retrieve the number of pending Membership Invitations
+	 * @return
+	 * @throws SynapseException
+	 */
+	Count getOpenMembershipInvitationCount() throws SynapseException;
 	
 	/**
 	 * 
@@ -1610,6 +1634,13 @@ public interface SynapseClient extends BaseClient {
 
 	
 
+	/**
+	 * Retrieve the number of pending Membership Requests for teams that user is admin
+	 * @return
+	 * @throws SynapseException
+	 */
+	Count getOpenMembershipRequestCount() throws SynapseException;
+
 	/** Get the List of ColumnModels for TableEntity given the TableEntity's ID.
 	 * 
 	 * @param tableEntityId
@@ -1627,11 +1658,6 @@ public interface SynapseClient extends BaseClient {
 	 * @throws SynapseException 
 	 */
 	PaginatedColumnModels listColumnModels(String prefix, Long limit, Long offset) throws SynapseException;
-
-	/**
-	 * Creates a user
-	 */
-	public void createUser(NewUser user) throws SynapseException;
 	
 	/**
 	 * Changes the registering user's password
@@ -2774,12 +2800,11 @@ public interface SynapseClient extends BaseClient {
 	/**
 	 * Submit a submission
 	 * 
-	 * @param requestId
-	 * @param etag
+	 * @param request
 	 * @return
 	 * @throws SynapseException
 	 */
-	org.sagebionetworks.repo.model.dataaccess.SubmissionStatus submitRequest(String requestId, String etag) throws SynapseException;
+	org.sagebionetworks.repo.model.dataaccess.SubmissionStatus submitRequest(CreateSubmissionRequest request) throws SynapseException;
 
 	/**
 	 * Cancel a submission.
@@ -2834,12 +2859,56 @@ public interface SynapseClient extends BaseClient {
 	RestrictionInformationResponse getRestrictionInformation(RestrictionInformationRequest request) throws SynapseException;
 
 	/**
-	 * Retrieve the information about submitted Submissions
+	 * Retrieve the information about submitted Submissions.
 	 * @param nextPageToken
 	 * @return
 	 * @throws SynapseException
 	 */
 	OpenSubmissionPage getOpenSubmissions(String nextPageToken) throws SynapseException;
 
-	BatchAccessApprovalResult getAccessApprovalInfo(BatchAccessApprovalRequest batchRequest) throws SynapseException;
+	/**
+	 * Retrieve a page of AccessorGroup.
+	 * 
+	 * @param request
+	 * @return
+	 * @throws SynapseException
+	 */
+	AccessorGroupResponse listAccessorGroup(AccessorGroupRequest request) throws SynapseException;
+
+	/**
+	 * Revoke a group of accessors.
+	 * 
+	 * @param accessRequirementId
+	 * @param submitterId
+	 * @throws SynapseException
+	 */
+	void revokeGroup(String accessRequirementId, String submitterId) throws SynapseException;
+
+	/**
+	 * Convert an ACTAccessRequirement to a ManagedACTAccessRequirement.
+	 * 
+	 * @param request
+	 * @return
+	 * @throws SynapseException
+	 */
+	AccessRequirement convertAccessRequirement(AccessRequirementConversionRequest request) throws SynapseException;
+
+	/**
+	 * Retrieve a batch of AccessApprovalInfo
+	 * 
+	 * @param request
+	 * @return
+	 * @throws SynapseException
+	 */
+	BatchAccessApprovalInfoResponse getBatchAccessApprovalInfo(BatchAccessApprovalInfoRequest request) throws SynapseException;
+
+	/**
+	 * Retrieve a page of subjects for a given access requirement ID.
+	 * 
+	 * @param requirementId
+	 * @param nextPageToken
+	 * @return
+	 * @throws SynapseException
+	 */
+	RestrictableObjectDescriptorResponse getSubjects(String requirementId, String nextPageToken) throws SynapseException;
 }

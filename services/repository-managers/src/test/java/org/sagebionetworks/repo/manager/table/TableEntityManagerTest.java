@@ -108,7 +108,7 @@ import com.google.common.collect.Sets;
 public class TableEntityManagerTest {
 	
 	@Mock
-	ProgressCallback<Void> mockProgressCallback;
+	ProgressCallback mockProgressCallback;
 	@Mock
 	StackStatusDao mockStackStatusDao;
 	@Mock
@@ -118,9 +118,9 @@ public class TableEntityManagerTest {
 	@Mock
 	TableIndexDAO mockTableIndexDAO;
 	@Mock
-	ProgressCallback<Object> mockProgressCallback2;
+	ProgressCallback mockProgressCallback2;
 	@Mock
-	ProgressCallback<Void> mockProgressCallbackVoid;
+	ProgressCallback mockProgressCallbackVoid;
 	@Mock
 	FileHandleDao mockFileDao;
 	@Mock
@@ -231,7 +231,7 @@ public class TableEntityManagerTest {
 			@Override
 			public Object answer(InvocationOnMock invocation) throws Throwable {
 				if(invocation == null) return null;
-				ProgressingCallable<Object, Object> callable = (ProgressingCallable<Object, Object>) invocation.getArguments()[3];
+				ProgressingCallable<Object> callable = (ProgressingCallable<Object>) invocation.getArguments()[3];
 						if (callable != null) {
 							return callable.call(mockProgressCallback2);
 						} else {
@@ -447,7 +447,6 @@ public class TableEntityManagerTest {
 		assertEquals(new Long(10), uploadToTableResult.getRowsProcessed());
 		// verify the table status was set
 		verify(mockTableManagerSupport, times(1)).setTableToProcessingAndTriggerUpdate(tableId);
-		verify(mockProgressCallback).progressMade(null);
 		verify(mockTableManagerSupport).setTableToProcessingAndTriggerUpdate(tableId);
 		verify(mockTableManagerSupport).validateTableWriteAccess(user, tableId);
 	}
@@ -526,7 +525,6 @@ public class TableEntityManagerTest {
 		assertEquals(new Long(5), results.getRows().get(9).getVersionNumber());
 		// verify the table status was set
 		verify(mockTableManagerSupport, times(1)).setTableToProcessingAndTriggerUpdate(tableId);
-		verify(mockProgressCallback, times(3)).progressMade(null);
 		verify(mockTableManagerSupport).validateTableWriteAccess(user, tableId);
 	}
 
@@ -692,6 +690,7 @@ public class TableEntityManagerTest {
 		rows.setEtag("444");
 		rows.setRows(Lists.newArrayList(TableModelTestUtils.createRowReference(1L, 2L), TableModelTestUtils.createRowReference(3L, 4L)));
 
+		// call under test
 		RowSet result = manager.getCellValues(user, tableId, rows.getRows(), models);
 		assertNotNull(result);
 		assertEquals(tableId, tableId);
@@ -703,6 +702,35 @@ public class TableEntityManagerTest {
 		row = result.getRows().get(1);
 		assertEquals(new Long(3), row.getRowId());
 		
+		verify(mockTableManagerSupport).validateTableReadAccess(user, tableId);
+		verify(mockTableManagerSupport).getTableEntityType(tableId);
+	}
+	
+	/**
+	 * Test for PLFM-4494, case where user requests file handles that are not on the table.
+	 * 
+	 * @throws DatastoreException
+	 * @throws NotFoundException
+	 * @throws IOException
+	 */
+	@Test
+	public void testGetCellValuesMissing() throws DatastoreException, NotFoundException, IOException {
+		RowReferenceSet rows = new RowReferenceSet();
+		rows.setTableId(tableId);
+		rows.setHeaders(TableModelUtils.getSelectColumns(models));
+		rows.setEtag("444");
+		// the second reference does not exist
+		rows.setRows(Lists.newArrayList(TableModelTestUtils.createRowReference(1L, 2L), TableModelTestUtils.createRowReference(-1L, -1L)));
+
+		// call under test
+		RowSet result = manager.getCellValues(user, tableId, rows.getRows(), models);
+		assertNotNull(result);
+		assertEquals(tableId, tableId);
+		assertEquals(rows.getHeaders(), result.getHeaders());
+		assertNotNull(result.getRows());
+		assertEquals(1, result.getRows().size());
+		Row row = result.getRows().get(0);
+		assertEquals(new Long(1), row.getRowId());
 		verify(mockTableManagerSupport).validateTableReadAccess(user, tableId);
 		verify(mockTableManagerSupport).getTableEntityType(tableId);
 	}
@@ -737,6 +765,15 @@ public class TableEntityManagerTest {
 		assertEquals("string1", result.getValues().get(0));
 		verify(mockTableManagerSupport).validateTableReadAccess(user, tableId);
 	}
+	
+	@Test (expected=NotFoundException.class)
+	public void testGetCellValueNotFound() throws Exception {
+		final int columnIndex = 1;
+		RowReference rowRef = new RowReference();
+		rowRef.setRowId(-1L);
+		// call under test.
+		manager.getCellValue(user, tableId, rowRef, models.get(columnIndex));
+	}
 
 	@Test(expected = UnauthorizedException.class)
 	public void testGetColumnValuesFailReadAccess() throws Exception {
@@ -755,7 +792,6 @@ public class TableEntityManagerTest {
 		manager.appendRowsAsStream(user, tableId, models, sparseChangeSet.writeToDto().getRows().iterator(),
 				"etag",
 				results, mockProgressCallback);
-		verify(mockProgressCallback, times(3)).progressMade(null);
 	}
 	
 	@Test (expected=ReadOnlyException.class)
@@ -768,7 +804,6 @@ public class TableEntityManagerTest {
 		manager.appendRowsAsStream(user, tableId, models, sparseChangeSet.writeToDto().getRows().iterator(),
 				"etag",
 				results, mockProgressCallback);
-		verify(mockProgressCallback, times(3)).progressMade(null);
 	}
 	
 	@Test

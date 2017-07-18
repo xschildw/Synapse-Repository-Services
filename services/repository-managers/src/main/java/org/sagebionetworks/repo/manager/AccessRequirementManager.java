@@ -9,10 +9,12 @@ import org.sagebionetworks.repo.model.DatastoreException;
 import org.sagebionetworks.repo.model.InvalidModelException;
 import org.sagebionetworks.repo.model.LockAccessRequirement;
 import org.sagebionetworks.repo.model.RestrictableObjectDescriptor;
+import org.sagebionetworks.repo.model.RestrictableObjectDescriptorResponse;
 import org.sagebionetworks.repo.model.RestrictionInformationRequest;
 import org.sagebionetworks.repo.model.RestrictionInformationResponse;
 import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UserInfo;
+import org.sagebionetworks.repo.model.dataaccess.AccessRequirementConversionRequest;
 import org.sagebionetworks.repo.web.NotFoundException;
 
 public interface AccessRequirementManager {
@@ -31,11 +33,6 @@ public interface AccessRequirementManager {
 	 * @throws DatastoreException 
 	 */
 	public AccessRequirement getAccessRequirement(UserInfo userInfo, String requirementId) throws DatastoreException, NotFoundException;
-	
-	/**
-	 *  get all the access requirements for an entity
-	 */
-	public List<AccessRequirement> getAllAccessRequirementsForSubject(UserInfo userInfo, RestrictableObjectDescriptor subjectId) throws DatastoreException, NotFoundException, UnauthorizedException;
 
 	/**
 	 *  get a page of the access requirements for an entity
@@ -79,4 +76,29 @@ public interface AccessRequirementManager {
 	 * @return
 	 */
 	public RestrictionInformationResponse getRestrictionInformation(UserInfo userInfo, RestrictionInformationRequest request);
+
+	/**
+	 * Convert an ACTAccessRequirement to a ManagedACTAccessRequirement
+	 * 
+	 * @param userInfo
+	 * @param request
+	 * @return
+	 * @throws NotFoundException
+	 * @throws UnauthorizedException
+	 * @throws ConflictingUpdateException
+	 */
+	public AccessRequirement convertAccessRequirement(UserInfo userInfo, AccessRequirementConversionRequest request)
+			throws NotFoundException, UnauthorizedException, ConflictingUpdateException;
+
+	/**
+	 * Retrieve a page of subjects for a given accessRequirementId
+	 * 
+	 * @param userInfo
+	 * @param accessRequirementId
+	 * @param nextPageToken
+	 * @return
+	 */
+	public RestrictableObjectDescriptorResponse getSubjects(UserInfo userInfo, String accessRequirementId,
+			String nextPageToken);
+
 }

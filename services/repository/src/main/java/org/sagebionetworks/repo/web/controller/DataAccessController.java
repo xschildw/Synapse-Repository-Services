@@ -5,8 +5,7 @@ import org.sagebionetworks.repo.model.DatastoreException;
 import org.sagebionetworks.repo.model.RestrictionInformationRequest;
 import org.sagebionetworks.repo.model.RestrictionInformationResponse;
 import org.sagebionetworks.repo.model.dataaccess.AccessRequirementStatus;
-import org.sagebionetworks.repo.model.dataaccess.BatchAccessApprovalRequest;
-import org.sagebionetworks.repo.model.dataaccess.BatchAccessApprovalResult;
+import org.sagebionetworks.repo.model.dataaccess.CreateSubmissionRequest;
 import org.sagebionetworks.repo.model.dataaccess.OpenSubmissionPage;
 import org.sagebionetworks.repo.model.dataaccess.RequestInterface;
 import org.sagebionetworks.repo.model.dataaccess.ResearchProject;
@@ -120,8 +119,7 @@ public class DataAccessController extends BaseController {
 	 * Submit a Submission using information from a Request.
 	 * 
 	 * @param userId - The ID of the user who is making the request.
-	 * @param requestId - The ID of the Request that is used to create the submission.
-	 * @param etag - The etag og the Request. Etag must match the current etag of the Request.
+	 * @param requestId - The object that contains information to create a submission.
 	 * @return
 	 * @throws NotFoundException
 	 */
@@ -129,10 +127,9 @@ public class DataAccessController extends BaseController {
 	@RequestMapping(value = UrlHelpers.DATA_ACCESS_REQUEST_ID_SUBMISSION, method = RequestMethod.POST)
 	public @ResponseBody SubmissionStatus submit(
 			@RequestParam(value = AuthorizationConstants.USER_ID_PARAM) Long userId,
-			@PathVariable String requestId,
-			@RequestParam(value = AuthorizationConstants.ETAG_PARAM) String etag)
+			@RequestBody CreateSubmissionRequest request)
 					throws NotFoundException {
-		return serviceProvider.getDataAccessService().submit(userId, requestId, etag);
+		return serviceProvider.getDataAccessService().submit(userId, request);
 	}
 
 	/**
@@ -232,21 +229,5 @@ public class DataAccessController extends BaseController {
 			@RequestParam(value = AuthorizationConstants.USER_ID_PARAM) Long userId,
 			@RequestParam(value = "nextPageToken", required = false) String nextPageToken) {
 		return serviceProvider.getDataAccessService().getOpenSubmissions(userId, nextPageToken);
-	}
-
-	/**
-	 * Retrieve access approval information for a batch of users.
-	 * Only ACT member can perform this action.
-	 * 
-	 * @param userId
-	 * @param batchRequest
-	 * @return
-	 */
-	@ResponseStatus(HttpStatus.OK)
-	@RequestMapping(value = UrlHelpers.ACCESS_APPROVAL_BATCH, method = RequestMethod.POST)
-	public @ResponseBody BatchAccessApprovalResult getAccessApprovalInfo(
-			@RequestParam(value = AuthorizationConstants.USER_ID_PARAM) Long userId,
-			@RequestBody BatchAccessApprovalRequest batchRequest) {
-		return serviceProvider.getDataAccessService().getAccessApprovalInfo(userId, batchRequest);
 	}
 }

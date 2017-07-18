@@ -18,6 +18,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
@@ -40,17 +41,20 @@ import org.sagebionetworks.repo.model.AccessControlListDAO;
 import org.sagebionetworks.repo.model.AccessRequirement;
 import org.sagebionetworks.repo.model.AccessRequirementDAO;
 import org.sagebionetworks.repo.model.ActivityDAO;
+import org.sagebionetworks.repo.model.AuthorizationConstants;
 import org.sagebionetworks.repo.model.AuthorizationConstants.BOOTSTRAP_PRINCIPAL;
 import org.sagebionetworks.repo.model.DatastoreException;
 import org.sagebionetworks.repo.model.DockerNodeDao;
 import org.sagebionetworks.repo.model.EntityHeader;
 import org.sagebionetworks.repo.model.EntityType;
+import org.sagebionetworks.repo.model.GroupMembersDAO;
+import org.sagebionetworks.repo.model.HasAccessorRequirement;
 import org.sagebionetworks.repo.model.NodeDAO;
 import org.sagebionetworks.repo.model.ObjectType;
 import org.sagebionetworks.repo.model.Reference;
 import org.sagebionetworks.repo.model.RestrictableObjectDescriptor;
 import org.sagebionetworks.repo.model.RestrictableObjectType;
-import org.sagebionetworks.repo.model.TermsOfUseAccessApproval;
+import org.sagebionetworks.repo.model.SelfSignAccessRequirement;
 import org.sagebionetworks.repo.model.TermsOfUseAccessRequirement;
 import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UserInfo;
@@ -65,6 +69,7 @@ import org.sagebionetworks.repo.model.discussion.Forum;
 import org.sagebionetworks.repo.model.docker.RegistryEventAction;
 import org.sagebionetworks.repo.model.file.FileHandleAssociateType;
 import org.sagebionetworks.repo.model.file.FileHandleAssociationManager;
+import org.sagebionetworks.repo.model.jdo.KeyFactory;
 import org.sagebionetworks.repo.model.provenance.Activity;
 import org.sagebionetworks.repo.model.subscription.SubscriptionObjectType;
 import org.sagebionetworks.repo.model.v2.dao.V2WikiPageDao;
@@ -82,8 +87,6 @@ public class AuthorizationManagerImplUnitTest {
 	private DockerNodeDao mockDockerNodeDao;
 	@Mock
 	private AccessRequirementDAO  mockAccessRequirementDAO;
-	@Mock
-	private AccessApprovalDAO mockAccessApprovalDAO;
 	@Mock
 	private ActivityDAO mockActivityDAO;
 	@Mock
@@ -116,6 +119,10 @@ public class AuthorizationManagerImplUnitTest {
 	private org.sagebionetworks.repo.model.dbo.dao.dataaccess.SubmissionDAO mockDataAccessSubmissionDao;
 	@Mock
 	private UserInfo mockACTUser;
+	@Mock
+	private GroupMembersDAO mockGroupMembersDao;
+	@Mock
+	private Set<String> accessors;
 
 	private static String USER_PRINCIPAL_ID = "123";
 	private static String EVAL_OWNER_PRINCIPAL_ID = "987";
@@ -148,6 +155,8 @@ public class AuthorizationManagerImplUnitTest {
 	private Forum forum;
 	private String submissionId;
 
+	HasAccessorRequirement req;
+
 
 	@Before
 	public void setUp() throws Exception {
@@ -156,9 +165,7 @@ public class AuthorizationManagerImplUnitTest {
 
 		authorizationManager = new AuthorizationManagerImpl();
 		ReflectionTestUtils.setField(authorizationManager, "dockerNodeDao", mockDockerNodeDao);
-		ReflectionTestUtils.setField(authorizationManager, "accessApprovalDAO", mockAccessApprovalDAO);
 		ReflectionTestUtils.setField(authorizationManager, "accessRequirementDAO", mockAccessRequirementDAO);
-		ReflectionTestUtils.setField(authorizationManager, "accessApprovalDAO", mockAccessApprovalDAO);
 		ReflectionTestUtils.setField(authorizationManager, "activityDAO", mockActivityDAO);
 		ReflectionTestUtils.setField(authorizationManager, "entityPermissionsManager", mockEntityPermissionsManager);
 		ReflectionTestUtils.setField(authorizationManager, "fileHandleDao", mockFileHandleDao);
@@ -173,6 +180,7 @@ public class AuthorizationManagerImplUnitTest {
 		ReflectionTestUtils.setField(authorizationManager, "evaluationPermissionsManager", mockEvaluationPermissionsManager);
 		ReflectionTestUtils.setField(authorizationManager, "messageManager", mockMessageManager);
 		ReflectionTestUtils.setField(authorizationManager, "dataAccessSubmissionDao", mockDataAccessSubmissionDao);
+		ReflectionTestUtils.setField(authorizationManager, "groupMembersDao", mockGroupMembersDao);
 
 		userInfo = new UserInfo(false, USER_PRINCIPAL_ID);
 		adminUser = new UserInfo(true, 456L);
@@ -214,6 +222,7 @@ public class AuthorizationManagerImplUnitTest {
 		when(mockNodeDao.getNodeTypeById(PARENT_ID)).thenReturn(EntityType.project);
 		
 		when(mockDockerNodeDao.getEntityIdForRepositoryName(REPOSITORY_NAME)).thenReturn(REPO_ENTITY_ID);
+		when(mockNodeDao.getBenefactor(REPO_ENTITY_ID)).thenReturn(REPO_ENTITY_ID);  // mocked to return something other than trash can
 		
 		when(mockEntityPermissionsManager.hasAccess(eq(REPO_ENTITY_ID), eq(ACCESS_TYPE.READ), eq(USER_INFO))).
 		thenReturn(AuthorizationManagerUtil.AUTHORIZED);
@@ -227,7 +236,8 @@ public class AuthorizationManagerImplUnitTest {
 		when(mockEvaluationPermissionsManager.
 				isDockerRepoNameInEvaluationWithAccess(anyString(), (Set<Long>)any(), (ACCESS_TYPE)any())).
 				thenReturn(false);
-		
+
+		req = new SelfSignAccessRequirement();
 	}
 
 	private PaginatedResults<Reference> generateQueryResults(int numResults, int total) {
@@ -400,16 +410,6 @@ public class AuthorizationManagerImplUnitTest {
 		return ar;
 	}
 
-	private AccessApproval createEntityAccessApproval() throws Exception {
-		AccessRequirement ar = createEntityAccessRequirement();
-		TermsOfUseAccessApproval aa = new TermsOfUseAccessApproval();
-		aa.setAccessorId(userInfo.getId().toString());
-		aa.setId(656L);
-		aa.setRequirementId(ar.getId());
-		when(mockAccessApprovalDAO.get(aa.getId().toString())).thenReturn(aa);
-		return aa;
-	}
-
 	private static RestrictableObjectDescriptor createEvaluationSubjectId() {
 		RestrictableObjectDescriptor subjectId = new RestrictableObjectDescriptor();
 		subjectId.setType(RestrictableObjectType.EVALUATION);
@@ -423,16 +423,6 @@ public class AuthorizationManagerImplUnitTest {
 		ar.setId(1234L);
 		when(mockAccessRequirementDAO.get(ar.getId().toString())).thenReturn(ar);
 		return ar;
-	}
-
-	private AccessApproval createEvaluationAccessApproval() throws Exception {
-		AccessRequirement ar = createEvaluationAccessRequirement();
-		TermsOfUseAccessApproval aa = new TermsOfUseAccessApproval();
-		aa.setAccessorId(userInfo.getId().toString());
-		aa.setId(656L);
-		aa.setRequirementId(ar.getId());
-		when(mockAccessApprovalDAO.get(aa.getId().toString())).thenReturn(aa);
-		return aa;
 	}
 
 	@Test
@@ -460,33 +450,9 @@ public class AuthorizationManagerImplUnitTest {
 
 	@Test
 	public void testCanAccessEntityAccessApproval() throws Exception {
-		AccessApproval aa = createEntityAccessApproval();
-		assertFalse(authorizationManager.canAccess(userInfo, aa.getId().toString(), ObjectType.ACCESS_APPROVAL, ACCESS_TYPE.READ).getAuthorized());
+		assertFalse(authorizationManager.canAccess(userInfo, "1", ObjectType.ACCESS_APPROVAL, ACCESS_TYPE.READ).getAuthorized());
 		userInfo.getGroups().add(TeamConstants.ACT_TEAM_ID);
-		assertTrue(authorizationManager.canAccess(userInfo, aa.getId().toString(), ObjectType.ACCESS_APPROVAL, ACCESS_TYPE.READ).getAuthorized());
-	}
-
-	@Test
-	public void testCanAccessEvaluationAccessApproval() throws Exception {
-		AccessApproval aa = createEvaluationAccessApproval();
-		assertFalse(authorizationManager.canAccess(userInfo, aa.getId().toString(), ObjectType.ACCESS_APPROVAL, ACCESS_TYPE.READ).getAuthorized());
-		userInfo.setId(Long.parseLong(EVAL_OWNER_PRINCIPAL_ID));
-		// only ACT may review access approvals
-		assertFalse(authorizationManager.canAccess(userInfo, aa.getId().toString(), ObjectType.ACCESS_APPROVAL, ACCESS_TYPE.READ).getAuthorized());
-	}
-
-	@Test
-	public void testCanCreateEntityAccessRequirement() throws Exception {
-		AccessRequirement ar = createEntityAccessRequirement();
-		assertFalse(authorizationManager.canCreateAccessRequirement(userInfo, ar).getAuthorized());
-		userInfo.getGroups().add(TeamConstants.ACT_TEAM_ID); 
-		assertTrue(authorizationManager.canCreateAccessRequirement(userInfo, ar).getAuthorized());
-		userInfo.getGroups().remove(TeamConstants.ACT_TEAM_ID);
-		assertFalse(authorizationManager.canCreateAccessRequirement(userInfo, ar).getAuthorized());
-		// give user edit ability on entity 101
-		when(mockEntityPermissionsManager.hasAccess(eq("101"), any(ACCESS_TYPE.class), eq(userInfo))).thenReturn(AuthorizationManagerUtil.AUTHORIZED);
-		// only ACT may create access requirements
-		assertFalse(authorizationManager.canCreateAccessRequirement(userInfo, ar).getAuthorized());
+		assertTrue(authorizationManager.canAccess(userInfo, "1", ObjectType.ACCESS_APPROVAL, ACCESS_TYPE.READ).getAuthorized());
 	}
 
 	@Test
@@ -692,36 +658,20 @@ public class AuthorizationManagerImplUnitTest {
 		}
 		when(mockNodeDao.getEntityPath(newParentId)).thenReturn(newParentAncestors);
 		
-		// mock accessRequirementDAO
-		List<AccessRequirement> ars = new ArrayList<AccessRequirement>();
-		AccessRequirement ar = new TermsOfUseAccessRequirement();
-		ars.add(ar);
-		when(mockAccessRequirementDAO.getAllAccessRequirementsForSubject(ancestorIds, RestrictableObjectType.ENTITY)).thenReturn(ars);
-		when(mockAccessRequirementDAO.getAllAccessRequirementsForSubject(newAncestorIds, RestrictableObjectType.ENTITY)).thenReturn(ars);
+		List<String> diff = Arrays.asList("1");
+		when(mockAccessRequirementDAO.getAccessRequirementDiff(ancestorIds, newAncestorIds, RestrictableObjectType.ENTITY)).thenReturn(new LinkedList<String>());
 		
 		// since 'ars' list doesn't change, will return true
 		assertTrue(authorizationManager.canUserMoveRestrictedEntity(userInfo, parentId, newParentId).getAuthorized());
 		verify(mockNodeDao).getEntityPath(parentId);
-		verify(mockAccessRequirementDAO).getAllAccessRequirementsForSubject(ancestorIds, RestrictableObjectType.ENTITY);
-		
-		// making MORE restrictive is OK
-		List<AccessRequirement> mt = new ArrayList<AccessRequirement>(); // i.e, an empty list
-		when(mockAccessRequirementDAO.getAllAccessRequirementsForSubject(ancestorIds, RestrictableObjectType.ENTITY)).thenReturn(mt);
-		assertTrue(authorizationManager.canUserMoveRestrictedEntity(userInfo, parentId, newParentId).getAuthorized());
+		verify(mockAccessRequirementDAO).getAccessRequirementDiff(ancestorIds, newAncestorIds, RestrictableObjectType.ENTITY);
 
 		// but making less restrictive is NOT OK
-		when(mockAccessRequirementDAO.getAllAccessRequirementsForSubject(ancestorIds, RestrictableObjectType.ENTITY)).thenReturn(ars);
-		when(mockAccessRequirementDAO.getAllAccessRequirementsForSubject(newAncestorIds, RestrictableObjectType.ENTITY)).thenReturn(mt);
+		when(mockAccessRequirementDAO.getAccessRequirementDiff(ancestorIds, newAncestorIds, RestrictableObjectType.ENTITY)).thenReturn(diff);
 		assertFalse(authorizationManager.canUserMoveRestrictedEntity(userInfo, parentId, newParentId).getAuthorized());
 		
 		// but if the user is an admin, will be true
 		assertTrue(authorizationManager.canUserMoveRestrictedEntity(adminUser, parentId, newParentId).getAuthorized());
-	}
-	
-	@Test
-	public void testCanCreateToUAccessApproval() throws Exception {
-		TermsOfUseAccessApproval accessApproval = new TermsOfUseAccessApproval();
-		this.authorizationManager.canCreateAccessApproval(userInfo, accessApproval);
 	}
 	
 	@Test
@@ -1107,10 +1057,10 @@ public class AuthorizationManagerImplUnitTest {
 	@Test
 	public void testGetPermittedAccessDownloadButNoRead() throws Exception {
 		when(mockEntityPermissionsManager.hasAccess(eq(REPO_ENTITY_ID), eq(ACCESS_TYPE.UPDATE), eq(USER_INFO))).
-		thenReturn(AuthorizationManagerUtil.ACCESS_DENIED);
+			thenReturn(AuthorizationManagerUtil.ACCESS_DENIED);
 
-	when(mockEntityPermissionsManager.hasAccess(eq(REPO_ENTITY_ID), eq(ACCESS_TYPE.DOWNLOAD), eq(USER_INFO))).
-		thenReturn(AuthorizationManagerUtil.AUTHORIZED);
+		when(mockEntityPermissionsManager.hasAccess(eq(REPO_ENTITY_ID), eq(ACCESS_TYPE.DOWNLOAD), eq(USER_INFO))).
+			thenReturn(AuthorizationManagerUtil.AUTHORIZED);
 		
 		// method under test:
 		Set<RegistryEventAction> permitted = authorizationManager.
@@ -1140,5 +1090,75 @@ public class AuthorizationManagerImplUnitTest {
 		// Note, we DO have update access, but that doesn't let us 'push' since the repo doesn't exist
 		assertTrue(permitted.toString(), permitted.isEmpty());
 	}
+	
+	@Test
+	public void testGetPermittedAccessTypesRepoInTrash() throws Exception {
+		when(mockNodeDao.getBenefactor(REPO_ENTITY_ID)).thenReturn(KeyFactory.keyToString(AuthorizationManagerImpl.TRASH_FOLDER_ID));
 
+		// method under test:
+		Set<RegistryEventAction> permitted = authorizationManager.
+				getPermittedDockerRepositoryActions(USER_INFO, SERVICE, REPOSITORY_PATH, ACCESS_TYPES_STRING);
+		
+		assertTrue(permitted.toString(), permitted.isEmpty());
+	}
+
+
+	@Test
+	public void testGetPermittedAccessRepoExistsInTrashBUTWasSubmitted() throws Exception {
+		when(mockNodeDao.getBenefactor(REPO_ENTITY_ID)).thenReturn(KeyFactory.keyToString(AuthorizationManagerImpl.TRASH_FOLDER_ID));
+
+		when(mockEvaluationPermissionsManager.
+				isDockerRepoNameInEvaluationWithAccess(REPOSITORY_NAME, 
+						USER_INFO.getGroups(), 
+						ACCESS_TYPE.READ_PRIVATE_SUBMISSION)).thenReturn(true);
+
+		// method under test:
+		Set<RegistryEventAction> permitted = authorizationManager.
+				getPermittedDockerRepositoryActions(USER_INFO, SERVICE, REPOSITORY_PATH, ACCESS_TYPES_STRING);
+
+		// Note, we can pull (but not push!) since we have admin access to evaluation
+		assertEquals(new HashSet(Arrays.asList(new RegistryEventAction[]{RegistryEventAction.pull})), permitted);
+	}
+
+	@Test (expected = IllegalArgumentException.class)
+	public void testValidateWithCertifiedUserRequiredNotSatisfied() {
+		req.setIsCertifiedUserRequired(true);
+		req.setIsValidatedProfileRequired(false);
+		when(mockGroupMembersDao.areMemberOf(
+				AuthorizationConstants.BOOTSTRAP_PRINCIPAL.CERTIFIED_USERS.getPrincipalId().toString(),
+				accessors))
+				.thenReturn(false);
+		authorizationManager.validateHasAccessorRequirement(req, accessors);
+		verifyZeroInteractions(mockVerificationDao);
+	}
+
+	@Test (expected = IllegalArgumentException.class)
+	public void testValidateWithValidatedProfileRequiredNotSatisfied() {
+		req.setIsCertifiedUserRequired(false);
+		req.setIsValidatedProfileRequired(true);
+		when(mockVerificationDao.haveValidatedProfiles(accessors)).thenReturn(false);
+		authorizationManager.validateHasAccessorRequirement(req, accessors);
+		verifyZeroInteractions(mockGroupMembersDao);
+	}
+
+	@Test
+	public void testValidateWithCertifiedUserRequiredAndValidatedProfileSatisfied() {
+		req.setIsCertifiedUserRequired(true);
+		req.setIsValidatedProfileRequired(true);
+		when(mockGroupMembersDao.areMemberOf(
+				AuthorizationConstants.BOOTSTRAP_PRINCIPAL.CERTIFIED_USERS.getPrincipalId().toString(),
+				accessors))
+				.thenReturn(true);
+		when(mockVerificationDao.haveValidatedProfiles(accessors)).thenReturn(true);
+		authorizationManager.validateHasAccessorRequirement(req, accessors);
+	}
+
+	@Test
+	public void testValidateWithoutRequirements() {
+		req.setIsCertifiedUserRequired(false);
+		req.setIsValidatedProfileRequired(false);
+		authorizationManager.validateHasAccessorRequirement(req, accessors);
+		verifyZeroInteractions(mockGroupMembersDao);
+		verifyZeroInteractions(mockVerificationDao);
+	}
 }

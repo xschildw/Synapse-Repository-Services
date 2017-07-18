@@ -18,7 +18,7 @@ import org.sagebionetworks.repo.model.EntityTypeUtils;
 import org.sagebionetworks.repo.model.PrefixConst;
 import org.sagebionetworks.repo.model.ServiceConstants;
 import org.sagebionetworks.repo.model.ServiceConstants.AttachmentType;
-import org.sagebionetworks.repo.model.Versionable;
+import org.sagebionetworks.repo.model.VersionableEntity;
 
 /**
  * UrlHelpers is responsible for the formatting of all URLs exposed by the
@@ -450,17 +450,26 @@ public class UrlHelpers {
 	
 	public static final String ACCESS_REQUIREMENT = "/accessRequirement";
 	public static final String ACCESS_REQUIREMENT_WITH_ENTITY_ID = ENTITY_ID+ACCESS_REQUIREMENT;
-	private static final String ACCESS_REQUIREMENT_ID = "/{requirementId}";
+	public static final String ACCESS_REQUIREMENT_ID = "/{requirementId}";
 	public static final String ACCESS_REQUIREMENT_WITH_REQUIREMENT_ID = ACCESS_REQUIREMENT+ACCESS_REQUIREMENT_ID;
 	public static final String ENTITY_LOCK_ACCESS_REQURIEMENT = ENTITY_ID+"/lockAccessRequirement";	
-	
+
+	public static final String ACCESS_REQUIREMENT_CONVERSION = ACCESS_REQUIREMENT+"/conversion";
+	public static final String ACCESS_REQUIREMENT_WITH_REQUIREMENT_ID_SUBJECTS = ACCESS_REQUIREMENT_WITH_REQUIREMENT_ID+"/subjects";
+
 	public static final String ENTITY_ACCESS_REQUIREMENT_UNFULFILLED_WITH_ID = ENTITY_ID+"/accessRequirementUnfulfilled";
-	
+
+	public static final String ACCESS_REQUIREMENT_VERSION = ACCESS_REQUIREMENT_WITH_REQUIREMENT_ID + "/version";
+
 	public static final String ACCESS_APPROVAL = "/accessApproval";
 	public static final String ACCESS_APPROVALS = "/accessApprovals";
 	public static final String ACCESS_APPROVAL_WITH_ENTITY_ID = ENTITY_ID+ACCESS_APPROVAL;
 	public static final String ACCESS_APPROVAL_WITH_APPROVAL_ID = ACCESS_APPROVAL+"/{approvalId}";
-	
+	public static final String ACCESS_APPROVAL_GROUP = ACCESS_APPROVAL+"/group";
+	public static final String ACCESS_APPROVAL_GROUP_REVOKE = ACCESS_APPROVAL_GROUP+"/revoke";
+
+	public static final String ACCESS_APPROVAL_INFO = ACCESS_APPROVAL+"/information";
+
 	/**
 	 * URL prefix for Users in a UserGroup
 	 * 
@@ -831,12 +840,14 @@ public class UrlHelpers {
 	public static final String OPEN_MEMBERSHIP_INVITATION_BY_TEAM = TEAM+ID+"/openInvitation";
 	public static final String TEAM_ID_REQUEST_PARAMETER = "teamId";
 	public static final String INVITEE_ID_REQUEST_PARAMETER = "inviteeId";
+	public static final String OPEN_MEMBERSHIP_INVITATION_COUNT = MEMBERSHIP_INVITATION + "/openInvitationCount";
 	// membership request
 	public static final String MEMBERSHIP_REQUEST = "/membershipRequest";
 	public static final String MEMBERSHIP_REQUEST_ID = MEMBERSHIP_REQUEST+ID;
 	public static final String OPEN_MEMBERSHIP_REQUEST_FOR_TEAM = TEAM_ID+"/openRequest";
 	public static final String OPEN_MEMBERSHIP_REQUEST_FOR_USER = USER+ID+"/openRequest";
 	public static final String REQUESTOR_ID_REQUEST_PARAMETER = "requestorId";
+	public static final String OPEN_MEMBERSHIP_REQUEST_COUNT = MEMBERSHIP_REQUEST + "/openRequestCount";
 	
 	public static final String TEAM_SUBMISSION_ELIGIBILITY = EVALUATION_WITH_ID +TEAM_ID+
 			"/submissionEligibility";
@@ -1211,7 +1222,7 @@ public class UrlHelpers {
 	 * Set the URL of a versionable entity.
 	 * @param entity 
 	 */
-	public static void setVersionableUrl(Versionable entity){
+	public static void setVersionableUrl(VersionableEntity entity){
 		if(entity == null) throw new IllegalArgumentException("Entity cannot be null");
 		if(entity.getUri() == null) throw new IllegalArgumentException("Entity.uri cannot be null null");
 		if(entity.getVersionNumber() == null) throw new IllegalArgumentException("Entity version number cannot be null");
@@ -1233,8 +1244,8 @@ public class UrlHelpers {
 		setAllEntityUrls(entity);
 		// Set the specialty types
 		// Versions
-		if(entity instanceof Versionable){
-			setVersionableUrl((Versionable)entity);
+		if(entity instanceof VersionableEntity){
+			setVersionableUrl((VersionableEntity)entity);
 		}
 		// Set the entity type
 		entity.setEntityType(entity.getClass().getName());
@@ -1261,8 +1272,8 @@ public class UrlHelpers {
 			throw new IllegalArgumentException("Expected annotations: "+expected+" but was: "+object.getAccessControlList());
 		}
 		// Versionable
-		if(object instanceof Versionable){
-			Versionable able = (Versionable) object;
+		if(object instanceof VersionableEntity){
+			VersionableEntity able = (VersionableEntity) object;
 			expected = object.getUri()+UrlHelpers.VERSION;
 			if(!expected.equals(able.getVersions())){
 				throw new IllegalArgumentException("Expected versions: "+expected+" but was: "+able.getVersions());

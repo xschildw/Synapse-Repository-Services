@@ -1,13 +1,23 @@
 package org.sagebionetworks.repo.manager.table;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyList;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.anySet;
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -15,7 +25,6 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.Callable;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -59,7 +68,7 @@ public class TableIndexManagerImplTest {
 	@Mock
 	TableManagerSupport mockManagerSupport;
 	@Mock
-	ProgressCallback<Void> mockCallback;
+	ProgressCallback mockCallback;
 	@Captor 
 	ArgumentCaptor<List<ColumnChangeDetails>> changeCaptor;
 	
@@ -81,6 +90,8 @@ public class TableIndexManagerImplTest {
 	String tokenString;
 	List<String> scopeSynIds;
 	Set<Long> scopeIds;
+	
+	ViewType viewType;
 	
 	@SuppressWarnings("unchecked")
 	@Before
@@ -128,17 +139,8 @@ public class TableIndexManagerImplTest {
 				return null;
 			}}).when(mockIndexDao).executeInWriteTransaction(any(TransactionCallback.class));
 		
-		// setup callable.
-		when(mockManagerSupport.callWithAutoProgress(any(ProgressCallback.class), any(Callable.class))).then(new Answer<Object>() {
-
-			@Override
-			public Object answer(InvocationOnMock invocation) throws Throwable {
-				Callable<Object> callable = (Callable<Object>) invocation.getArguments()[1];
-				return callable.call();
-			}
-		});
 		crc32 = 5678L;
-		when(mockIndexDao.calculateCRC32ofTableView(anyString(), anyString())).thenReturn(crc32);
+		when(mockIndexDao.calculateCRC32ofTableView(anyString(), anyString(), anyString())).thenReturn(crc32);
 		
 		containerIds = Sets.newHashSet(1l,2L,3L);
 		limit = 10L;
@@ -147,10 +149,11 @@ public class TableIndexManagerImplTest {
 		tokenString = nextPageToken.toToken();
 		scopeSynIds = Lists.newArrayList("syn123","syn345");
 		scopeIds = new HashSet<Long>(KeyFactory.stringToKey(scopeSynIds));
-		
-		when(mockIndexDao.getPossibleColumnModelsForContainers(anySet(), anyLong(), anyLong())).thenReturn(schema);
-		when(mockManagerSupport.getAllContainerIdsForViewScope(tableId)).thenReturn(containerIds);
-		when(mockManagerSupport.getAllContainerIdsForScope(scopeIds)).thenReturn(containerIds);
+		viewType = ViewType.file;
+		when(mockManagerSupport.getViewType(tableId)).thenReturn(viewType);
+		when(mockIndexDao.getPossibleColumnModelsForContainers(anySet(), any(ViewType.class), anyLong(), anyLong())).thenReturn(schema);
+		when(mockManagerSupport.getAllContainerIdsForViewScope(tableId, viewType)).thenReturn(containerIds);
+		when(mockManagerSupport.getAllContainerIdsForScope(scopeIds, viewType)).thenReturn(containerIds);
 	}
 
 	@Test (expected=IllegalArgumentException.class)
@@ -368,8 +371,6 @@ public class TableIndexManagerImplTest {
 	public void testCreateTemporaryTableCopy() throws Exception{
 		// call under test
 		manager.createTemporaryTableCopy(tableId, mockCallback);
-		// auto progress should be used.
-		verify(mockManagerSupport).callWithAutoProgress(any(ProgressCallback.class), any(Callable.class));
 		verify(mockIndexDao).createTemporaryTable(tableId);
 		verify(mockIndexDao).copyAllDataToTemporaryTable(tableId);
 	}
@@ -379,8 +380,6 @@ public class TableIndexManagerImplTest {
 	public void testDeleteTemporaryTableCopy() throws Exception{
 		// call under test
 		manager.deleteTemporaryTableCopy(tableId, mockCallback);
-		// auto progress should be used.
-		verify(mockManagerSupport).callWithAutoProgress(any(ProgressCallback.class), any(Callable.class));
 		verify(mockIndexDao).deleteTemporaryTable(tableId);
 	}
 	
@@ -390,12 +389,13 @@ public class TableIndexManagerImplTest {
 		Set<Long> scope = Sets.newHashSet(1L,2L);
 		List<ColumnModel> schema = createDefaultColumnsWithIds();
 		ColumnModel etagColumn = EntityField.findMatch(schema, EntityField.etag);
+		ColumnModel benefactorColumn = EntityField.findMatch(schema, EntityField.benefactorId);
 		// call under test
 		Long resultCrc = manager.populateViewFromEntityReplication(tableId, mockCallback, viewType, scope, schema);
 		assertEquals(crc32, resultCrc);
 		verify(mockIndexDao).copyEntityReplicationToTable(tableId, viewType, scope, schema);
 		// the CRC should be calculated with the etag column.
-		verify(mockIndexDao).calculateCRC32ofTableView(tableId, etagColumn.getId());
+		verify(mockIndexDao).calculateCRC32ofTableView(tableId, etagColumn.getId(), benefactorColumn.getId());
 	}
 	
 	@Test (expected=IllegalArgumentException.class)
@@ -465,12 +465,13 @@ public class TableIndexManagerImplTest {
 		Set<Long> scope = Sets.newHashSet(1L,2L);
 		List<ColumnModel> schema = createDefaultColumnsWithIds();
 		ColumnModel etagColumn = EntityField.findMatch(schema, EntityField.etag);
+		ColumnModel benefactorColumn = EntityField.findMatch(schema, EntityField.benefactorId);
 		// call under test
 		Long resultCrc = manager.populateViewFromEntityReplicationWithProgress(tableId, viewType, scope, schema);
 		assertEquals(crc32, resultCrc);
 		verify(mockIndexDao).copyEntityReplicationToTable(tableId, viewType, scope, schema);
 		// the CRC should be calculated with the etag column.
-		verify(mockIndexDao).calculateCRC32ofTableView(tableId, etagColumn.getId());
+		verify(mockIndexDao).calculateCRC32ofTableView(tableId, etagColumn.getId(), benefactorColumn.getId());
 	}
 	
 	@Test
@@ -510,7 +511,7 @@ public class TableIndexManagerImplTest {
 		annotation.setColumnType(ColumnType.STRING);
 		
 		// setup the annotations 
-		when(mockIndexDao.getPossibleColumnModelsForContainers(scope, Long.MAX_VALUE, 0L)).thenReturn(Lists.newArrayList(annotation));
+		when(mockIndexDao.getPossibleColumnModelsForContainers(scope, viewType, Long.MAX_VALUE, 0L)).thenReturn(Lists.newArrayList(annotation));
 		// setup a failure
 		IllegalArgumentException error = new IllegalArgumentException("Something went wrong");
 		doThrow(error).when(mockIndexDao).copyEntityReplicationToTable(tableId, viewType, scope, schema);
@@ -528,39 +529,39 @@ public class TableIndexManagerImplTest {
 	@Test
 	public void testGetPossibleAnnotationDefinitionsForContainerLastPage(){
 		// call under test
-		ColumnModelPage results = manager.getPossibleAnnotationDefinitionsForContainerIds(containerIds, tokenString);
+		ColumnModelPage results = manager.getPossibleAnnotationDefinitionsForContainerIds(containerIds, viewType, tokenString);
 		assertNotNull(results);
 		assertEquals(null, results.getNextPageToken());
 		assertEquals(schema, results.getResults());
 		// should request one more than the limit
-		verify(mockIndexDao).getPossibleColumnModelsForContainers(containerIds, limit+1, offset);
+		verify(mockIndexDao).getPossibleColumnModelsForContainers(containerIds, viewType, limit+1, offset);
 	}
 	
 	@Test
 	public void testGetPossibleAnnotationDefinitionsForContainerLastPageNullToken(){
 		tokenString = null;
 		// call under test
-		ColumnModelPage results = manager.getPossibleAnnotationDefinitionsForContainerIds(containerIds, tokenString);
+		ColumnModelPage results = manager.getPossibleAnnotationDefinitionsForContainerIds(containerIds, viewType, tokenString);
 		assertNotNull(results);
 		assertEquals(null, results.getNextPageToken());
 		assertEquals(schema, results.getResults());
 		// should request one more than the limit
-		verify(mockIndexDao).getPossibleColumnModelsForContainers(containerIds, NextPageToken.DEFAULT_LIMIT+1, NextPageToken.DEFAULT_OFFSET);
+		verify(mockIndexDao).getPossibleColumnModelsForContainers(containerIds, viewType, NextPageToken.DEFAULT_LIMIT+1, NextPageToken.DEFAULT_OFFSET);
 	}
 	
 	@Test
 	public void testGetPossibleAnnotationDefinitionsForContainerHasNextPage(){
 		List<ColumnModel> pagePluseOne = new LinkedList<ColumnModel>(schema);
 		pagePluseOne.add(new ColumnModel());
-		when(mockIndexDao.getPossibleColumnModelsForContainers(anySet(), anyLong(), anyLong())).thenReturn(pagePluseOne);
+		when(mockIndexDao.getPossibleColumnModelsForContainers(anySet(), any(ViewType.class), anyLong(), anyLong())).thenReturn(pagePluseOne);
 		nextPageToken =  new NextPageToken(schema.size(), 0L);
 		// call under test
-		ColumnModelPage results = manager.getPossibleAnnotationDefinitionsForContainerIds(containerIds, nextPageToken.toToken());
+		ColumnModelPage results = manager.getPossibleAnnotationDefinitionsForContainerIds(containerIds, viewType, nextPageToken.toToken());
 		assertNotNull(results);
 		assertEquals(new NextPageToken(2L, 2L).toToken(), results.getNextPageToken());
 		assertEquals(schema, results.getResults());
 		// should request one more than the limit
-		verify(mockIndexDao).getPossibleColumnModelsForContainers(containerIds, nextPageToken.getLimit()+1, nextPageToken.getOffset());
+		verify(mockIndexDao).getPossibleColumnModelsForContainers(containerIds, viewType, nextPageToken.getLimit()+1, nextPageToken.getOffset());
 	}
 	
 	
@@ -569,7 +570,7 @@ public class TableIndexManagerImplTest {
 		String token = nextPageToken.toToken();
 		containerIds = null;
 		// call under test
-		manager.getPossibleAnnotationDefinitionsForContainerIds(containerIds, token);
+		manager.getPossibleAnnotationDefinitionsForContainerIds(containerIds, viewType, token);
 	}
 	
 	@Test
@@ -577,12 +578,12 @@ public class TableIndexManagerImplTest {
 		String token = nextPageToken.toToken();
 		containerIds = new HashSet<>();
 		// call under test
-		ColumnModelPage results = manager.getPossibleAnnotationDefinitionsForContainerIds(containerIds, token);
+		ColumnModelPage results = manager.getPossibleAnnotationDefinitionsForContainerIds(containerIds, viewType, token);
 		assertNotNull(results);
 		assertNotNull(results.getResults());
 		assertEquals(null, results.getNextPageToken());
 		// should not call the dao
-		verify(mockIndexDao, never()).getPossibleColumnModelsForContainers(anySet(), anyLong(), anyLong());
+		verify(mockIndexDao, never()).getPossibleColumnModelsForContainers(anySet(), any(ViewType.class), anyLong(), anyLong());
 	}
 	
 	
@@ -591,7 +592,7 @@ public class TableIndexManagerImplTest {
 		limit = NextPageToken.MAX_LIMIT+1;
 		nextPageToken = new NextPageToken(limit, offset);
 		// call under test
-		manager.getPossibleAnnotationDefinitionsForContainerIds(containerIds, nextPageToken.toToken());
+		manager.getPossibleAnnotationDefinitionsForContainerIds(containerIds, viewType, nextPageToken.toToken());
 	}
 	
 	@Test
@@ -613,17 +614,27 @@ public class TableIndexManagerImplTest {
 	@Test
 	public void testGetPossibleAnnotationDefinitionsForScope(){
 		// call under test
-		ColumnModelPage results = manager.getPossibleColumnModelsForScope(scopeSynIds, tokenString);
+		ColumnModelPage results = manager.getPossibleColumnModelsForScope(scopeSynIds, viewType, tokenString);
 		assertNotNull(results);
 		assertEquals(null, results.getNextPageToken());
 		assertEquals(schema, results.getResults());
+	}
+	
+	@Test
+	public void testGetPossibleAnnotationDefinitionsForScopeTypeNull(){
+		viewType = null;
+		// call under test
+		ColumnModelPage results = manager.getPossibleColumnModelsForScope(scopeSynIds, viewType, tokenString);
+		assertNotNull(results);
+		// should default to file view.
+		verify(mockIndexDao).getPossibleColumnModelsForContainers(containerIds, ViewType.file, nextPageToken.getLimit()+1, nextPageToken.getOffset());
 	}
 	
 	@Test (expected=IllegalArgumentException.class)
 	public void testGetPossibleAnnotationDefinitionsForScopeNullScope(){
 		scopeSynIds = null;
 		// call under test
-		manager.getPossibleColumnModelsForScope(scopeSynIds, tokenString);
+		manager.getPossibleColumnModelsForScope(scopeSynIds, viewType, tokenString);
 	}
 	
 	/**

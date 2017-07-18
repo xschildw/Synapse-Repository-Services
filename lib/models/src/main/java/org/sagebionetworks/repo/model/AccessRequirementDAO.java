@@ -56,12 +56,6 @@ public interface AccessRequirementDAO {
 
 	/**
 	 * 
-	 * @return all IDs in the system
-	 */
-	List<String> getIds();
-
-	/**
-	 * 
 	 * @param subject the subject of the access restriction
 	 * @param principalIds the principalIds (user and groups) to which a user belongs
 	 * @param accessType
@@ -70,8 +64,6 @@ public interface AccessRequirementDAO {
 	 */
 	List<Long> getAllUnmetAccessRequirements(List<String> subjectIds, RestrictableObjectType type, Collection<Long> principalIds,
 			Collection<ACCESS_TYPE> accessTypes) throws DatastoreException;
-
-	long getCount() throws DatastoreException;
 
 	/**
 	 * Retrieve a page of AccessRequirements.
@@ -83,8 +75,8 @@ public interface AccessRequirementDAO {
 	 * @throws DatastoreException 
 	 */
 	public List<AccessRequirement> getAccessRequirementsForSubject(
-			List<String> subjectIds, RestrictableObjectType type, Long limit,
-			Long offset) throws DatastoreException;
+			List<String> subjectIds, RestrictableObjectType type, long limit,
+			long offset) throws DatastoreException;
 
 	/**
 	 * Retrieve the concreteType of an access requirement.
@@ -110,5 +102,43 @@ public interface AccessRequirementDAO {
 	 * @param accessRequirementId
 	 * @return
 	 */
-	public List<RestrictableObjectDescriptor> getSubjects(Long accessRequirementId);
+	public List<RestrictableObjectDescriptor> getSubjects(long accessRequirementId);
+
+	/**
+	 * Retrieve information to update an AccessRequirement.
+	 * 
+	 * @param accessRequirementId
+	 * @return
+	 * @throws NotFoundException
+	 */
+	public AccessRequirementInfoForUpdate getForUpdate(String accessRequirementId) throws NotFoundException;
+
+	/**
+	 * Returns all access requirement IDs that applies to source subjects but does not apply to destination subjects.
+	 * 
+	 * @param sourceSubjects
+	 * @param destSubjects
+	 * @param type
+	 * @return
+	 */
+	public List<String> getAccessRequirementDiff(List<String> sourceSubjects, List<String> destSubjects,
+			RestrictableObjectType type);
+
+	/**
+	 * Retrieve an AccessRequirement for update
+	 * 
+	 * @param accessRequirementId
+	 * @return
+	 */
+	public AccessRequirement getAccessRequirementForUpdate(String accessRequirementId);
+
+	/**
+	 * Retrieve a page of subjects that the given accessRequirementId applies to
+	 * 
+	 * @param accessRequirementId
+	 * @param limit
+	 * @param offset
+	 * @return
+	 */
+	public List<RestrictableObjectDescriptor> getSubjects(long accessRequirementId, long limit, long offset);
 }

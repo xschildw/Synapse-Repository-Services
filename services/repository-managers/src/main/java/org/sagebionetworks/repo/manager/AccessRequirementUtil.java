@@ -17,11 +17,11 @@ import org.sagebionetworks.repo.model.RestrictableObjectType;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.web.NotFoundException;
 
+@Deprecated
 public class AccessRequirementUtil {
-	
+
 	private static final List<Long> EMPTY_LIST = Arrays.asList(new Long[]{});
 
-	
 	public static List<Long> unmetDownloadAccessRequirementIdsForEntity(
 			UserInfo userInfo, 
 			String entityId,
@@ -50,22 +50,6 @@ public class AccessRequirementUtil {
 		return accessRequirementDAO.getAllUnmetAccessRequirements(entityIds, RestrictableObjectType.ENTITY, principalIds, accessTypes);
 	}
 
-	public static List<Long> unmetUploadAccessRequirementIdsForEntity(
-			UserInfo userInfo, 
-			List<String> entityAndAncestorIds,
-			NodeDAO nodeDao, 
-			AccessRequirementDAO accessRequirementDAO
-			) throws NotFoundException {
-		List<ACCESS_TYPE> accessTypes = Collections.singletonList(ACCESS_TYPE.UPLOAD);
-
-		Set<Long> principalIds = new HashSet<Long>();
-		for (Long ug : userInfo.getGroups()) {
-			principalIds.add(ug);
-		}
-		
-		return accessRequirementDAO.getAllUnmetAccessRequirements(entityAndAncestorIds, RestrictableObjectType.ENTITY, principalIds, accessTypes);
-	}
-	
 	public static List<String> getNodeAncestorIds(NodeDAO nodeDao, String nodeId, boolean includeNode) throws NotFoundException {
 		List<String> nodeAncestorIds = new ArrayList<String>();
 		for (EntityHeader ancestorHeader : nodeDao.getEntityPath(nodeId)) {

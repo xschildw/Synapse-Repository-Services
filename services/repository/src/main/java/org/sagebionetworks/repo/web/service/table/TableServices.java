@@ -91,18 +91,6 @@ public interface TableServices {
 	public RowReferenceSet deleteRows(Long userId, RowSelection rowsToDelete) throws DatastoreException, NotFoundException, IOException;
 
 	/**
-	 * Get specific versions of rows in a table.
-	 * 
-	 * @param userId
-	 * @param rowsToGet
-	 * @return
-	 * @throws NotFoundException
-	 * @throws DatastoreException
-	 * @throws IOException
-	 */
-	public RowSet getReferenceSet(Long userId, RowReferenceSet rowsToGet) throws DatastoreException, NotFoundException, IOException;
-
-	/**
 	 * Get the file handles
 	 * 
 	 * @param userId
@@ -165,6 +153,6 @@ public interface TableServices {
 	 * @param nextPageToken Optional: Controls pagination.
 	 * @return A ColumnModel for each distinct annotation for the given scope.
 	 */
-	ColumnModelPage getPossibleColumnModelsForScopeIds(List<String> scopeIds,
+	ColumnModelPage getPossibleColumnModelsForScopeIds(List<String> scopeIds, ViewType type,
 			String nextPageToken);
 }

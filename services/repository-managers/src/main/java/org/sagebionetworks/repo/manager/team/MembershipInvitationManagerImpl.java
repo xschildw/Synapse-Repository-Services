@@ -6,6 +6,7 @@ package org.sagebionetworks.repo.manager.team;
 import static org.sagebionetworks.repo.manager.EmailUtils.TEMPLATE_KEY_INVITER_MESSAGE;
 import static org.sagebionetworks.repo.manager.EmailUtils.TEMPLATE_KEY_ONE_CLICK_JOIN;
 import static org.sagebionetworks.repo.manager.EmailUtils.TEMPLATE_KEY_TEAM_NAME;
+import static org.sagebionetworks.repo.manager.EmailUtils.TEMPLATE_KEY_TEAM_ID;
 
 import java.util.Collections;
 import java.util.Date;
@@ -19,6 +20,7 @@ import org.sagebionetworks.repo.manager.AuthorizationManager;
 import org.sagebionetworks.repo.manager.EmailUtils;
 import org.sagebionetworks.repo.manager.MessageToUserAndBody;
 import org.sagebionetworks.repo.model.ACCESS_TYPE;
+import org.sagebionetworks.repo.model.Count;
 import org.sagebionetworks.repo.model.DatastoreException;
 import org.sagebionetworks.repo.model.InvalidModelException;
 import org.sagebionetworks.repo.model.MembershipInvitation;
@@ -30,6 +32,7 @@ import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.message.MessageToUser;
 import org.sagebionetworks.repo.web.NotFoundException;
+import org.sagebionetworks.util.ValidateArgument;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -50,19 +53,6 @@ public class MembershipInvitationManagerImpl implements
 
 	private static final String TEAM_MEMBERSHIP_INVITATION_MESSAGE_SUBJECT = "You Have Been Invited to Join a Team";
 
-	public MembershipInvitationManagerImpl() {}
-	
-	// for testing
-	public MembershipInvitationManagerImpl(
-			AuthorizationManager authorizationManager,
-			MembershipInvtnSubmissionDAO membershipInvtnSubmissionDAO,
-			TeamDAO teamDAO
-			) {
-		this.authorizationManager = authorizationManager;
-		this.membershipInvtnSubmissionDAO = membershipInvtnSubmissionDAO;
-		this.teamDAO=teamDAO;
-	}
-	
 	public static void validateForCreate(MembershipInvtnSubmission mis) {
 		if (mis.getCreatedBy()!=null) throw new InvalidModelException("'createdBy' field is not user specifiable.");
 		if (mis.getCreatedOn()!=null) throw new InvalidModelException("'createdOn' field is not user specifiable.");
@@ -97,14 +87,16 @@ public class MembershipInvitationManagerImpl implements
 	public MessageToUserAndBody createInvitationNotification(MembershipInvtnSubmission mis, 
 			String acceptInvitationEndpoint, String notificationUnsubscribeEndpoint) {
 		if (acceptInvitationEndpoint==null || notificationUnsubscribeEndpoint==null) return null;
+		if (mis.getCreatedOn() == null) mis.setCreatedOn(new Date());
 		MessageToUser mtu = new MessageToUser();
 		mtu.setSubject(TEAM_MEMBERSHIP_INVITATION_MESSAGE_SUBJECT);
 		mtu.setRecipients(Collections.singleton(mis.getInviteeId()));
 		mtu.setNotificationUnsubscribeEndpoint(notificationUnsubscribeEndpoint);
 		Map<String,String> fieldValues = new HashMap<String,String>();
 		fieldValues.put(TEMPLATE_KEY_TEAM_NAME, teamDAO.get(mis.getTeamId()).getName());
+		fieldValues.put(TEMPLATE_KEY_TEAM_ID, mis.getTeamId());
 		fieldValues.put(TEMPLATE_KEY_ONE_CLICK_JOIN, EmailUtils.createOneClickJoinTeamLink(
-				acceptInvitationEndpoint, mis.getInviteeId(), mis.getInviteeId(), mis.getTeamId()));
+				acceptInvitationEndpoint, mis.getInviteeId(), mis.getInviteeId(), mis.getTeamId(), mis.getCreatedOn()));
 		if (mis.getMessage()==null || mis.getMessage().length()==0) {
 			fieldValues.put(TEMPLATE_KEY_INVITER_MESSAGE, "");
 		} else {
@@ -162,6 +154,15 @@ public class MembershipInvitationManagerImpl implements
 		results.setResults(miList);
 		results.setTotalNumberOfResults(count);
 		return results;
+	}
+
+	@Override
+	public Count getOpenInvitationCountForUser(String principalId) {
+		ValidateArgument.required(principalId, "principalId");
+		Count result = new Count();
+		long count = membershipInvtnSubmissionDAO.getOpenByUserCount(Long.parseLong(principalId), System.currentTimeMillis());
+		result.setCount(count);
+		return result;
 	}
 
 	/* (non-Javadoc)

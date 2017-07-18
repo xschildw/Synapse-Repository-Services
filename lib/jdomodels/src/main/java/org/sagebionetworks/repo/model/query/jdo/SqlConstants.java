@@ -7,7 +7,6 @@ import java.util.Map;
 import org.sagebionetworks.repo.model.Node;
 import org.sagebionetworks.repo.model.NodeConstants;
 import org.sagebionetworks.repo.model.jdo.BasicIdentifierFactory;
-import org.sagebionetworks.repo.model.query.Comparator;
  
 @SuppressWarnings("rawtypes")
 public class SqlConstants {
@@ -90,24 +89,31 @@ public class SqlConstants {
 	public static final String COL_PRINCIPAL_PREFIX_PRINCIPAL_ID 	= "PRINCIPAL_ID";
 
 	// The ACCESS_REQUIREMENT table
-	public static final String TABLE_ACCESS_REQUIREMENT				= "ACCESS_REQUIREMENT";
-	public static final String COL_ACCESS_REQUIREMENT_ID			= "ID";
-	public static final String COL_ACCESS_REQUIREMENT_ETAG			= "ETAG";
-	public static final String COL_ACCESS_REQUIREMENT_CREATED_BY	= "CREATED_BY";
-	public static final String COL_ACCESS_REQUIREMENT_CREATED_ON	= "CREATED_ON";
-	public static final String COL_ACCESS_REQUIREMENT_MODIFIED_BY	= "MODIFIED_BY";
-	public static final String COL_ACCESS_REQUIREMENT_MODIFIED_ON	= "MODIFIED_ON";
-	public static final String COL_ACCESS_REQUIREMENT_ACCESS_TYPE	= "ACCESS_TYPE";
-	public static final String COL_ACCESS_REQUIREMENT_CONCRETE_TYPE	= "CONCRETE_TYPE";
-	public static final String COL_ACCESS_REQUIREMENT_SERIALIZED_ENTITY	= "SERIALIZED_ENTITY";
-	public static final String DDL_FILE_ACCESS_REQUIREMENT			= "schema/AccessRequirement-ddl.sql";
+	public static final String TABLE_ACCESS_REQUIREMENT							= "ACCESS_REQUIREMENT";
+	public static final String COL_ACCESS_REQUIREMENT_ID						= "ID";
+	public static final String COL_ACCESS_REQUIREMENT_ETAG						= "ETAG";
+	public static final String COL_ACCESS_REQUIREMENT_CURRENT_REVISION_NUMBER	= "CURRENT_REV_NUM";
+	public static final String COL_ACCESS_REQUIREMENT_CREATED_BY				= "CREATED_BY";
+	public static final String COL_ACCESS_REQUIREMENT_CREATED_ON				= "CREATED_ON";
+	public static final String COL_ACCESS_REQUIREMENT_ACCESS_TYPE				= "ACCESS_TYPE";
+	public static final String COL_ACCESS_REQUIREMENT_CONCRETE_TYPE				= "CONCRETE_TYPE";
+	public static final String DDL_FILE_ACCESS_REQUIREMENT						= "schema/AccessRequirement-ddl.sql";
+	
+	// The ACCESS_REQUIREMENT_REVISION table
+	public static final String TABLE_ACCESS_REQUIREMENT_REVISION				= "ACCESS_REQUIREMENT_REVISION";
+	public static final String COL_ACCESS_REQUIREMENT_REVISION_OWNER_ID			= "OWNER_ID";
+	public static final String COL_ACCESS_REQUIREMENT_REVISION_NUMBER			= "NUMBER";
+	public static final String COL_ACCESS_REQUIREMENT_REVISION_MODIFIED_BY		= "MODIFIED_BY";
+	public static final String COL_ACCESS_REQUIREMENT_REVISION_MODIFIED_ON		= "MODIFIED_ON";
+	public static final String COL_ACCESS_REQUIREMENT_REVISION_SERIALIZED_ENTITY= "SERIALIZED_ENTITY";
+	public static final String DDL_FILE_ACCESS_REQUIREMENT_REVISION				= "schema/AccessRequirementRevision-ddl.sql";	
 
 	// The SUBJECT_ACCESS_REQUIREMENT table (a join table linking the ENTITY or EVALUTION and ACCESS_REQUIREMENT tables
 	// !!! Note: The table name should be SUBJECT_ACCESS_REQUIREMENT, but migration issues prevent
 	// !!!       us from doing that as this time.
-	public static final String TABLE_SUBJECT_ACCESS_REQUIREMENT		= "NODE_ACCESS_REQUIREMENT";
-	public static final String COL_SUBJECT_ACCESS_REQUIREMENT_SUBJECT_ID			= "SUBJECT_ID";
-	public static final String COL_SUBJECT_ACCESS_REQUIREMENT_SUBJECT_TYPE			= "SUBJECT_TYPE";
+	public static final String TABLE_SUBJECT_ACCESS_REQUIREMENT					= "NODE_ACCESS_REQUIREMENT";
+	public static final String COL_SUBJECT_ACCESS_REQUIREMENT_SUBJECT_ID		= "SUBJECT_ID";
+	public static final String COL_SUBJECT_ACCESS_REQUIREMENT_SUBJECT_TYPE		= "SUBJECT_TYPE";
 	public static final String COL_SUBJECT_ACCESS_REQUIREMENT_REQUIREMENT_ID	= "REQUIREMENT_ID";
 	public static final String DDL_FILE_SUBJECT_ACCESS_REQUIREMENT			= "schema/SubjectAccessRequirement-ddl.sql";
 
@@ -120,17 +126,20 @@ public class SqlConstants {
 	public static final String DDL_FILE_NODE_ACCESS_REQUIREMENT			= "schema/NodeAccessRequirement-ddl.sql";
 	
 	// The ACCESS_APPROVAL table
-	public static final String TABLE_ACCESS_APPROVAL				= "ACCESS_APPROVAL";
-	public static final String COL_ACCESS_APPROVAL_ID				= "ID";
-	public static final String COL_ACCESS_APPROVAL_ETAG				= "ETAG";
-	public static final String COL_ACCESS_APPROVAL_CREATED_BY		= "CREATED_BY";
-	public static final String COL_ACCESS_APPROVAL_CREATED_ON		= "CREATED_ON";
-	public static final String COL_ACCESS_APPROVAL_MODIFIED_BY		= "MODIFIED_BY";
-	public static final String COL_ACCESS_APPROVAL_MODIFIED_ON		= "MODIFIED_ON";
-	public static final String COL_ACCESS_APPROVAL_REQUIREMENT_ID	= "REQUIREMENT_ID";
-	public static final String COL_ACCESS_APPROVAL_ACCESSOR_ID		= "ACCESSOR_ID";
-	public static final String COL_ACCESS_APPROVAL_SERIALIZED_ENTITY= "SERIALIZED_ENTITY";
-	public static final String DDL_FILE_ACCESS_APPROVAL				= "schema/AccessApproval-ddl.sql";
+	public static final String TABLE_ACCESS_APPROVAL						= "ACCESS_APPROVAL";
+	public static final String COL_ACCESS_APPROVAL_ID						= "ID";
+	public static final String COL_ACCESS_APPROVAL_ETAG						= "ETAG";
+	public static final String COL_ACCESS_APPROVAL_CREATED_BY				= "CREATED_BY";
+	public static final String COL_ACCESS_APPROVAL_CREATED_ON				= "CREATED_ON";
+	public static final String COL_ACCESS_APPROVAL_MODIFIED_BY				= "MODIFIED_BY";
+	public static final String COL_ACCESS_APPROVAL_MODIFIED_ON				= "MODIFIED_ON";
+	public static final String COL_ACCESS_APPROVAL_REQUIREMENT_ID			= "REQUIREMENT_ID";
+	public static final String COL_ACCESS_APPROVAL_REQUIREMENT_VERSION		= "REQUIREMENT_VERSION";
+	public static final String COL_ACCESS_APPROVAL_SUBMITTER_ID				= "SUBMITTER_ID";
+	public static final String COL_ACCESS_APPROVAL_ACCESSOR_ID				= "ACCESSOR_ID";
+	public static final String COL_ACCESS_APPROVAL_EXPIRED_ON				= "EXPIRED_ON";
+	public static final String COL_ACCESS_APPROVAL_STATE					= "STATE";
+	public static final String DDL_FILE_ACCESS_APPROVAL						= "schema/AccessApproval-ddl.sql";
 	
 	// The CHANGES table
 	public static final String TABLE_CHANGES						= "CHANGES";
@@ -218,6 +227,7 @@ public class SqlConstants {
 	public static final String COL_FILES_KEY						= "KEY";
 	public static final String COL_FILES_NAME						= "NAME";
 	public static final String COL_FILES_STORAGE_LOCATION_ID		= "STORAGE_LOCATION_ID";
+	public static final String COL_FILES_ENDPOINT					= "ENDPOINT";
 	public static final String DDL_FILES							= "schema/Files-ddl.sql";
 	
 	// multipart upload state
@@ -846,14 +856,14 @@ public class SqlConstants {
 	public static final String COL_DATA_ACCESS_SUBMISSION_STATUS_STATE = 			"STATE";
 	public static final String COL_DATA_ACCESS_SUBMISSION_STATUS_REASON = 			"REASON";
 
-	// DataAccessSubmissionAccessors
-	public static final String DDL_DATA_ACCESS_SUBMISSION_ACCESSOR = 						"schema/DataAccessSubmissionAccessor-ddl.sql";
-	public static final String TABLE_DATA_ACCESS_SUBMISSION_ACCESSOR = 						"DATA_ACCESS_SUBMISSION_ACCESSOR";
-	public static final String COL_DATA_ACCESS_SUBMISSION_ACCESSOR_ID = 					"ID";
-	public static final String COL_DATA_ACCESS_SUBMISSION_ACCESSOR_ACCESSOR_ID = 			"ACCESSOR_ID";
-	public static final String COL_DATA_ACCESS_SUBMISSION_ACCESSOR_CURRENT_SUBMISSION_ID = 	"CURRENT_SUBMISSION_ID";
-	public static final String COL_DATA_ACCESS_SUBMISSION_ACCESSOR_ACCESS_REQUIREMENT_ID = 	"ACCESS_REQUIREMENT_ID";
-	public static final String COL_DATA_ACCESS_SUBMISSION_ACCESSOR_ETAG = 				"ETAG";
+	// DataAccessSubmissionSubmitter
+	public static final String DDL_DATA_ACCESS_SUBMISSION_SUBMITTER = 							"schema/DataAccessSubmissionSubmitter-ddl.sql";
+	public static final String TABLE_DATA_ACCESS_SUBMISSION_SUBMITTER = 						"DATA_ACCESS_SUBMISSION_SUBMITTER";
+	public static final String COL_DATA_ACCESS_SUBMISSION_SUBMITTER_ID = 						"ID";
+	public static final String COL_DATA_ACCESS_SUBMISSION_SUBMITTER_SUBMITTER_ID = 				"SUBMITTER_ID";
+	public static final String COL_DATA_ACCESS_SUBMISSION_SUBMITTER_CURRENT_SUBMISSION_ID = 	"CURRENT_SUBMISSION_ID";
+	public static final String COL_DATA_ACCESS_SUBMISSION_SUBMITTER_ACCESS_REQUIREMENT_ID = 	"ACCESS_REQUIREMENT_ID";
+	public static final String COL_DATA_ACCESS_SUBMISSION_SUBMITTER_ETAG = 						"ETAG";
 
 	// This seems to be the name of the id column for all tables.
 	public static final String COLUMN_ID		= "id";

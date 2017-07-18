@@ -337,7 +337,7 @@ public class MigratableTableDAOImplAutowireTest {
 		expectedPrimaryTypes.add(MigrationType.RESEARCH_PROJECT);
 		expectedPrimaryTypes.add(MigrationType.DATA_ACCESS_REQUEST);
 		expectedPrimaryTypes.add(MigrationType.DATA_ACCESS_SUBMISSION);
-		expectedPrimaryTypes.add(MigrationType.DATA_ACCESS_SUBMISSION_ACCESSOR);
+		expectedPrimaryTypes.add(MigrationType.DATA_ACCESS_SUBMISSION_SUBMITTER);
 		expectedPrimaryTypes.add(MigrationType.CHANGE);
 		// Get the list
 		List<MigrationType> primary = migratableTableDAO.getPrimaryMigrationTypes();
@@ -595,7 +595,7 @@ public class MigratableTableDAOImplAutowireTest {
 	@Test
 	public void testAllMigrationTypesRegistered() {
 		for (MigrationType t: MigrationType.values()) {
-		    assertTrue(migratableTableDAO.isMigrationTypeRegistered(t));
+			assertTrue(migratableTableDAO.isMigrationTypeRegistered(t));
 		}
 	}
 }

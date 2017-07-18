@@ -23,6 +23,7 @@ import org.sagebionetworks.repo.model.table.ColumnType;
 import org.sagebionetworks.repo.model.table.EntityField;
 import org.sagebionetworks.repo.model.table.RowReference;
 import org.sagebionetworks.repo.model.table.TableConstants;
+import org.sagebionetworks.repo.model.table.ViewType;
 import org.sagebionetworks.table.model.Grouping;
 import org.sagebionetworks.table.model.SparseRow;
 import org.sagebionetworks.util.ValidateArgument;
@@ -1182,7 +1183,7 @@ public class SQLUtils {
 	 * @param currentSchema
 	 * @return
 	 */
-	public static String createSelectInsertFromEntityReplication(String viewId,
+	public static String createSelectInsertFromEntityReplication(String viewId, ViewType viewType,
 			List<ColumnModel> currentSchema) {
 		List<ColumnMetadata> metadata = translateColumns(currentSchema);
 		StringBuilder builder = new StringBuilder();
@@ -1200,7 +1201,7 @@ public class SQLUtils {
 		builder.append(" WHERE ");
 		builder.append(TableConstants.ENTITY_REPLICATION_ALIAS);
 		builder.append(".");
-		builder.append(TableConstants.ENTITY_REPLICATION_COL_PARENT_ID);
+		builder.append(getViewScopeFilterColumnForType(viewType));
 		builder.append(" IN (:");
 		builder.append(TableConstants.PARENT_ID_PARAMETER_NAME);
 		builder.append(") AND ");
@@ -1249,6 +1250,7 @@ public class SQLUtils {
 		}
 	}
 
+	
 	/**
 	 * Build the select clause of the entity replication insert select.
 	 * @param builder
@@ -1275,12 +1277,16 @@ public class SQLUtils {
 				builder.append(meta.getTableAlias());
 				builder.append(".");
 				builder.append(meta.getSelectColumnName());
-				builder.append(") IN (\"+inf\", \"+infinity\", \"+\u221e\", \"inf\", \"infinity\", \"\u221e\") THEN \"Infinity\"");
+				builder.append(") IN (");
+				builder.append(TableConstants.POSITIVE_INFINITY_VALUES);
+				builder.append(") THEN \"Infinity\"");
 				builder.append(" WHEN LOWER(");
 				builder.append(meta.getTableAlias());
 				builder.append(".");
 				builder.append(meta.getSelectColumnName());
-				builder.append(") IN (\"-inf\", \"-infinity\", \"-\u221e\") THEN \"-Infinity\"");
+				builder.append(") IN (");
+				builder.append(TableConstants.NEGATIVE_INFINITY_VALUES);
+				builder.append(") THEN \"-Infinity\"");
 				builder.append(" ELSE NULL END AS _DBL");
 				builder.append(meta.getColumnNameForId());
 				builder.append(", ");
@@ -1293,13 +1299,17 @@ public class SQLUtils {
 				builder.append(meta.getTableAlias());
 				builder.append(".");
 				builder.append(meta.getSelectColumnName());
-				builder.append(") IN (\"+inf\", \"+infinity\", \"+\u221e\", \"inf\", \"infinity\", \"\u221e\") THEN ");
+				builder.append(") IN (");
+				builder.append(TableConstants.POSITIVE_INFINITY_VALUES);
+				builder.append(") THEN ");
 				builder.append(Double.MAX_VALUE);
 				builder.append(" WHEN LOWER(");
 				builder.append(meta.getTableAlias());
 				builder.append(".");
 				builder.append(meta.getSelectColumnName());
-				builder.append(") IN (\"-inf\", \"-infinity\", \"-\u221e\") THEN ");
+				builder.append(") IN (");
+				builder.append(TableConstants.NEGATIVE_INFINITY_VALUES);
+				builder.append(") THEN ");
 				builder.append(Double.MIN_VALUE);
 				builder.append(" ELSE ");
 				builder.append(meta.getTableAlias());
@@ -1346,10 +1356,11 @@ public class SQLUtils {
 	 * @param etagColumnId
 	 * @return
 	 */
-	public static String buildTableViewCRC32Sql(String viewId, String etagColumnId){
+	public static String buildTableViewCRC32Sql(String viewId, String etagColumnId, String benefactorColumnId){
 		String tableName = getTableNameForId(viewId, TableType.INDEX);
-		String columnId = getColumnNameForId(etagColumnId);
-		return String.format(TableConstants.SQL_TABLE_VIEW_CRC_32_TEMPLATE, columnId, tableName);
+		String etagColumnName = getColumnNameForId(etagColumnId);
+		String benefactorColumnMame = getColumnNameForId(benefactorColumnId);
+		return String.format(TableConstants.SQL_TABLE_VIEW_CRC_32_TEMPLATE, etagColumnName, benefactorColumnMame, tableName);
 	}
 	
 	/**
@@ -1502,6 +1513,45 @@ public class SQLUtils {
 				}
 			}
 		}
+	}
+	
+	/**
+	 * Get the column used to filter the rows in a view. Project views scopes
+	 * are filtered by entityIds, while all other view types scopes are filtered
+	 * parentId.
+	 * 
+	 * @param type
+	 * @return
+	 */
+	public static String getViewScopeFilterColumnForType(ViewType type) {
+		switch (type) {
+		case project:
+			return TableConstants.ENTITY_REPLICATION_COL_ID;
+		default:
+			return TableConstants.ENTITY_REPLICATION_COL_PARENT_ID;
+		}
+	}
+	
+	/**
+	 * Generate the SQL used to get the distinct annotations for a view
+	 * of the given type.
+	 * 
+	 * @param type
+	 * @return
+	 */
+	public static String getDistinctAnnotationColumnsSql(ViewType type){
+		String filterColumln = getViewScopeFilterColumnForType(type);
+		return String.format(TableConstants.SELECT_DISTINCT_ANNOTATION_COLUMNS_TEMPLATE, filterColumln);
+	}
+	
+	/**
+	 * Generate the SQL used to calculate CRC32 for views. 
+	 * @param type
+	 * @return
+	 */
+	public static String getCalculateCRC32Sql(ViewType type){
+		String filterColumln = getViewScopeFilterColumnForType(type);
+		return String.format(TableConstants.SQL_ENTITY_REPLICATION_CRC_32_TEMPLATE, filterColumln);
 	}
 
 }
