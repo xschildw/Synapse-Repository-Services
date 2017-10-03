@@ -5,10 +5,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import org.junit.After;
 import org.junit.Before;
@@ -27,13 +24,7 @@ import org.sagebionetworks.repo.model.daemon.BackupRestoreStatus;
 import org.sagebionetworks.repo.model.daemon.DaemonStatus;
 import org.sagebionetworks.repo.model.daemon.RestoreSubmission;
 import org.sagebionetworks.repo.model.message.FireMessagesResult;
-import org.sagebionetworks.repo.model.migration.AsyncMigrationRangeChecksumRequest;
-import org.sagebionetworks.repo.model.migration.AsyncMigrationRequest;
-import org.sagebionetworks.repo.model.migration.MigrationRangeChecksum;
-import org.sagebionetworks.repo.model.migration.MigrationType;
-import org.sagebionetworks.repo.model.migration.MigrationTypeCount;
-import org.sagebionetworks.repo.model.migration.MigrationTypeCounts;
-import org.sagebionetworks.repo.model.migration.MigrationTypeList;
+import org.sagebionetworks.repo.model.migration.*;
 import org.sagebionetworks.schema.adapter.JSONObjectAdapterException;
 
 public class IT102MigrationTest {
@@ -160,6 +151,17 @@ public class IT102MigrationTest {
 		String salt = "SALT";
 		MigrationRangeChecksum checksum1 = adminSynapse.getChecksumForIdRange(MigrationType.NODE, salt, minId, maxId);
 		assertNotNull(checksum1);
+	}
+
+	@Test
+	public void testAsyncGetTypeCount() throws Exception {
+		AsyncMigrationTypeCountsRequest tcReq = new AsyncMigrationTypeCountsRequest();
+		List<MigrationType> types = adminSynapse.getPrimaryTypes().getList();
+		tcReq.setTypes(types);
+		AsyncMigrationRequest req = new AsyncMigrationRequest();
+		req.setAdminRequest(tcReq);
+		AsynchronousJobStatus status = adminSynapse.startAdminAsynchronousJob(req);
+		status = adminSynapse.getAdminAsynchronousJobStatus(status.getJobId());
 	}
 	
 }

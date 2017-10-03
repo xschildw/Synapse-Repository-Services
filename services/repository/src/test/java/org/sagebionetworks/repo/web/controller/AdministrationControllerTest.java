@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import javax.servlet.ServletException;
@@ -16,12 +17,16 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.sagebionetworks.repo.manager.NodeManager;
 import org.sagebionetworks.repo.manager.UserManager;
+import org.sagebionetworks.repo.manager.migration.MigrationManager;
 import org.sagebionetworks.repo.model.AuthorizationConstants.BOOTSTRAP_PRINCIPAL;
 import org.sagebionetworks.repo.model.DatastoreException;
 import org.sagebionetworks.repo.model.Project;
 import org.sagebionetworks.repo.model.StackStatusDao;
 import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UserInfo;
+import org.sagebionetworks.repo.model.asynch.AsynchronousJobStatus;
+import org.sagebionetworks.repo.model.asynch.AsynchronousResponseBody;
+import org.sagebionetworks.repo.model.migration.*;
 import org.sagebionetworks.repo.model.status.StackStatus;
 import org.sagebionetworks.repo.model.status.StatusEnum;
 import org.sagebionetworks.repo.web.NotFoundException;
@@ -39,7 +44,7 @@ public class AdministrationControllerTest extends AbstractAutowiredControllerTes
 	
 	@Autowired
 	private StackStatusDao stackStatusDao;
-	
+
 	private List<String> toDelete;
 	private Long adminUserId;
 	private Project entity;
@@ -135,5 +140,41 @@ public class AdministrationControllerTest extends AbstractAutowiredControllerTes
 		servletTestHelper.clearAllLocks(dispatchServlet, BOOTSTRAP_PRINCIPAL.ANONYMOUS_USER.getPrincipalId());
 		
 	}
+
+	@Test
+	public void testStartAdminAsyncJob() throws Exception {
+		AsyncMigrationTypeCountsRequest tcReq = new AsyncMigrationTypeCountsRequest();
+		List<MigrationType> types = Arrays.asList(MigrationType.ACCESS_APPROVAL);
+		tcReq.setTypes(types);
+		AsyncMigrationRequest req = new AsyncMigrationRequest();
+		req.setAdminRequest(tcReq);
+		AsynchronousJobStatus status1 = servletTestHelper.startAdminAsynchJob(dispatchServlet, adminUserId, req);
+		assertNotNull(status1);
+		assertNotNull(status1.getRequestBody());
+		String jobId = status1.getJobId();
+		assertNotNull(jobId);
+		AsynchronousJobStatus status2 = servletTestHelper.getAdminAsynchJobStatus(dispatchServlet, adminUserId, jobId);
+		assertEquals(status1, status2);
+	}
+
+	@Test
+	public void testStartAdminAsyncJob2() throws Exception {
+		AsyncMigrationRowMetadataRequest mReq = new AsyncMigrationRowMetadataRequest();
+		mReq.setType(MigrationType.ACCESS_APPROVAL.name());
+		mReq.setMaxId(100L);
+		mReq.setMinId(0L);
+		mReq.setLimit(10L);
+		mReq.setOffset(0L);
+		AsyncMigrationRequest req = new AsyncMigrationRequest();
+		req.setAdminRequest(mReq);
+		AsynchronousJobStatus status1 = servletTestHelper.startAdminAsynchJob(dispatchServlet, adminUserId, req);
+		assertNotNull(status1);
+		assertNotNull(status1.getRequestBody());
+		String jobId = status1.getJobId();
+		assertNotNull(jobId);
+		AsynchronousJobStatus status2 = servletTestHelper.getAdminAsynchJobStatus(dispatchServlet, adminUserId, jobId);
+		assertEquals(status1, status2);
+	}
+
 }
 
