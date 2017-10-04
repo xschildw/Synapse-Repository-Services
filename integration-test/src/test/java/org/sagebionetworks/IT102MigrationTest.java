@@ -232,17 +232,6 @@ public class IT102MigrationTest {
 		assertNotNull(checksum1);
 	}
 
-	@Test
-	public void testAsyncGetTypeCount() throws Exception {
-		AsyncMigrationTypeCountsRequest tcReq = new AsyncMigrationTypeCountsRequest();
-		List<MigrationType> types = adminSynapse.getPrimaryTypes().getList();
-		tcReq.setTypes(types);
-		AsyncMigrationRequest req = new AsyncMigrationRequest();
-		req.setAdminRequest(tcReq);
-		AsynchronousJobStatus status = adminSynapse.startAdminAsynchronousJob(req);
-		status = adminSynapse.getAdminAsynchronousJobStatus(status.getJobId());
-	}
-
 	public static AsynchronousJobStatus waitForJob(SynapseAdminClient client, String jobId) throws Exception {
 		AsynchronousJobStatus status = client.getAdminAsynchronousJobStatus(jobId);
 		while ((status != null) && (! status.getJobState().equals(AsynchJobState.COMPLETE))) {
