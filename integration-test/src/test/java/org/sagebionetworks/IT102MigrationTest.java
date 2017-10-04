@@ -29,6 +29,8 @@ import org.sagebionetworks.repo.model.daemon.RestoreSubmission;
 import org.sagebionetworks.repo.model.message.FireMessagesResult;
 import org.sagebionetworks.repo.model.migration.*;
 import org.sagebionetworks.schema.adapter.JSONObjectAdapterException;
+import org.sagebionetworks.repo.model.status.StatusEnum;
+import org.sagebionetworks.repo.model.status.StackStatus;
 
 public class IT102MigrationTest {
 
@@ -208,12 +210,22 @@ public class IT102MigrationTest {
 		AsyncMigrationRequest migReq = new AsyncMigrationRequest();
 		migReq.setAdminRequest(tckReq);
 
-		AsynchronousJobStatus status = adminSynapse.startAdminAsynchronousJob(migReq);
-		status = waitForJob(adminSynapse, status.getJobId());
-		AsynchronousResponseBody body = status.getResponseBody();
-		assertNotNull(body);
-		AdminResponse response = unpackAsynchResponseBody(body);
-		assertTrue(response instanceof MigrationTypeChecksum);
+		StackStatus curStackStatus = adminSynapse.getCurrentStackStatus();
+		assertEquals(StatusEnum.READ_WRITE, curStackStatus.getStatus());
+		StackStatus ssRO = new StackStatus();
+		ssRO.setStatus(StatusEnum.READ_ONLY);
+		adminSynapse.updateCurrentStackStatus(ssRO);
+
+		try {
+			AsynchronousJobStatus status = adminSynapse.startAdminAsynchronousJob(migReq);
+			status = waitForJob(adminSynapse, status.getJobId());
+			AsynchronousResponseBody body = status.getResponseBody();
+			assertNotNull(body);
+			AdminResponse response = unpackAsynchResponseBody(body);
+			assertTrue(response instanceof MigrationTypeChecksum);
+		} finally {
+			adminSynapse.updateCurrentStackStatus(curStackStatus);
+		}
 	}
 
 	private static AdminResponse unpackAsynchResponseBody(AsynchronousResponseBody body) {
