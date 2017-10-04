@@ -147,7 +147,7 @@ public class IT102MigrationTest {
 	}
 
 	@Test
-	public void testRoundTripAsync() throws Exception {
+	public void testAsync() throws Exception {
 		// Primary types
 		System.out.println("Migration types");
 		MigrationTypeList mtList = adminSynapse.getPrimaryTypes();
@@ -157,6 +157,7 @@ public class IT102MigrationTest {
 			System.out.println(mt.name());
 			countByMigrationType.put(mt, 0L);
 		}
+
 		AsyncMigrationTypeCountsRequest tcReq = new AsyncMigrationTypeCountsRequest();
 		tcReq.setTypes(adminSynapse.getPrimaryTypes().getList());
 		AsyncMigrationRequest migReq = new AsyncMigrationRequest();
@@ -169,7 +170,46 @@ public class IT102MigrationTest {
 		AdminResponse response = unpackAsynchResponseBody(body);
 		assertTrue(response instanceof MigrationTypeCounts);
 
-		
+		AsyncMigrationRowMetadataRequest mReq = new AsyncMigrationRowMetadataRequest();
+		mReq.setType(MigrationType.NODE.name());
+		mReq.setMinId(0L);
+		mReq.setMaxId(Long.parseLong(project.getId()));
+		mReq.setLimit(10L);
+		mReq.setOffset(0L);
+		migReq.setAdminRequest(mReq);
+
+		status = adminSynapse.startAdminAsynchronousJob(migReq);
+		status = waitForJob(adminSynapse, status.getJobId());
+		body = status.getResponseBody();
+		assertNotNull(body);
+		response = unpackAsynchResponseBody(body);
+		assertTrue(response instanceof RowMetadataResult);
+
+		AsyncMigrationRangeChecksumRequest rcReq = new AsyncMigrationRangeChecksumRequest();
+		rcReq.setType(MigrationType.NODE.name());
+		rcReq.setSalt("SALT");
+		rcReq.setMinId(0L);
+		rcReq.setMaxId(Long.parseLong(project.getId()));
+		migReq.setAdminRequest(rcReq);
+
+		status = adminSynapse.startAdminAsynchronousJob(migReq);
+		status = waitForJob(adminSynapse, status.getJobId());
+		body = status.getResponseBody();
+		assertNotNull(body);
+		response = unpackAsynchResponseBody(body);
+		assertTrue(response instanceof MigrationRangeChecksum);
+
+		AsyncMigrationTypeChecksumRequest tckReq = new AsyncMigrationTypeChecksumRequest();
+		tckReq.setType(MigrationType.NODE.name());
+		migReq.setAdminRequest(tckReq);
+
+		status = adminSynapse.startAdminAsynchronousJob(migReq);
+		status = waitForJob(adminSynapse, status.getJobId());
+		body = status.getResponseBody();
+		assertNotNull(body);
+		response = unpackAsynchResponseBody(body);
+		assertTrue(response instanceof MigrationTypeChecksum);
+
 	}
 
 	private static AdminResponse unpackAsynchResponseBody(AsynchronousResponseBody body) {
