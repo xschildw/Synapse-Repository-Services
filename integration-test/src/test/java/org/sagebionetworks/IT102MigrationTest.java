@@ -214,7 +214,8 @@ public class IT102MigrationTest {
 		assertEquals(StatusEnum.READ_WRITE, curStackStatus.getStatus());
 		StackStatus ssRO = new StackStatus();
 		ssRO.setStatus(StatusEnum.READ_ONLY);
-		adminSynapse.updateCurrentStackStatus(ssRO);
+		StackStatus stackStatus = adminSynapse.updateCurrentStackStatus(ssRO);
+		assertEquals(StatusEnum.READ_ONLY, stackStatus.getStatus());
 
 		try {
 			AsynchronousJobStatus status = adminSynapse.startAdminAsynchronousJob(migReq);
@@ -258,7 +259,7 @@ public class IT102MigrationTest {
 			if ((status != null) && (status.getJobState().equals(AsynchJobState.FAILED))) {
 				throw new RuntimeException("Job Failed");
 			}
-			if (System.currentTimeMillis()-startTime > 30000) {
+			if (System.currentTimeMillis()-startTime > 60000) {
 				throw new RuntimeException("Job timed out");
 			}
 		}
