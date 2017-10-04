@@ -148,16 +148,7 @@ public class IT102MigrationTest {
 	}
 
 	@Test
-	public void testAsync() throws Exception {
-		// Primary types
-		System.out.println("Migration types");
-		MigrationTypeList mtList = adminSynapse.getPrimaryTypes();
-		List<MigrationType> migrationTypes = mtList.getList();
-		Map<MigrationType, Long> countByMigrationType = new HashMap<MigrationType, Long>();
-		for (MigrationType mt: migrationTypes) {
-			System.out.println(mt.name());
-			countByMigrationType.put(mt, 0L);
-		}
+	public void testAsyncCounts() throws Exception {
 
 		AsyncMigrationTypeCountsRequest tcReq = new AsyncMigrationTypeCountsRequest();
 		tcReq.setTypes(adminSynapse.getPrimaryTypes().getList());
@@ -170,6 +161,10 @@ public class IT102MigrationTest {
 		assertNotNull(body);
 		AdminResponse response = unpackAsynchResponseBody(body);
 		assertTrue(response instanceof MigrationTypeCounts);
+	}
+
+	@Test
+	public void testAsyncMetadata() throws Exception {
 
 		AsyncMigrationRowMetadataRequest mReq = new AsyncMigrationRowMetadataRequest();
 		mReq.setType(MigrationType.NODE.name());
@@ -177,40 +172,48 @@ public class IT102MigrationTest {
 		mReq.setMaxId(Long.parseLong(Strings.replace(project.getId(), "syn", "")));
 		mReq.setLimit(10L);
 		mReq.setOffset(0L);
+		AsyncMigrationRequest migReq = new AsyncMigrationRequest();
 		migReq.setAdminRequest(mReq);
 
-		status = adminSynapse.startAdminAsynchronousJob(migReq);
+		AsynchronousJobStatus status = adminSynapse.startAdminAsynchronousJob(migReq);
 		status = waitForJob(adminSynapse, status.getJobId());
-		body = status.getResponseBody();
+		AsynchronousResponseBody body = status.getResponseBody();
 		assertNotNull(body);
-		response = unpackAsynchResponseBody(body);
+		AdminResponse response = unpackAsynchResponseBody(body);
 		assertTrue(response instanceof RowMetadataResult);
+	}
 
+	@Test
+	public void testAsyncRangeChecksum() throws Exception {
 		AsyncMigrationRangeChecksumRequest rcReq = new AsyncMigrationRangeChecksumRequest();
 		rcReq.setType(MigrationType.NODE.name());
 		rcReq.setSalt("SALT");
 		rcReq.setMinId(0L);
 		rcReq.setMaxId(Long.parseLong(Strings.replace(project.getId(), "syn", "")));
+		AsyncMigrationRequest migReq = new AsyncMigrationRequest();
 		migReq.setAdminRequest(rcReq);
 
-		status = adminSynapse.startAdminAsynchronousJob(migReq);
+		AsynchronousJobStatus status = adminSynapse.startAdminAsynchronousJob(migReq);
 		status = waitForJob(adminSynapse, status.getJobId());
-		body = status.getResponseBody();
+		AsynchronousResponseBody body = status.getResponseBody();
 		assertNotNull(body);
-		response = unpackAsynchResponseBody(body);
+		AdminResponse response = unpackAsynchResponseBody(body);
 		assertTrue(response instanceof MigrationRangeChecksum);
+	}
 
+	@Test
+	public void testAsyncTypeChecksum() throws Exception {
 		AsyncMigrationTypeChecksumRequest tckReq = new AsyncMigrationTypeChecksumRequest();
 		tckReq.setType(MigrationType.NODE.name());
+		AsyncMigrationRequest migReq = new AsyncMigrationRequest();
 		migReq.setAdminRequest(tckReq);
 
-		status = adminSynapse.startAdminAsynchronousJob(migReq);
+		AsynchronousJobStatus status = adminSynapse.startAdminAsynchronousJob(migReq);
 		status = waitForJob(adminSynapse, status.getJobId());
-		body = status.getResponseBody();
+		AsynchronousResponseBody body = status.getResponseBody();
 		assertNotNull(body);
-		response = unpackAsynchResponseBody(body);
+		AdminResponse response = unpackAsynchResponseBody(body);
 		assertTrue(response instanceof MigrationTypeChecksum);
-
 	}
 
 	private static AdminResponse unpackAsynchResponseBody(AsynchronousResponseBody body) {
@@ -234,6 +237,7 @@ public class IT102MigrationTest {
 	}
 
 	public static AsynchronousJobStatus waitForJob(SynapseAdminClient client, String jobId) throws Exception {
+		long startTime = System.currentTimeMillis();
 		AsynchronousJobStatus status = client.getAdminAsynchronousJobStatus(jobId);
 		while ((status != null) && (! status.getJobState().equals(AsynchJobState.COMPLETE))) {
 			System.out.println("Waiting for job to complete");
@@ -242,8 +246,11 @@ public class IT102MigrationTest {
 			if ((status != null) && (status.getJobState().equals(AsynchJobState.FAILED))) {
 				throw new RuntimeException("Job Failed");
 			}
+			if (System.currentTimeMillis()-startTime > 30000) {
+				throw new RuntimeException("Job timed out");
+			}
 		}
-		System.out.println("Job completed!");
+		System.out.println("Async migration job completed!");
 		return status;
 	}
 	
