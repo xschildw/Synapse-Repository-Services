@@ -7,6 +7,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.*;
 
+import io.jsonwebtoken.lang.Strings;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -173,7 +174,7 @@ public class IT102MigrationTest {
 		AsyncMigrationRowMetadataRequest mReq = new AsyncMigrationRowMetadataRequest();
 		mReq.setType(MigrationType.NODE.name());
 		mReq.setMinId(0L);
-		mReq.setMaxId(Long.parseLong(project.getId()));
+		mReq.setMaxId(Long.parseLong(Strings.replace(project.getId(), "syn", "")));
 		mReq.setLimit(10L);
 		mReq.setOffset(0L);
 		migReq.setAdminRequest(mReq);
@@ -189,7 +190,7 @@ public class IT102MigrationTest {
 		rcReq.setType(MigrationType.NODE.name());
 		rcReq.setSalt("SALT");
 		rcReq.setMinId(0L);
-		rcReq.setMaxId(Long.parseLong(project.getId()));
+		rcReq.setMaxId(Long.parseLong(Strings.replace(project.getId(), "syn", "")));
 		migReq.setAdminRequest(rcReq);
 
 		status = adminSynapse.startAdminAsynchronousJob(migReq);
