@@ -19,7 +19,9 @@ import org.sagebionetworks.repo.model.Entity;
 import org.sagebionetworks.repo.model.Folder;
 import org.sagebionetworks.repo.model.IdList;
 import org.sagebionetworks.repo.model.Project;
+import org.sagebionetworks.repo.model.asynch.AsynchJobState;
 import org.sagebionetworks.repo.model.asynch.AsynchronousJobStatus;
+import org.sagebionetworks.repo.model.asynch.AsynchronousResponseBody;
 import org.sagebionetworks.repo.model.daemon.BackupRestoreStatus;
 import org.sagebionetworks.repo.model.daemon.DaemonStatus;
 import org.sagebionetworks.repo.model.daemon.RestoreSubmission;
@@ -143,6 +145,43 @@ public class IT102MigrationTest {
 		FireMessagesResult fmRes = adminSynapse.fireChangeMessages(0L, 10L);
 		assertTrue(fmRes.getNextChangeNumber() > 0);
 	}
+
+	@Test
+	public void testRoundTripAsync() throws Exception {
+		// Primary types
+		System.out.println("Migration types");
+		MigrationTypeList mtList = adminSynapse.getPrimaryTypes();
+		List<MigrationType> migrationTypes = mtList.getList();
+		Map<MigrationType, Long> countByMigrationType = new HashMap<MigrationType, Long>();
+		for (MigrationType mt: migrationTypes) {
+			System.out.println(mt.name());
+			countByMigrationType.put(mt, 0L);
+		}
+		AsyncMigrationTypeCountsRequest tcReq = new AsyncMigrationTypeCountsRequest();
+		tcReq.setTypes(adminSynapse.getPrimaryTypes().getList());
+		AsyncMigrationRequest migReq = new AsyncMigrationRequest();
+		migReq.setAdminRequest(tcReq);
+
+		AsynchronousJobStatus status = adminSynapse.startAdminAsynchronousJob(migReq);
+		status = waitForJob(adminSynapse, status.getJobId());
+		AsynchronousResponseBody body = status.getResponseBody();
+		assertNotNull(body);
+		AdminResponse response = unpackAsynchResponseBody(body);
+		assertTrue(response instanceof MigrationTypeCounts);
+
+		
+	}
+
+	private static AdminResponse unpackAsynchResponseBody(AsynchronousResponseBody body) {
+		AsyncMigrationResponse resp;
+		if (body instanceof AsyncMigrationResponse) {
+			resp = (AsyncMigrationResponse)body;
+			AdminResponse actualResponse = resp.getAdminResponse();
+			return actualResponse;
+		} else {
+			throw new IllegalArgumentException("Body is not AsyncMigrationResponse");
+		}
+	}
 	
 	@Test
 	public void testChecksumForIdRange() throws SynapseException, JSONObjectAdapterException {
@@ -162,6 +201,20 @@ public class IT102MigrationTest {
 		req.setAdminRequest(tcReq);
 		AsynchronousJobStatus status = adminSynapse.startAdminAsynchronousJob(req);
 		status = adminSynapse.getAdminAsynchronousJobStatus(status.getJobId());
+	}
+
+	public static AsynchronousJobStatus waitForJob(SynapseAdminClient client, String jobId) throws Exception {
+		AsynchronousJobStatus status = client.getAdminAsynchronousJobStatus(jobId);
+		while ((status != null) && (! status.getJobState().equals(AsynchJobState.COMPLETE))) {
+			System.out.println("Waiting for job to complete");
+			Thread.sleep(2500L);
+			status = client.getAdminAsynchronousJobStatus(jobId);
+			if ((status != null) && (status.getJobState().equals(AsynchJobState.FAILED))) {
+				throw new RuntimeException("Job Failed");
+			}
+		}
+		System.out.println("Job completed!");
+		return status;
 	}
 	
 }
