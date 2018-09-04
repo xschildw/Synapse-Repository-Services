@@ -500,7 +500,7 @@ public class DMLUtils {
 	
 	/**
 	 * Row mapper for select min(id), max(id), count(*) from table
-	 * If empty (count == 0) set the minId and maxId to null
+	 * If empty (count == 0) set the minId and maxId to 0
 	 * @return
 	 */
 	public static RowMapper<MigrationTypeCount> getMigrationTypeCountResultMapper() {
@@ -510,8 +510,8 @@ public class DMLUtils {
 				MigrationTypeCount mtc = new MigrationTypeCount();
 				mtc.setCount(rs.getLong(3));
 				if (mtc.getCount() == 0L) {
-					mtc.setMinid(null);
-					mtc.setMaxid(null);
+					mtc.setMinid(0L);
+					mtc.setMaxid(0L);
 				} else {
 					mtc.setMinid(rs.getLong(1));
 					mtc.setMaxid(rs.getLong(2));

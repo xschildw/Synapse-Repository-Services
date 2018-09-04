@@ -195,8 +195,8 @@ public class MigratableTableDAOImplAutowireTest {
 		assertNotNull(mtc);
 		assertNotNull(mtc.getCount());
 		assertEquals(0L, mtc.getCount().longValue());
-		assertNull(mtc.getMaxid());
-		assertNull(mtc.getMinid());
+		assertEquals(0L, mtc.getMaxid().longValue());
+		assertEquals(0L, mtc.getMinid().longValue());
 		assertNotNull(mtc.getType());
 		assertEquals(MigrationType.VERIFICATION_SUBMISSION, mtc.getType());
 	}
