@@ -26,6 +26,7 @@ AWS_CREDS=""
 if [ -n "${org_sagebionetworks_stack_iam_id}" ]  && [ -n "${org_sagebionetworks_stack_iam_key}" ]; then
 	AWS_CREDS="-Dorg.sagebionetworks.stack.iam.id=${org_sagebionetworks_stack_iam_id} -Dorg.sagebionetworks.stack.iam.key=${org_sagebionetworks_stack_iam_key} "
 fi
+echo "AWS_CREDS: ${AWS_CREDS}"
 
 MVN_GOAL=install
 if [ ${build_deploy} ]; then
