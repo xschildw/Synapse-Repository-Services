@@ -22,7 +22,8 @@ import org.sagebionetworks.repo.model.Folder;
 import org.sagebionetworks.repo.model.Project;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.jdo.KeyFactory;
-import org.sagebionetworks.repo.model.table.EntityDTO;
+import org.sagebionetworks.repo.model.table.ObjectDataDTO;
+import org.sagebionetworks.repo.model.table.ViewObjectType;
 import org.sagebionetworks.repo.model.util.AccessControlListUtil;
 import org.sagebionetworks.table.cluster.ConnectionFactory;
 import org.sagebionetworks.table.cluster.TableIndexDAO;
@@ -58,6 +59,8 @@ public class EntityHierarchyChangeWorkerIntegrationTest {
 	Folder folder;
 	Folder child;
 	
+	ViewObjectType viewObjectType;
+	
 	@Before
 	public void before(){
 		
@@ -83,6 +86,8 @@ public class EntityHierarchyChangeWorkerIntegrationTest {
 		child.setParentId(folder.getId());
 		id = entityManager.createEntity(adminUser, child, null);
 		child = entityManager.getEntity(adminUser, id, Folder.class);
+		
+		viewObjectType = ViewObjectType.ENTITY;
 	}
 	
 	@After
@@ -95,11 +100,11 @@ public class EntityHierarchyChangeWorkerIntegrationTest {
 	@Test
 	public void testRoundTrip() throws InterruptedException{
 		// wait for the child to be replicated
-		EntityDTO replicatedChild = waitForEntityDto(child.getId());
+		ObjectDataDTO replicatedChild = waitForEntityDto(child.getId());
 		assertNotNull(replicatedChild);
 		assertEquals(KeyFactory.stringToKey(project.getId()), replicatedChild.getBenefactorId());
 		// Delete the replicated data
-		indexDao.deleteEntityData(Lists.newArrayList(KeyFactory.stringToKey(child.getId())));
+		indexDao.deleteObjectData(viewObjectType, Lists.newArrayList(KeyFactory.stringToKey(child.getId())));
 		// Add an ACL to the folder to trigger a hierarchy change
 		AccessControlList acl = AccessControlListUtil.createACLToGrantEntityAdminAccess(folder.getId(), adminUser, new Date());
 		entityPermissionsManager.overrideInheritance(acl, adminUser);
@@ -117,10 +122,10 @@ public class EntityHierarchyChangeWorkerIntegrationTest {
 	 * @return
 	 * @throws InterruptedException
 	 */
-	public EntityDTO waitForEntityDto(String entityId) throws InterruptedException{
+	public ObjectDataDTO waitForEntityDto(String entityId) throws InterruptedException{
 		long startTimeMS = System.currentTimeMillis();
 		while(true){
-			EntityDTO entityDto = indexDao.getEntityData(KeyFactory.stringToKey(entityId));
+			ObjectDataDTO entityDto = indexDao.getObjectData(viewObjectType, KeyFactory.stringToKey(entityId));
 			if(entityDto != null){
 				return entityDto;
 			}

@@ -15,7 +15,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -23,7 +22,6 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -33,7 +31,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import com.amazonaws.services.glue.model.Column;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,33 +45,41 @@ import org.sagebionetworks.common.util.progress.ProgressCallback;
 import org.sagebionetworks.common.util.progress.ProgressingCallable;
 import org.sagebionetworks.repo.manager.table.change.ListColumnIndexTableChange;
 import org.sagebionetworks.repo.manager.table.change.TableChangeMetaData;
+import org.sagebionetworks.repo.manager.table.metadata.MetadataIndexProvider;
+import org.sagebionetworks.repo.manager.table.metadata.MetadataIndexProviderFactory;
+import org.sagebionetworks.repo.manager.table.metadata.ViewScopeFilterBuilder;
+import org.sagebionetworks.repo.model.EntityType;
 import org.sagebionetworks.repo.model.NextPageToken;
 import org.sagebionetworks.repo.model.dbo.dao.table.InvalidStatusTokenException;
 import org.sagebionetworks.repo.model.dbo.dao.table.TableModelTestUtils;
 import org.sagebionetworks.repo.model.entity.IdAndVersion;
 import org.sagebionetworks.repo.model.jdo.KeyFactory;
+import org.sagebionetworks.repo.model.table.ColumnChange;
 import org.sagebionetworks.repo.model.table.ColumnModel;
 import org.sagebionetworks.repo.model.table.ColumnModelPage;
 import org.sagebionetworks.repo.model.table.ColumnType;
-import org.sagebionetworks.repo.model.table.EntityField;
+import org.sagebionetworks.repo.model.table.ObjectField;
 import org.sagebionetworks.repo.model.table.SelectColumn;
 import org.sagebionetworks.repo.model.table.TableChangeType;
 import org.sagebionetworks.repo.model.table.TableConstants;
 import org.sagebionetworks.repo.model.table.TableUnavailableException;
+import org.sagebionetworks.repo.model.table.ViewObjectType;
 import org.sagebionetworks.repo.model.table.ViewScope;
+import org.sagebionetworks.repo.model.table.ViewScopeFilter;
+import org.sagebionetworks.repo.model.table.ViewScopeType;
 import org.sagebionetworks.repo.model.table.ViewTypeMask;
 import org.sagebionetworks.repo.web.NotFoundException;
 import org.sagebionetworks.table.cluster.ColumnChangeDetails;
 import org.sagebionetworks.table.cluster.DatabaseColumnInfo;
 import org.sagebionetworks.table.cluster.SQLUtils;
 import org.sagebionetworks.table.cluster.TableIndexDAO;
-import org.sagebionetworks.table.cluster.columntranslation.SchemaColumnTranslationReference;
 import org.sagebionetworks.table.cluster.utils.TableModelUtils;
 import org.sagebionetworks.table.model.ChangeData;
 import org.sagebionetworks.table.model.Grouping;
 import org.sagebionetworks.table.model.SchemaChange;
 import org.sagebionetworks.table.model.SparseChangeSet;
 import org.sagebionetworks.table.model.SparseRow;
+import org.sagebionetworks.util.EnumUtils;
 import org.sagebionetworks.workers.util.aws.message.RecoverableMessageException;
 import org.sagebionetworks.workers.util.semaphore.LockUnavilableException;
 import org.springframework.transaction.TransactionStatus;
@@ -94,6 +99,11 @@ public class TableIndexManagerImplTest {
 	TableManagerSupport mockManagerSupport;
 	@Mock
 	ProgressCallback mockCallback;
+	@Mock
+	MetadataIndexProviderFactory mockMetadataProviderFactory;
+	@Mock
+	MetadataIndexProvider mockMetadataProvider;
+	
 	@Captor 
 	ArgumentCaptor<List<ColumnChangeDetails>> changeCaptor;
 	
@@ -120,18 +130,20 @@ public class TableIndexManagerImplTest {
 	Set<Long> scopeIds;
 	ViewScope scope;
 	
-	Long viewType;
+	ViewObjectType objectType;
 	ColumnModel newColumn;
 	List<ColumnChangeDetails> columnChanges;
 	
 	Set<Long> rowsIdsWithChanges;
+	ViewScopeType scopeType;
+	ViewScopeFilterBuilder scopeFilterBuilder;
 	
 	
-	@SuppressWarnings("unchecked")
 	@BeforeEach
 	public void before() throws Exception{
+		objectType = ViewObjectType.ENTITY;
 		tableId = IdAndVersion.parse("syn123");
-		manager = new TableIndexManagerImpl(mockIndexDao, mockManagerSupport);
+		manager = new TableIndexManagerImpl(mockIndexDao, mockManagerSupport, mockMetadataProviderFactory);
 		managerSpy = Mockito.spy(manager);
 		versionNumber = 99L;		
 		schema = Arrays.asList(
@@ -169,11 +181,11 @@ public class TableIndexManagerImplTest {
 		tokenString = nextPageToken.toToken();
 		scopeSynIds = Lists.newArrayList("syn123","syn345");
 		scopeIds = new HashSet<Long>(KeyFactory.stringToKey(scopeSynIds));
-		viewType = ViewTypeMask.File.getMask();
 
 		scope = new ViewScope();
 		scope.setScope(scopeSynIds);
-		scope.setViewTypeMask(viewType);
+		scope.setViewTypeMask(ViewTypeMask.File.getMask());
+		scope.setObjectType(objectType);
 		
 		ColumnModel oldColumn = null;
 		newColumn = new ColumnModel();
@@ -181,12 +193,13 @@ public class TableIndexManagerImplTest {
 		columnChanges = Lists.newArrayList(new ColumnChangeDetails(oldColumn, newColumn));
 		
 		rowsIdsWithChanges = Sets.newHashSet(444L,555L);
+		scopeType = new ViewScopeType(objectType, ViewTypeMask.File.getMask());
 	}
 
 	@Test
 	public void testNullDao(){
 		assertThrows(IllegalArgumentException.class, ()->{
-			new TableIndexManagerImpl(null, mockManagerSupport);	
+			new TableIndexManagerImpl(null, mockManagerSupport, mockMetadataProviderFactory);	
 		});
 	}
 	
@@ -194,7 +207,14 @@ public class TableIndexManagerImplTest {
 	@Test
 	public void testNullSupport(){
 		assertThrows(IllegalArgumentException.class, ()->{
-			new TableIndexManagerImpl(mockIndexDao, null);			
+			new TableIndexManagerImpl(mockIndexDao, null, mockMetadataProviderFactory);			
+		});
+	}
+	
+	@Test
+	public void testNullFactory(){
+		assertThrows(IllegalArgumentException.class, ()->{
+			new TableIndexManagerImpl(mockIndexDao, mockManagerSupport, null);			
 		});
 	}
 	
@@ -294,8 +314,8 @@ public class TableIndexManagerImplTest {
 		Set<Long> expectedRows = Sets.newHashSet(0L,5L);
 		verify(mockIndexDao).deleteFromListColumnIndexTable(tableId, schema.get(0), expectedRows);
 		verify(mockIndexDao).deleteFromListColumnIndexTable(tableId, schema.get(1), expectedRows);
-		verify(mockIndexDao).populateListColumnIndexTable(tableId, schema.get(0), expectedRows);
-		verify(mockIndexDao).populateListColumnIndexTable(tableId, schema.get(1), expectedRows);
+		verify(mockIndexDao).populateListColumnIndexTable(tableId, schema.get(0), expectedRows, false);
+		verify(mockIndexDao).populateListColumnIndexTable(tableId, schema.get(1), expectedRows, false);
 	}
 	
 	@Test
@@ -350,8 +370,8 @@ public class TableIndexManagerImplTest {
 		String schemaMD5Hex = TableModelUtils.createSchemaMD5Hex(Lists.newArrayList(column.getId()));
 		verify(mockIndexDao).setCurrentSchemaMD5Hex(tableId, schemaMD5Hex);
 		verify(mockIndexDao).getMultivalueColumnIndexTableColumnIds(tableId);
-		verify(mockIndexDao).createMultivalueColumnIndexTable(tableId, column);
-		verify(mockIndexDao).populateListColumnIndexTable(tableId, column, null);
+		verify(mockIndexDao).createMultivalueColumnIndexTable(tableId, column, false);
+		verify(mockIndexDao).populateListColumnIndexTable(tableId, column, null, false);
 	}
 
 	
@@ -474,34 +494,61 @@ public class TableIndexManagerImplTest {
 		verify(mockIndexDao, never()).setCurrentSchemaMD5Hex(any(IdAndVersion.class), anyString());
 	}
 	
-	@SuppressWarnings("unchecked")
 	@Test
-	public void testCreateTemporaryTableCopy() throws Exception{
+	public void testCreateTemporaryTableCopy_noMultiValueColumnIndexTables(){
 		// call under test
-		manager.createTemporaryTableCopy(tableId, mockCallback);
+		manager.createTemporaryTableCopy(tableId);
 		verify(mockIndexDao).createTemporaryTable(tableId);
 		verify(mockIndexDao).copyAllDataToTemporaryTable(tableId);
+		verify(mockIndexDao).getMultivalueColumnIndexTableColumnIds(tableId);
+		verify(mockIndexDao, never()).createTemporaryMultiValueColumnIndexTable(any(IdAndVersion.class), anyString());
+		verify(mockIndexDao, never()).copyAllDataToTemporaryMultiValueColumnIndexTable(any(IdAndVersion.class), anyString());
+	}
+
+	@Test
+	public void testCreateTemporaryTableCopy_hasMultiValueColumnIndexTables(){
+		when(mockIndexDao.getMultivalueColumnIndexTableColumnIds(tableId)).thenReturn(Sets.newHashSet(123L, 456L));
+
+		// call under test
+		manager.createTemporaryTableCopy(tableId);
+		verify(mockIndexDao).createTemporaryTable(tableId);
+		verify(mockIndexDao).copyAllDataToTemporaryTable(tableId);
+		verify(mockIndexDao).getMultivalueColumnIndexTableColumnIds(tableId);
+		verify(mockIndexDao).createTemporaryMultiValueColumnIndexTable(tableId, "123");
+		verify(mockIndexDao).copyAllDataToTemporaryMultiValueColumnIndexTable(tableId, "123");
+		verify(mockIndexDao).createTemporaryMultiValueColumnIndexTable(tableId, "456");
+		verify(mockIndexDao).copyAllDataToTemporaryMultiValueColumnIndexTable(tableId, "456");
 	}
 	
-	@SuppressWarnings("unchecked")
 	@Test
-	public void testDeleteTemporaryTableCopy() throws Exception{
+	public void testDeleteTemporaryTableCopy(){
 		// call under test
-		manager.deleteTemporaryTableCopy(tableId, mockCallback);
+		manager.deleteTemporaryTableCopy(tableId);
 		verify(mockIndexDao).deleteTemporaryTable(tableId);
+		verify(mockIndexDao).deleteAllTemporaryMultiValueColumnIndexTable(tableId);
 	}
 	
 	@Test
 	public void testPopulateViewFromEntityReplication(){
 		when(mockIndexDao.calculateCRC32ofTableView(any(Long.class))).thenReturn(crc32);
+		when(mockMetadataProviderFactory.getMetadataIndexProvider(any())).thenReturn(mockMetadataProvider);
+		
+		List<String> subTypes = EnumUtils.names(EntityType.file);
+		boolean filterByObjectId = false;
+		
+		when(mockMetadataProvider.getObjectType()).thenReturn(objectType);
+		when(mockMetadataProvider.getSubTypesForMask(scopeType.getTypeMask())).thenReturn(subTypes);
+		when(mockMetadataProvider.isFilterScopeByObjectId(scopeType.getTypeMask())).thenReturn(filterByObjectId);
 
-		viewType = ViewTypeMask.File.getMask();
 		Set<Long> scope = Sets.newHashSet(1L,2L);
 		List<ColumnModel> schema = createDefaultColumnsWithIds();
+		
+		ViewScopeFilter scopeFilter = new ViewScopeFilter(objectType, subTypes, filterByObjectId, scope);
+		
 		// call under test
-		Long resultCrc = manager.populateViewFromEntityReplication(tableId.getId(), viewType, scope, schema);
+		Long resultCrc = managerSpy.populateViewFromEntityReplication(tableId.getId(), scopeType, scope, schema);
 		assertEquals(crc32, resultCrc);
-		verify(mockIndexDao).copyEntityReplicationToView(tableId.getId(), viewType, scope, schema);
+		verify(mockIndexDao).copyObjectReplicationToView(tableId.getId(), scopeFilter, schema, mockMetadataProvider);
 		// the CRC should be calculated with the etag column.
 		verify(mockIndexDao).calculateCRC32ofTableView(tableId.getId());
 	}
@@ -510,15 +557,23 @@ public class TableIndexManagerImplTest {
 	 * Etag is no long a required column.
 	 */
 	@Test
-	public void testPopulateViewFromEntityReplicationMissingEtagColumn(){
-		viewType = ViewTypeMask.File.getMask();
+	public void testPopulateViewFromEntityReplicationMissingEtagColumn() {
+		when(mockMetadataProviderFactory.getMetadataIndexProvider(any())).thenReturn(mockMetadataProvider);
+		
+		List<String> subTypes = EnumUtils.names(EntityType.file);
+		boolean filterByObjectId = false;
+		
+		when(mockMetadataProvider.getSubTypesForMask(scopeType.getTypeMask())).thenReturn(subTypes);
+		when(mockMetadataProvider.isFilterScopeByObjectId(scopeType.getTypeMask())).thenReturn(filterByObjectId);
+
 		Set<Long> scope = Sets.newHashSet(1L,2L);
 		List<ColumnModel> schema = createDefaultColumnsWithIds();
-		ColumnModel etagColumn = EntityField.findMatch(schema, EntityField.etag);
+		
+		ColumnModel etagColumn = ObjectField.findMatch(schema, ObjectField.etag);
 		// remove the etag column
 		schema.remove(etagColumn);
 		// call under test
-		manager.populateViewFromEntityReplication(tableId.getId(), viewType, scope, schema);
+		manager.populateViewFromEntityReplication(tableId.getId(), scopeType, scope, schema);
 	}
 	
 	/**
@@ -526,75 +581,97 @@ public class TableIndexManagerImplTest {
 	 */
 	@Test
 	public void testPopulateViewFromEntityReplicationMissingBenefactorColumn(){
-		viewType = ViewTypeMask.File.getMask();
+		when(mockMetadataProviderFactory.getMetadataIndexProvider(any())).thenReturn(mockMetadataProvider);
+		
+		List<String> subTypes = EnumUtils.names(EntityType.file);
+		boolean filterByObjectId = false;
+		
+		when(mockMetadataProvider.getSubTypesForMask(scopeType.getTypeMask())).thenReturn(subTypes);
+		when(mockMetadataProvider.isFilterScopeByObjectId(scopeType.getTypeMask())).thenReturn(filterByObjectId);
+
 		Set<Long> scope = Sets.newHashSet(1L,2L);
 		List<ColumnModel> schema = createDefaultColumnsWithIds();
-		ColumnModel benefactorColumn = EntityField.findMatch(schema, EntityField.benefactorId);
+		ColumnModel benefactorColumn = ObjectField.findMatch(schema, ObjectField.benefactorId);
 		// remove the benefactor column
 		schema.remove(benefactorColumn);
 		// call under test
-		manager.populateViewFromEntityReplication(tableId.getId(), viewType, scope, schema);
+		manager.populateViewFromEntityReplication(tableId.getId(), scopeType, scope, schema);
 	}
 	
 	@Test
 	public void testPopulateViewFromEntityReplicationNullViewType(){
-		viewType = null;
+		scopeType = null;
 		Set<Long> scope = Sets.newHashSet(1L,2L);
 		List<ColumnModel> schema = createDefaultColumnsWithIds();
 		assertThrows(IllegalArgumentException.class, ()->{
 			// call under test
-			manager.populateViewFromEntityReplication(tableId.getId(), viewType, scope, schema);
+			manager.populateViewFromEntityReplication(tableId.getId(), scopeType, scope, schema);
 		});
 	}
 	
 	@Test
 	public void testPopulateViewFromEntityReplicationScopeNull(){
-		viewType = ViewTypeMask.File.getMask();
 		Set<Long> scope = null;
 		List<ColumnModel> schema = createDefaultColumnsWithIds();
 		assertThrows(IllegalArgumentException.class, ()->{
 			// call under test
-			manager.populateViewFromEntityReplication(tableId.getId(), viewType, scope, schema);
+			manager.populateViewFromEntityReplication(tableId.getId(), scopeType, scope, schema);
 		});
 	}
 	
 	@Test
 	public void testPopulateViewFromEntityReplicationSchemaNull(){
-		viewType = ViewTypeMask.File.getMask();
 		Set<Long> scope = Sets.newHashSet(1L,2L);
 		List<ColumnModel> schema = null;
 		assertThrows(IllegalArgumentException.class, ()->{
 			// call under test
-			manager.populateViewFromEntityReplication(tableId.getId(), viewType, scope, schema);
+			manager.populateViewFromEntityReplication(tableId.getId(), scopeType, scope, schema);
 		});
 	}
 	
 	@Test
 	public void testPopulateViewFromEntityReplicationWithProgress() throws Exception{
 		when(mockIndexDao.calculateCRC32ofTableView(any(Long.class))).thenReturn(crc32);
+		when(mockMetadataProviderFactory.getMetadataIndexProvider(any())).thenReturn(mockMetadataProvider);
+		
+		List<String> subTypes = EnumUtils.names(EntityType.file);
+		boolean filterByObjectId = false;
+		
+		when(mockMetadataProvider.getObjectType()).thenReturn(objectType);
+		when(mockMetadataProvider.getSubTypesForMask(scopeType.getTypeMask())).thenReturn(subTypes);
+		when(mockMetadataProvider.isFilterScopeByObjectId(scopeType.getTypeMask())).thenReturn(filterByObjectId);
 
-		viewType = ViewTypeMask.File.getMask();
 		Set<Long> scope = Sets.newHashSet(1L,2L);
 		List<ColumnModel> schema = createDefaultColumnsWithIds();
+		
+		ViewScopeFilter scopeFilter = new ViewScopeFilter(objectType, subTypes, filterByObjectId, scope);
 		// call under test
-		Long resultCrc = manager.populateViewFromEntityReplication(tableId.getId(), viewType, scope, schema);
+		Long resultCrc = managerSpy.populateViewFromEntityReplication(tableId.getId(), scopeType, scope, schema);
 		assertEquals(crc32, resultCrc);
-		verify(mockIndexDao).copyEntityReplicationToView(tableId.getId(), viewType, scope, schema);
+		verify(mockIndexDao).copyObjectReplicationToView(tableId.getId(), scopeFilter, schema, mockMetadataProvider);
 		// the CRC should be calculated with the etag column.
 		verify(mockIndexDao).calculateCRC32ofTableView(tableId.getId());
 	}
 	
 	@Test
 	public void testPopulateViewFromEntityReplicationUnknownCause() throws Exception{
-		viewType = ViewTypeMask.File.getMask();
 		Set<Long> scope = Sets.newHashSet(1L,2L);
 		List<ColumnModel> schema = createDefaultColumnsWithIds();
+		
+		when(mockMetadataProviderFactory.getMetadataIndexProvider(any())).thenReturn(mockMetadataProvider);
+		
+		List<String> subTypes = EnumUtils.names(EntityType.file);
+		boolean filterByObjectId = false;
+		
+		when(mockMetadataProvider.getSubTypesForMask(scopeType.getTypeMask())).thenReturn(subTypes);
+		when(mockMetadataProvider.isFilterScopeByObjectId(scopeType.getTypeMask())).thenReturn(filterByObjectId);
+		
 		// setup a failure
 		IllegalArgumentException error = new IllegalArgumentException("Something went wrong");
-		doThrow(error).when(mockIndexDao).copyEntityReplicationToView(tableId.getId(), viewType, scope, schema);
+		doThrow(error).when(mockIndexDao).copyObjectReplicationToView(any(), any(), any(), any());
 		try {
 			// call under test
-			manager.populateViewFromEntityReplication(tableId.getId(), viewType, scope, schema);
+			manager.populateViewFromEntityReplication(tableId.getId(), scopeType, scope, schema);
 			fail("Should have failed");
 		} catch (IllegalArgumentException expected) {
 			// when the cause cannot be determined the original exception is thrown.
@@ -604,9 +681,16 @@ public class TableIndexManagerImplTest {
 	
 	@Test
 	public void testPopulateViewFromEntityReplicationKnownCause() throws Exception{
-		viewType = ViewTypeMask.File.getMask();
 		Set<Long> scope = Sets.newHashSet(1L,2L);
 		List<ColumnModel> schema = createDefaultColumnsWithIds();
+		
+		when(mockMetadataProviderFactory.getMetadataIndexProvider(any())).thenReturn(mockMetadataProvider);
+		
+		List<String> subTypes = EnumUtils.names(EntityType.file);
+		boolean filterByObjectId = false;
+		
+		when(mockMetadataProvider.getSubTypesForMask(scopeType.getTypeMask())).thenReturn(subTypes);
+		when(mockMetadataProvider.isFilterScopeByObjectId(scopeType.getTypeMask())).thenReturn(filterByObjectId);
 		
 		ColumnModel column = new ColumnModel();
 		column.setId("123");
@@ -621,60 +705,93 @@ public class TableIndexManagerImplTest {
 		annotation.setColumnType(ColumnType.STRING);
 		
 		// setup the annotations 
-		when(mockIndexDao.getPossibleColumnModelsForContainers(scope, viewType, Long.MAX_VALUE, 0L)).thenReturn(Lists.newArrayList(annotation));
+		when(mockIndexDao.getPossibleColumnModelsForContainers(any(), any(), any())).thenReturn(Lists.newArrayList(annotation));
 		// setup a failure
 		IllegalArgumentException error = new IllegalArgumentException("Something went wrong");
-		doThrow(error).when(mockIndexDao).copyEntityReplicationToView(tableId.getId(), viewType, scope, schema);
-		try {
+		
+		doThrow(error).when(mockIndexDao).copyObjectReplicationToView(any(), any(), any(), any());
+		
+		IllegalArgumentException expected = assertThrows(IllegalArgumentException.class, () -> {
 			// call under test
-			manager.populateViewFromEntityReplication(tableId.getId(), viewType, scope, schema);
-			fail("Should have failed");
-		} catch (IllegalArgumentException expected) {
-			assertTrue(expected.getMessage().startsWith("The size of the column 'foo' is too small"));
-			// the cause should match the original error.
-			assertEquals(error, expected.getCause());
-		}
+			manager.populateViewFromEntityReplication(tableId.getId(), scopeType, scope, schema);
+		});
+		
+		assertTrue(expected.getMessage().startsWith("The size of the column 'foo' is too small"));
+		// the cause should match the original error.
+		assertEquals(error, expected.getCause());
 	}
 	
 	@Test
 	public void testGetPossibleAnnotationDefinitionsForContainerLastPage(){
-		when(mockIndexDao.getPossibleColumnModelsForContainers(anySet(), any(Long.class), anyLong(), anyLong())).thenReturn(schema);
+		when(mockIndexDao.getPossibleColumnModelsForContainers(any(), any(), any())).thenReturn(schema);
+		when(mockMetadataProviderFactory.getMetadataIndexProvider(any())).thenReturn(mockMetadataProvider);
+		
+		List<String> subTypes = EnumUtils.names(EntityType.file);
+		boolean filterByObjectId = false;
+		
+		when(mockMetadataProvider.getObjectType()).thenReturn(objectType);
+		when(mockMetadataProvider.getSubTypesForMask(scopeType.getTypeMask())).thenReturn(subTypes);
+		when(mockMetadataProvider.isFilterScopeByObjectId(scopeType.getTypeMask())).thenReturn(filterByObjectId);
+
+		ViewScopeFilter scopeFilter = new ViewScopeFilter(objectType, subTypes, filterByObjectId, containerIds);
 
 		// call under test
-		ColumnModelPage results = manager.getPossibleAnnotationDefinitionsForContainerIds(containerIds, viewType, tokenString);
+		ColumnModelPage results = manager.getPossibleAnnotationDefinitionsForContainerIds(scopeType, containerIds, tokenString);
 		assertNotNull(results);
 		assertEquals(null, results.getNextPageToken());
 		assertEquals(schema, results.getResults());
 		// should request one more than the limit
-		verify(mockIndexDao).getPossibleColumnModelsForContainers(containerIds, viewType, limit+1, offset);
+		verify(mockIndexDao).getPossibleColumnModelsForContainers(scopeFilter, limit+1, offset);
 	}
 	
 	@Test
 	public void testGetPossibleAnnotationDefinitionsForContainerLastPageNullToken(){
-		when(mockIndexDao.getPossibleColumnModelsForContainers(anySet(), any(Long.class), anyLong(), anyLong())).thenReturn(schema);
+		when(mockIndexDao.getPossibleColumnModelsForContainers(any(), any(), any())).thenReturn(schema);
+		when(mockMetadataProviderFactory.getMetadataIndexProvider(any())).thenReturn(mockMetadataProvider);
+		
+		List<String> subTypes = EnumUtils.names(EntityType.file);
+		boolean filterByObjectId = false;
+		
+		when(mockMetadataProvider.getObjectType()).thenReturn(objectType);
+		when(mockMetadataProvider.getSubTypesForMask(scopeType.getTypeMask())).thenReturn(subTypes);
+		when(mockMetadataProvider.isFilterScopeByObjectId(scopeType.getTypeMask())).thenReturn(filterByObjectId);
+
+		ViewScopeFilter scopeFilter = new ViewScopeFilter(objectType, subTypes, filterByObjectId, containerIds);
+		
 		tokenString = null;
 		// call under test
-		ColumnModelPage results = manager.getPossibleAnnotationDefinitionsForContainerIds(containerIds, viewType, tokenString);
+		ColumnModelPage results = manager.getPossibleAnnotationDefinitionsForContainerIds(scopeType, containerIds, tokenString);
 		assertNotNull(results);
 		assertEquals(null, results.getNextPageToken());
 		assertEquals(schema, results.getResults());
 		// should request one more than the limit
-		verify(mockIndexDao).getPossibleColumnModelsForContainers(containerIds, viewType, NextPageToken.DEFAULT_LIMIT+1, NextPageToken.DEFAULT_OFFSET);
+		verify(mockIndexDao).getPossibleColumnModelsForContainers(scopeFilter, NextPageToken.DEFAULT_LIMIT+1, NextPageToken.DEFAULT_OFFSET);
 	}
 	
 	@Test
 	public void testGetPossibleAnnotationDefinitionsForContainerHasNextPage(){
 		List<ColumnModel> pagePluseOne = new LinkedList<ColumnModel>(schema);
 		pagePluseOne.add(new ColumnModel());
-		when(mockIndexDao.getPossibleColumnModelsForContainers(anySet(), any(Long.class), anyLong(), anyLong())).thenReturn(pagePluseOne);
+		when(mockIndexDao.getPossibleColumnModelsForContainers(any(), any(), any())).thenReturn(pagePluseOne);
+		when(mockMetadataProviderFactory.getMetadataIndexProvider(any())).thenReturn(mockMetadataProvider);
+		
+		List<String> subTypes = EnumUtils.names(EntityType.file);
+		boolean filterByObjectId = false;
+		
+		when(mockMetadataProvider.getObjectType()).thenReturn(objectType);
+		when(mockMetadataProvider.getSubTypesForMask(scopeType.getTypeMask())).thenReturn(subTypes);
+		when(mockMetadataProvider.isFilterScopeByObjectId(scopeType.getTypeMask())).thenReturn(filterByObjectId);
+
+		ViewScopeFilter scopeFilter = new ViewScopeFilter(objectType, subTypes, filterByObjectId, containerIds);
+		
 		nextPageToken =  new NextPageToken(schema.size(), 0L);
 		// call under test
-		ColumnModelPage results = manager.getPossibleAnnotationDefinitionsForContainerIds(containerIds, viewType, nextPageToken.toToken());
+		ColumnModelPage results = manager.getPossibleAnnotationDefinitionsForContainerIds(scopeType, containerIds, nextPageToken.toToken());
 		assertNotNull(results);
 		assertEquals(new NextPageToken(2L, 2L).toToken(), results.getNextPageToken());
 		assertEquals(schema, results.getResults());
 		// should request one more than the limit
-		verify(mockIndexDao).getPossibleColumnModelsForContainers(containerIds, viewType, nextPageToken.getLimitForQuery(), nextPageToken.getOffset());
+		verify(mockIndexDao).getPossibleColumnModelsForContainers(scopeFilter, nextPageToken.getLimitForQuery(), nextPageToken.getOffset());
 	}
 	
 	
@@ -684,7 +801,7 @@ public class TableIndexManagerImplTest {
 		containerIds = null;
 		assertThrows(IllegalArgumentException.class, ()->{
 			// call under test
-			manager.getPossibleAnnotationDefinitionsForContainerIds(containerIds, viewType, token);
+			manager.getPossibleAnnotationDefinitionsForContainerIds(scopeType, containerIds, token);
 		});
 	}
 	
@@ -693,12 +810,12 @@ public class TableIndexManagerImplTest {
 		String token = nextPageToken.toToken();
 		containerIds = new HashSet<>();
 		// call under test
-		ColumnModelPage results = manager.getPossibleAnnotationDefinitionsForContainerIds(containerIds, viewType, token);
+		ColumnModelPage results = manager.getPossibleAnnotationDefinitionsForContainerIds(scopeType, containerIds, token);
 		assertNotNull(results);
 		assertNotNull(results.getResults());
 		assertEquals(null, results.getNextPageToken());
 		// should not call the dao
-		verify(mockIndexDao, never()).getPossibleColumnModelsForContainers(anySet(), any(Long.class), anyLong(), anyLong());
+		verify(mockIndexDao, never()).getPossibleColumnModelsForContainers(any(), anyLong(), anyLong());
 	}
 	
 	
@@ -708,16 +825,24 @@ public class TableIndexManagerImplTest {
 		nextPageToken = new NextPageToken(limit, offset);
 		assertThrows(IllegalArgumentException.class, ()->{
 			// call under test
-			manager.getPossibleAnnotationDefinitionsForContainerIds(containerIds, viewType, nextPageToken.toToken());
+			manager.getPossibleAnnotationDefinitionsForContainerIds(scopeType, containerIds, nextPageToken.toToken());
 		});
 	}
 	
 	@Test
 	public void testGetPossibleAnnotationDefinitionsForView(){
-		when(mockManagerSupport.getViewTypeMask(tableId)).thenReturn(viewType);
-		when(mockIndexDao.getPossibleColumnModelsForContainers(anySet(), any(Long.class), anyLong(), anyLong())).thenReturn(schema);
-		when(mockManagerSupport.getAllContainerIdsForViewScope(tableId, viewType)).thenReturn(containerIds);
-
+		when(mockManagerSupport.getViewScopeType(tableId)).thenReturn(scopeType);
+		
+		when(mockIndexDao.getPossibleColumnModelsForContainers(any(), any(), any())).thenReturn(schema);
+		when(mockManagerSupport.getAllContainerIdsForViewScope(tableId, scopeType)).thenReturn(containerIds);
+		when(mockMetadataProviderFactory.getMetadataIndexProvider(any())).thenReturn(mockMetadataProvider);
+		
+		List<String> subTypes = EnumUtils.names(EntityType.file);
+		boolean filterByObjectId = false;
+		
+		when(mockMetadataProvider.getSubTypesForMask(scopeType.getTypeMask())).thenReturn(subTypes);
+		when(mockMetadataProvider.isFilterScopeByObjectId(scopeType.getTypeMask())).thenReturn(filterByObjectId);
+		
 		// call under test
 		ColumnModelPage results = manager.getPossibleColumnModelsForView(tableId.getId(), tokenString);
 		assertNotNull(results);
@@ -736,8 +861,16 @@ public class TableIndexManagerImplTest {
 	
 	@Test
 	public void testGetPossibleAnnotationDefinitionsForScope(){
-		when(mockIndexDao.getPossibleColumnModelsForContainers(anySet(), any(Long.class), anyLong(), anyLong())).thenReturn(schema);
-		when(mockManagerSupport.getAllContainerIdsForScope(scopeIds, viewType)).thenReturn(containerIds);
+		when(mockIndexDao.getPossibleColumnModelsForContainers(any(), any(), any())).thenReturn(schema);
+		when(mockManagerSupport.getAllContainerIdsForScope(scopeIds, scopeType)).thenReturn(containerIds);
+		when(mockMetadataProviderFactory.getMetadataIndexProvider(any())).thenReturn(mockMetadataProvider);
+		
+		List<String> subTypes = EnumUtils.names(EntityType.file);
+		boolean filterByObjectId = false;
+		
+		when(mockMetadataProvider.getSubTypesForMask(scopeType.getTypeMask())).thenReturn(subTypes);
+		when(mockMetadataProvider.isFilterScopeByObjectId(scopeType.getTypeMask())).thenReturn(filterByObjectId);
+		
 		// call under test
 		ColumnModelPage results = manager.getPossibleColumnModelsForScope(scope, tokenString);
 		assertNotNull(results);
@@ -747,15 +880,24 @@ public class TableIndexManagerImplTest {
 	
 	@Test
 	public void testGetPossibleAnnotationDefinitionsForScopeTypeNull(){
-		when(mockIndexDao.getPossibleColumnModelsForContainers(anySet(), any(Long.class), anyLong(), anyLong())).thenReturn(schema);
-		when(mockManagerSupport.getAllContainerIdsForScope(scopeIds, viewType)).thenReturn(containerIds);
+		when(mockIndexDao.getPossibleColumnModelsForContainers(any(), any(), any())).thenReturn(schema);
+		when(mockManagerSupport.getAllContainerIdsForScope(scopeIds, scopeType)).thenReturn(containerIds);
+		when(mockMetadataProviderFactory.getMetadataIndexProvider(any())).thenReturn(mockMetadataProvider);
+		
+		List<String> subTypes = EnumUtils.names(EntityType.file);
+		boolean filterByObjectId = false;
+		
+		when(mockMetadataProvider.getObjectType()).thenReturn(objectType);
+		when(mockMetadataProvider.getSubTypesForMask(scopeType.getTypeMask())).thenReturn(subTypes);
+		when(mockMetadataProvider.isFilterScopeByObjectId(scopeType.getTypeMask())).thenReturn(filterByObjectId);
+		
+		ViewScopeFilter scopeFilter = new ViewScopeFilter(objectType, subTypes, filterByObjectId, containerIds);
 
-		viewType = null;
 		// call under test
 		ColumnModelPage results = manager.getPossibleColumnModelsForScope(scope, tokenString);
 		assertNotNull(results);
 		// should default to file view.
-		verify(mockIndexDao).getPossibleColumnModelsForContainers(containerIds, ViewTypeMask.File.getMask(), nextPageToken.getLimitForQuery(), nextPageToken.getOffset());
+		verify(mockIndexDao).getPossibleColumnModelsForContainers(scopeFilter, nextPageToken.getLimitForQuery(), nextPageToken.getOffset());
 	}
 	
 	@Test
@@ -877,8 +1019,8 @@ public class TableIndexManagerImplTest {
 		verify(mockIndexDao).alterTableAsNeeded(tableId, columnChanges, alterTemp);
 
 		verify(mockIndexDao).setMaxCurrentCompleteVersionForTable(tableId, mockChange.getChangeNumber());
-		verify(mockIndexDao).createMultivalueColumnIndexTable(tableId, newColumn);
-		verify(mockIndexDao).populateListColumnIndexTable(tableId, newColumn, null);
+		verify(mockIndexDao).createMultivalueColumnIndexTable(tableId, newColumn, false);
+		verify(mockIndexDao).populateListColumnIndexTable(tableId, newColumn, null, false);
 	}
 	
 	@Test
@@ -1212,7 +1354,7 @@ public class TableIndexManagerImplTest {
 		// call under test
 		manager.populateListColumnIndexTables(tableId, schema, rowsIdsWithChanges);
 		verify(mockIndexDao, never()).populateListColumnIndexTable(any(IdAndVersion.class), any(ColumnModel.class),
-				anySet());
+				anySet(), anyBoolean());
 	}
 	
 	@Test
@@ -1232,9 +1374,9 @@ public class TableIndexManagerImplTest {
 		
 		// call under test
 		manager.populateListColumnIndexTables(tableId, schema, rowsIdsWithChanges);
-		verify(mockIndexDao, never()).populateListColumnIndexTable(tableId, notAList, rowsIdsWithChanges);
-		verify(mockIndexDao).populateListColumnIndexTable(tableId, listOne, rowsIdsWithChanges);
-		verify(mockIndexDao).populateListColumnIndexTable(tableId, listTwo, rowsIdsWithChanges);
+		verify(mockIndexDao, never()).populateListColumnIndexTable(tableId, notAList, rowsIdsWithChanges, false);
+		verify(mockIndexDao).populateListColumnIndexTable(tableId, listOne, rowsIdsWithChanges, false);
+		verify(mockIndexDao).populateListColumnIndexTable(tableId, listTwo, rowsIdsWithChanges, false);
 		verifyNoMoreInteractions(mockIndexDao);
 	}
 	
@@ -1258,7 +1400,7 @@ public class TableIndexManagerImplTest {
 		rowsIdsWithChanges = null;
 		// call under test
 		manager.populateListColumnIndexTables(tableId, schema, rowsIdsWithChanges);
-		verify(mockIndexDao).populateListColumnIndexTable(tableId, listOne, null);
+		verify(mockIndexDao).populateListColumnIndexTable(tableId, listOne, null, false);
 	}
 	
 	@Test
@@ -1281,36 +1423,59 @@ public class TableIndexManagerImplTest {
 	
 	@Test
 	public void testUpdateViewRowsInTransaction() {
+		when(mockMetadataProviderFactory.getMetadataIndexProvider(any())).thenReturn(mockMetadataProvider);
+		
+		List<String> subTypes = EnumUtils.names(EntityType.file);
+		boolean filterByObjectId = false;
+		
+		when(mockMetadataProvider.getObjectType()).thenReturn(objectType);
+		when(mockMetadataProvider.getSubTypesForMask(scopeType.getTypeMask())).thenReturn(subTypes);
+		when(mockMetadataProvider.isFilterScopeByObjectId(scopeType.getTypeMask())).thenReturn(filterByObjectId);
+
+		ViewScopeFilter scopeFilter = new ViewScopeFilter(objectType, subTypes, filterByObjectId, scopeIds);
+		
 		setupExecuteInWriteTransaction();
 		Long[] rowsIdsArray = rowsIdsWithChanges.stream().toArray(Long[] ::new); 
 		// call under test
-		managerSpy.updateViewRowsInTransaction(tableId, rowsIdsWithChanges, viewType, scopeIds, schema);
+		managerSpy.updateViewRowsInTransaction(tableId, rowsIdsWithChanges, scopeType, scopeIds, schema);
+		
 		verify(mockIndexDao).executeInWriteTransaction(any());
 		verify(mockIndexDao).deleteRowsFromViewBatch(tableId, rowsIdsArray);
-		verify(mockIndexDao).copyEntityReplicationToView(tableId.getId(), viewType, scopeIds, schema, rowsIdsWithChanges);
+		verify(mockIndexDao).copyObjectReplicationToView(tableId.getId(), scopeFilter, schema, mockMetadataProvider, rowsIdsWithChanges);
 		verify(managerSpy).populateListColumnIndexTables(tableId, schema, rowsIdsWithChanges);
-		verify(managerSpy, never()).determineCauseOfReplicationFailure(any(), any(), any(), any());
+		verify(managerSpy, never()).determineCauseOfReplicationFailure(any(), any(), any());
 	}
 	
 	@Test
 	public void testUpdateViewRowsInTransaction_ExceptionDuringUpdate() {
+		when(mockMetadataProviderFactory.getMetadataIndexProvider(any())).thenReturn(mockMetadataProvider);
+		
+		List<String> subTypes = EnumUtils.names(EntityType.file);
+		boolean filterByObjectId = false;
+		
+		when(mockMetadataProvider.getObjectType()).thenReturn(objectType);
+		when(mockMetadataProvider.getSubTypesForMask(scopeType.getTypeMask())).thenReturn(subTypes);
+		when(mockMetadataProvider.isFilterScopeByObjectId(scopeType.getTypeMask())).thenReturn(filterByObjectId);
+
+		ViewScopeFilter scopeFilter = new ViewScopeFilter(objectType, subTypes, filterByObjectId, scopeIds);
+		
 		setupExecuteInWriteTransaction();
 		// setup an exception on copy
 		IllegalArgumentException exception = new IllegalArgumentException("something wrong");
-		doThrow(exception).when(mockIndexDao).copyEntityReplicationToView(tableId.getId(), viewType, scopeIds, schema, rowsIdsWithChanges);
+		doThrow(exception).when(mockIndexDao).copyObjectReplicationToView(tableId.getId(), scopeFilter, schema, mockMetadataProvider, rowsIdsWithChanges);
 		
 		Long[] rowsIdsArray = rowsIdsWithChanges.stream().toArray(Long[] ::new); 
 		Exception thrown = assertThrows(IllegalArgumentException.class, ()->{
 			// call under test
-			managerSpy.updateViewRowsInTransaction(tableId, rowsIdsWithChanges, viewType, scopeIds, schema);
+			managerSpy.updateViewRowsInTransaction(tableId, rowsIdsWithChanges, scopeType, scopeIds, schema);
 		});
 		assertEquals(exception, thrown);
 
 		verify(mockIndexDao).executeInWriteTransaction(any());
 		verify(mockIndexDao).deleteRowsFromViewBatch(tableId, rowsIdsArray);
-		verify(mockIndexDao).copyEntityReplicationToView(tableId.getId(), viewType, scopeIds, schema, rowsIdsWithChanges);
+		verify(mockIndexDao).copyObjectReplicationToView(tableId.getId(), scopeFilter, schema, mockMetadataProvider, rowsIdsWithChanges);
 		// must attempt to determine the type of exception.
-		verify(managerSpy).determineCauseOfReplicationFailure(exception, schema, scopeIds, viewType);
+		verify(managerSpy).determineCauseOfReplicationFailure(exception, scopeFilter, schema);
 		verify(managerSpy, never()).populateListColumnIndexTables(any(), any(), any());
 	}
 	
@@ -1319,7 +1484,7 @@ public class TableIndexManagerImplTest {
 		tableId = null;
 		assertThrows(IllegalArgumentException.class, ()->{
 			// call under test
-			manager.updateViewRowsInTransaction(tableId, rowsIdsWithChanges, viewType, scopeIds, schema);
+			manager.updateViewRowsInTransaction(tableId, rowsIdsWithChanges, scopeType, scopeIds, schema);
 		});
 	}
 	
@@ -1328,16 +1493,16 @@ public class TableIndexManagerImplTest {
 		rowsIdsWithChanges = null;
 		assertThrows(IllegalArgumentException.class, ()->{
 			// call under test
-			manager.updateViewRowsInTransaction(tableId, rowsIdsWithChanges, viewType, scopeIds, schema);
+			manager.updateViewRowsInTransaction(tableId, rowsIdsWithChanges, scopeType, scopeIds, schema);
 		});
 	}
 	
 	@Test
 	public void testUpdateViewRowsInTransaction_ViewType() {
-		viewType = null;
+		scopeType = null;
 		assertThrows(IllegalArgumentException.class, ()->{
 			// call under test
-			manager.updateViewRowsInTransaction(tableId, rowsIdsWithChanges, viewType, scopeIds, schema);
+			manager.updateViewRowsInTransaction(tableId, rowsIdsWithChanges, scopeType, scopeIds, schema);
 		});
 	}
 	
@@ -1346,7 +1511,7 @@ public class TableIndexManagerImplTest {
 		scopeIds = null;
 		assertThrows(IllegalArgumentException.class, ()->{
 			// call under test
-			manager.updateViewRowsInTransaction(tableId, rowsIdsWithChanges, viewType, scopeIds, schema);
+			manager.updateViewRowsInTransaction(tableId, rowsIdsWithChanges, scopeType, scopeIds, schema);
 		});
 	}
 	
@@ -1355,7 +1520,7 @@ public class TableIndexManagerImplTest {
 		schema = null;
 		assertThrows(IllegalArgumentException.class, ()->{
 			// call under test
-			manager.updateViewRowsInTransaction(tableId, rowsIdsWithChanges, viewType, scopeIds, schema);
+			manager.updateViewRowsInTransaction(tableId, rowsIdsWithChanges, scopeType, scopeIds, schema);
 		});
 	}
 
@@ -1714,11 +1879,13 @@ public class TableIndexManagerImplTest {
 		columnModel.setMaximumSize(46L);
 		ListColumnIndexTableChange addChange = ListColumnIndexTableChange.newAddition(columnModel);
 
-		//method under test
-		manager.applyListColumnIndexTableChanges(tableId, Collections.singletonList(addChange));
+		boolean alterTemp = false;
 
-		verify(mockIndexDao).createMultivalueColumnIndexTable(tableId, columnModel);
-		verify(mockIndexDao).populateListColumnIndexTable(tableId, columnModel, null);
+		//method under test
+		manager.applyListColumnIndexTableChanges(tableId, Collections.singletonList(addChange), alterTemp);
+
+		verify(mockIndexDao).createMultivalueColumnIndexTable(tableId, columnModel, alterTemp);
+		verify(mockIndexDao).populateListColumnIndexTable(tableId, columnModel, null, alterTemp);
 	}
 
 
@@ -1727,10 +1894,12 @@ public class TableIndexManagerImplTest {
 		long columnIdToRemove = 1234L;
 		ListColumnIndexTableChange removeChange = ListColumnIndexTableChange.newRemoval(columnIdToRemove);
 
-		//method under test
-		manager.applyListColumnIndexTableChanges(tableId, Collections.singletonList(removeChange));
+		boolean alterTemp = false;
 
-		verify(mockIndexDao).deleteMultivalueColumnIndexTable(tableId, columnIdToRemove);
+		//method under test
+		manager.applyListColumnIndexTableChanges(tableId, Collections.singletonList(removeChange), alterTemp);
+
+		verify(mockIndexDao).deleteMultivalueColumnIndexTable(tableId, columnIdToRemove, alterTemp);
 	}
 
 
@@ -1745,10 +1914,11 @@ public class TableIndexManagerImplTest {
 
 		ListColumnIndexTableChange addChange = ListColumnIndexTableChange.newUpdate(oldColumnId, columnModel);
 
+		boolean alterTemp = false;
 		//method under test
-		manager.applyListColumnIndexTableChanges(tableId, Collections.singletonList(addChange));
+		manager.applyListColumnIndexTableChanges(tableId, Collections.singletonList(addChange), alterTemp);
 
-		verify(mockIndexDao).updateMultivalueColumnIndexTable(tableId, oldColumnId, columnModel);
+		verify(mockIndexDao).updateMultivalueColumnIndexTable(tableId, oldColumnId, columnModel, alterTemp);
 	}
 
 	@Test
@@ -1764,13 +1934,107 @@ public class TableIndexManagerImplTest {
 
 		long columnIdToRemove = 456L;
 		ListColumnIndexTableChange removeChange = ListColumnIndexTableChange.newRemoval(columnIdToRemove);
-
+		boolean alterTemp = false;
 		//method under test
-		manager.applyListColumnIndexTableChanges(tableId, Arrays.asList(addChange, removeChange));
-		verify(mockIndexDao).createMultivalueColumnIndexTable(tableId, columnModel);
-		verify(mockIndexDao).populateListColumnIndexTable(tableId, columnModel, null);
-		verify(mockIndexDao).deleteMultivalueColumnIndexTable(tableId, columnIdToRemove);
+		manager.applyListColumnIndexTableChanges(tableId, Arrays.asList(addChange, removeChange), alterTemp);
+
+		verify(mockIndexDao).createMultivalueColumnIndexTable(tableId, columnModel, alterTemp);
+		verify(mockIndexDao).populateListColumnIndexTable(tableId, columnModel, null, alterTemp);
+		verify(mockIndexDao).deleteMultivalueColumnIndexTable(tableId, columnIdToRemove, alterTemp);
 	}
+
+	@Test
+	public void testValidateTableMaximumListLengthChanges_noListTypes(){
+		ColumnModel oldCol = new ColumnModel();
+		oldCol.setId("5");
+		oldCol.setName("old");
+		oldCol.setColumnType(ColumnType.STRING);
+		ColumnModel newCol = new ColumnModel();
+		newCol.setId("56");
+		newCol.setName("new");
+		newCol.setColumnType(ColumnType.STRING);
+
+		ColumnChangeDetails change = new ColumnChangeDetails(oldCol, newCol);
+
+		// method under test
+		manager.validateTableMaximumListLengthChanges(tableId, change);
+
+		verify(mockIndexDao,never()).tempTableListColumnMaxLength(any(),any());
+	}
+
+	@Test
+	public void testValidateTableMaximumListLengthChanges_bothListTypes_ListLengthNewGreaterThanOrEqualOld(){
+		ColumnModel oldCol = new ColumnModel();
+		oldCol.setId("5");
+		oldCol.setName("old");
+		oldCol.setColumnType(ColumnType.STRING_LIST);
+		oldCol.setMaximumListLength(4L);
+		ColumnModel newCol = new ColumnModel();
+		newCol.setId("56");
+		newCol.setName("new");
+		newCol.setColumnType(ColumnType.STRING_LIST);
+		newCol.setMaximumListLength(14L);
+
+		ColumnChangeDetails change = new ColumnChangeDetails(oldCol, newCol);
+
+		// method under test
+		manager.validateTableMaximumListLengthChanges(tableId, change);
+
+		verify(mockIndexDao,never()).tempTableListColumnMaxLength(any(),any());
+	}
+
+	@Test
+	public void testValidateTableMaximumListLengthChanges_bothListTypes_ListLengthNewLessThanOld_underExistingTableMaxLength(){
+		ColumnModel oldCol = new ColumnModel();
+		oldCol.setId("5");
+		oldCol.setName("old");
+		oldCol.setColumnType(ColumnType.STRING_LIST);
+		oldCol.setMaximumListLength(4L);
+		ColumnModel newCol = new ColumnModel();
+		newCol.setId("56");
+		newCol.setName("new");
+		newCol.setColumnType(ColumnType.STRING_LIST);
+		newCol.setMaximumListLength(2L);
+
+		ColumnChangeDetails change = new ColumnChangeDetails(oldCol, newCol);
+
+		when(mockIndexDao.tempTableListColumnMaxLength(tableId, oldCol.getId())).thenReturn(2L);
+
+		// method under test
+		manager.validateTableMaximumListLengthChanges(tableId, change);
+
+		verify(mockIndexDao).tempTableListColumnMaxLength(tableId,oldCol.getId());
+	}
+
+
+	@Test
+	public void testValidateTableMaximumListLengthChanges_bothListTypes_ListLengthNewLessThanOld_aboveExistingTableMaxLength(){
+		ColumnModel oldCol = new ColumnModel();
+		oldCol.setId("5");
+		oldCol.setName("old");
+		oldCol.setColumnType(ColumnType.STRING_LIST);
+		oldCol.setMaximumListLength(4L);
+		ColumnModel newCol = new ColumnModel();
+		newCol.setId("56");
+		newCol.setName("new");
+		newCol.setColumnType(ColumnType.STRING_LIST);
+		newCol.setMaximumListLength(2L);
+
+		ColumnChangeDetails change = new ColumnChangeDetails(oldCol, newCol);
+
+		when(mockIndexDao.tempTableListColumnMaxLength(tableId, oldCol.getId())).thenReturn(3L);
+
+		String errorMessage = assertThrows(IllegalArgumentException.class, () ->
+				// method under test
+				manager.validateTableMaximumListLengthChanges(tableId, change)
+		).getMessage();
+
+		assertEquals("maximumListLength for ColumnModel \"new\" must be at least: 3", errorMessage);
+
+
+		verify(mockIndexDao).tempTableListColumnMaxLength(tableId,oldCol.getId());
+	}
+
 
 	
 	@SuppressWarnings("unchecked")
@@ -1837,8 +2101,8 @@ public class TableIndexManagerImplTest {
 	 * 
 	 * @return
 	 */
-	public static List<ColumnModel> createDefaultColumnsWithIds(){
-		List<ColumnModel> schema = EntityField.getAllColumnModels();
+	public static List<ColumnModel> createDefaultColumnsWithIds() {
+		List<ColumnModel> schema = ObjectField.getAllColumnModels();
 		for(int i=0; i<schema.size(); i++){
 			ColumnModel cm = schema.get(i);
 			cm.setId(""+i);

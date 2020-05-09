@@ -3,6 +3,7 @@ package org.sagebionetworks.repo.manager.schema;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -14,6 +15,7 @@ import static org.mockito.Mockito.when;
 import java.util.Date;
 import java.util.HashSet;
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,10 +35,20 @@ import org.sagebionetworks.repo.model.ResourceAccess;
 import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.auth.AuthorizationStatus;
+import org.sagebionetworks.repo.model.dbo.schema.JsonSchemaDao;
+import org.sagebionetworks.repo.model.dbo.schema.NewSchemaVersionRequest;
 import org.sagebionetworks.repo.model.dbo.schema.OrganizationDao;
 import org.sagebionetworks.repo.model.schema.CreateOrganizationRequest;
+import org.sagebionetworks.repo.model.schema.CreateSchemaRequest;
+import org.sagebionetworks.repo.model.schema.CreateSchemaResponse;
+import org.sagebionetworks.repo.model.schema.JsonSchema;
+import org.sagebionetworks.repo.model.schema.JsonSchemaVersionInfo;
 import org.sagebionetworks.repo.model.schema.Organization;
 import org.sagebionetworks.repo.model.util.AccessControlListUtil;
+import org.sagebionetworks.schema.adapter.JSONObjectAdapterException;
+import org.sagebionetworks.schema.adapter.org.json.EntityFactory;
+import org.sagebionetworks.schema.id.SchemaId;
+import org.sagebionetworks.schema.parser.SchemaIdParser;
 
 @ExtendWith(MockitoExtension.class)
 public class JsonSchemaManagerImplTest {
@@ -47,51 +59,96 @@ public class JsonSchemaManagerImplTest {
 	@Mock
 	AccessControlListDAO mockAclDao;
 
+	@Mock
+	JsonSchemaDao mockSchemaDao;
+
 	@Captor
 	ArgumentCaptor<AccessControlList> aclCaptor;
 
 	@InjectMocks
 	JsonSchemaManagerImpl manager;
 
+	Date now;
 	UserInfo user;
 	UserInfo anonymousUser;
-	CreateOrganizationRequest request;
+	UserInfo adminUser;
+	String organizationName;
+	CreateOrganizationRequest createOrganizationRequest;
+	String schemaName;
+	String semanticVersionString;
+	JsonSchema schema;
+	CreateSchemaRequest createSchemaRequest;
+	String schemaJson;
+	String schemaJsonSHA256Hex;
+	String jsonBlobId;
+	SchemaId schemaId;
+	String versionId;
 
 	Organization organization;
+	JsonSchemaVersionInfo versionInfo;
 
 	AccessControlList acl;
 
 	@BeforeEach
-	public void before() {
+	public void before() throws JSONObjectAdapterException {
 		boolean isAdmin = false;
 		user = new UserInfo(isAdmin, 123L);
+		isAdmin = true;
+		adminUser = new UserInfo(isAdmin, 456L);
 
 		anonymousUser = new UserInfo(isAdmin, BOOTSTRAP_PRINCIPAL.ANONYMOUS_USER.getPrincipalId());
 
-		request = new CreateOrganizationRequest();
-		request.setOrganizationName("a.2.b.com");
+		now = new Date(1L);
+
+		organizationName = "a.z2.b.com";
+		createOrganizationRequest = new CreateOrganizationRequest();
+		createOrganizationRequest.setOrganizationName(organizationName);
 
 		organization = new Organization();
-		organization.setCreatedBy("" + user.getId());
-		organization.setName("foo.bar");
-		organization.setCreatedOn(new Date());
+		organization.setCreatedBy(user.getId().toString());
+		organization.setName(organizationName);
+		organization.setCreatedOn(now);
 		organization.setId("4321");
 
 		acl = AccessControlListUtil.createACL(organization.getId(), user, JsonSchemaManagerImpl.ADMIN_PERMISSIONS,
 				new Date());
+
+		schemaName = "path.SomeSchema.json";
+		semanticVersionString = "1.2.3";
+		schema = new JsonSchema();
+		schema.set$id(organization.getName() + "/" + schemaName + "/" + semanticVersionString);
+		schemaId = SchemaIdParser.parseSchemaId(schema.get$id());
+
+		createSchemaRequest = new CreateSchemaRequest();
+		createSchemaRequest.setSchema(schema);
+
+		schemaJson = EntityFactory.createJSONStringForEntity(schema);
+		schemaJsonSHA256Hex = DigestUtils.sha256Hex(schemaJson);
+		jsonBlobId = "987";
+		
+		versionId = "888";
+
+		versionInfo = new JsonSchemaVersionInfo();
+		versionInfo.setOrganizationId(organization.getId());
+		versionInfo.setOrganizationName(organizationName);
+		versionInfo.setCreatedBy(user.getId().toString());
+		versionInfo.setCreatedOn(now);
+		versionInfo.setJsonSHA256Hex(schemaJsonSHA256Hex);
+		versionInfo.setSemanticVersion(semanticVersionString);
+		versionInfo.setVersionId(versionId);
 	}
 
 	@Test
 	public void testProcessAndValidateOrganizationName() {
-		String inputName = " A.9.C.DEFG \n";
-		String processedName = JsonSchemaManagerImpl.processAndValidateOrganizationName(inputName);
-		assertEquals("a.9.c.defg", processedName);
+		String inputName = " A.b9.C.DEFG \n";
+		String processedName = JsonSchemaManagerImpl.processAndValidateOrganizationName(user, inputName);
+		assertEquals("A.b9.C.DEFG", processedName);
 	}
 
 	@Test
 	public void testProcessAndValidateOrganizationNameMaxLength() {
 		String input = StringUtils.repeat("a", JsonSchemaManagerImpl.MAX_ORGANZIATION_NAME_CHARS);
-		String processedName = JsonSchemaManagerImpl.processAndValidateOrganizationName(input);
+		String processedName = JsonSchemaManagerImpl.processAndValidateOrganizationName(user, input);
 		assertNotNull(processedName);
 		assertEquals(JsonSchemaManagerImpl.MAX_ORGANZIATION_NAME_CHARS, processedName.length());
 	}
@@ -100,7 +157,7 @@ public class JsonSchemaManagerImplTest {
 	public void testProcessAndValidateOrganizationNameOverMaxLength() {
 		String input = StringUtils.repeat("a", JsonSchemaManagerImpl.MAX_ORGANZIATION_NAME_CHARS + 1);
 		String message = assertThrows(IllegalArgumentException.class, () -> {
-			JsonSchemaManagerImpl.processAndValidateOrganizationName(input);
+			JsonSchemaManagerImpl.processAndValidateOrganizationName(user, input);
 		}).getMessage();
 		assertEquals("Organization name must be 250 characters or less", message);
 	}
@@ -108,7 +165,7 @@ public class JsonSchemaManagerImplTest {
 	@Test
 	public void testProcessAndValidateOrganizationNameMinLength() {
 		String input = StringUtils.repeat("a", JsonSchemaManagerImpl.MIN_ORGANZIATION_NAME_CHARS);
-		String processedName = JsonSchemaManagerImpl.processAndValidateOrganizationName(input);
+		String processedName = JsonSchemaManagerImpl.processAndValidateOrganizationName(user, input);
 		assertNotNull(processedName);
 		assertEquals(JsonSchemaManagerImpl.MIN_ORGANZIATION_NAME_CHARS, processedName.length());
 	}
@@ -117,7 +174,7 @@ public class JsonSchemaManagerImplTest {
 	public void testProcessAndValidateOrganizationNameUnderMinLength() {
 		String input = StringUtils.repeat("a", JsonSchemaManagerImpl.MIN_ORGANZIATION_NAME_CHARS - 1);
 		String message = assertThrows(IllegalArgumentException.class, () -> {
-			JsonSchemaManagerImpl.processAndValidateOrganizationName(input);
+			JsonSchemaManagerImpl.processAndValidateOrganizationName(user, input);
 		}).getMessage();
 		assertEquals("Organization name must be at least 6 characters", message);
 	}
@@ -125,7 +182,22 @@ public class JsonSchemaManagerImplTest {
 	@Test
 	public void testProcessAndValidateOrganizationNameSagebionetworks() {
 		String message = assertThrows(IllegalArgumentException.class, () -> {
-			JsonSchemaManagerImpl.processAndValidateOrganizationName("sagebionetwork");
+			JsonSchemaManagerImpl.processAndValidateOrganizationName(user, "sagebionetwork");
+		}).getMessage();
+		assertEquals(JsonSchemaManagerImpl.SAGEBIONETWORKS_RESERVED_MESSAGE, message);
+	}
+	
+	@Test
+	public void testProcessAndValidateOrganizationWithNameSagebionetworksAdmin() {
+		// call under test
+		String name = JsonSchemaManagerImpl.processAndValidateOrganizationName(adminUser, "org.sagebionetworks");
+		assertEquals("org.sagebionetworks", name);
+	}
+
+	@Test
+	public void testProcessAndValidateOrganizationNameSagebionetworksUpper() {
+		String message = assertThrows(IllegalArgumentException.class, () -> {
+			JsonSchemaManagerImpl.processAndValidateOrganizationName(user, "SageBionetwork");
 		}).getMessage();
 		assertEquals(JsonSchemaManagerImpl.SAGEBIONETWORKS_RESERVED_MESSAGE, message);
 	}
@@ -133,53 +205,45 @@ public class JsonSchemaManagerImplTest {
 	@Test
 	public void testProcessAndValidateOrganizationNameStartWithDigit() {
 		String message = assertThrows(IllegalArgumentException.class, () -> {
-			JsonSchemaManagerImpl.processAndValidateOrganizationName("1abcdefg");
+			JsonSchemaManagerImpl.processAndValidateOrganizationName(user, "1abcdefg");
 		}).getMessage();
-		assertEquals(JsonSchemaManagerImpl.BAD_ORGANIZATION_NAME_MESSAGE, message);
-	}
-
-	@Test
-	public void testProcessAndValidateOrganizationNameEndWithDigit() {
-		String message = assertThrows(IllegalArgumentException.class, () -> {
-			JsonSchemaManagerImpl.processAndValidateOrganizationName("abcdefg9");
-		}).getMessage();
-		assertEquals(JsonSchemaManagerImpl.BAD_ORGANIZATION_NAME_MESSAGE, message);
+		assertTrue(message.startsWith("Invalid 'organizationName'"));
 	}
 
 	@Test
 	public void testProcessAndValidateOrganizationNameStartWithDot() {
 		String message = assertThrows(IllegalArgumentException.class, () -> {
-			JsonSchemaManagerImpl.processAndValidateOrganizationName(".abcdefg");
+			JsonSchemaManagerImpl.processAndValidateOrganizationName(user, ".abcdefg");
 		}).getMessage();
-		assertEquals(JsonSchemaManagerImpl.BAD_ORGANIZATION_NAME_MESSAGE, message);
+		assertTrue(message.startsWith("Invalid 'organizationName'"));
 	}
 
 	@Test
 	public void testProcessAndValidateOrganizationNameEndWithDot() {
 		String message = assertThrows(IllegalArgumentException.class, () -> {
-			JsonSchemaManagerImpl.processAndValidateOrganizationName("abcdefg.");
+			JsonSchemaManagerImpl.processAndValidateOrganizationName(user, "abcdefg.");
 		}).getMessage();
-		assertEquals(JsonSchemaManagerImpl.BAD_ORGANIZATION_NAME_MESSAGE, message);
+		assertTrue(message.startsWith("Invalid 'organizationName'"));
 	}
 
 	@Test
 	public void testProcessAndValidateOrganizationNameContainsInvalidChars() {
 		String message = assertThrows(IllegalArgumentException.class, () -> {
-			JsonSchemaManagerImpl.processAndValidateOrganizationName("abc/defg");
+			JsonSchemaManagerImpl.processAndValidateOrganizationName(user, "abc/defg");
 		}).getMessage();
-		assertEquals(JsonSchemaManagerImpl.BAD_ORGANIZATION_NAME_MESSAGE, message);
+		assertTrue(message.startsWith("Invalid 'organizationName'"));
 	}
 
 	@Test
 	public void testCreateOrganziation() {
-		when(mockOrganizationDao.createOrganization(request.getOrganizationName(), user.getId()))
+		when(mockOrganizationDao.createOrganization(createOrganizationRequest.getOrganizationName(), user.getId()))
 				.thenReturn(organization);
 		// call under test
-		Organization returned = manager.createOrganziation(user, request);
+		Organization returned = manager.createOrganziation(user, createOrganizationRequest);
 		assertNotNull(returned);
 		assertEquals(organization, returned);
 
-		verify(mockOrganizationDao).createOrganization(request.getOrganizationName(), user.getId());
+		verify(mockOrganizationDao).createOrganization(createOrganizationRequest.getOrganizationName(), user.getId());
 
 		verify(mockAclDao).create(aclCaptor.capture(), eq(ObjectType.ORGANIZATION));
 		AccessControlList acl = aclCaptor.getValue();
@@ -192,22 +256,22 @@ public class JsonSchemaManagerImplTest {
 
 	@Test
 	public void testCreateOrganziationNameWithUpperCase() {
-		request.setOrganizationName("ALLCAPS");
+		createOrganizationRequest.setOrganizationName("ALLCAPS");
 		when(mockOrganizationDao.createOrganization(anyString(), anyLong())).thenReturn(organization);
 		// call under test
-		Organization returned = manager.createOrganziation(user, request);
+		Organization returned = manager.createOrganziation(user, createOrganizationRequest);
 		assertNotNull(returned);
 		assertEquals(organization, returned);
 
-		verify(mockOrganizationDao).createOrganization("allcaps", user.getId());
+		verify(mockOrganizationDao).createOrganization("ALLCAPS", user.getId());
 	}
 
 	@Test
 	public void testCreateOrganziationNameWithWhiteSpace() {
-		request.setOrganizationName(" needs.trimmed\n");
+		createOrganizationRequest.setOrganizationName(" needs.trimmed\n");
 		when(mockOrganizationDao.createOrganization(anyString(), anyLong())).thenReturn(organization);
 		// call under test
-		Organization returned = manager.createOrganziation(user, request);
+		Organization returned = manager.createOrganziation(user, createOrganizationRequest);
 		assertNotNull(returned);
 		assertEquals(organization, returned);
 
@@ -218,7 +282,7 @@ public class JsonSchemaManagerImplTest {
 	public void testCreateOrganizationAnonymous() {
 		assertThrows(UnauthorizedException.class, () -> {
 			// call under test
-			manager.createOrganziation(anonymousUser, request);
+			manager.createOrganziation(anonymousUser, createOrganizationRequest);
 		});
 	}
 
@@ -227,36 +291,36 @@ public class JsonSchemaManagerImplTest {
 		user = null;
 		assertThrows(IllegalArgumentException.class, () -> {
 			// call under test
-			manager.createOrganziation(user, request);
+			manager.createOrganziation(user, createOrganizationRequest);
 		});
 	}
 
 	@Test
 	public void testCreateOrganizationNullRequest() {
-		request = null;
+		createOrganizationRequest = null;
 		assertThrows(IllegalArgumentException.class, () -> {
 			// call under test
-			manager.createOrganziation(user, request);
+			manager.createOrganziation(user, createOrganizationRequest);
 		});
 	}
 
 	@Test
 	public void testCreateOrganizationNullName() {
-		request.setOrganizationName(null);
+		createOrganizationRequest.setOrganizationName(null);
 		assertThrows(IllegalArgumentException.class, () -> {
 			// call under test
-			manager.createOrganziation(user, request);
+			manager.createOrganziation(user, createOrganizationRequest);
 		});
 	}
 
 	@Test
 	public void testCreateOrganizationBadName() {
-		request.setOrganizationName("endsWithDot.");
+		createOrganizationRequest.setOrganizationName("endsWithDot.");
 		String message = assertThrows(IllegalArgumentException.class, () -> {
 			// call under test
-			manager.createOrganziation(user, request);
+			manager.createOrganziation(user, createOrganizationRequest);
 		}).getMessage();
-		assertEquals(JsonSchemaManagerImpl.BAD_ORGANIZATION_NAME_MESSAGE, message);
+		assertTrue(message.startsWith("Invalid 'organizationName'"));
 	}
 
 	@Test
@@ -311,12 +375,12 @@ public class JsonSchemaManagerImplTest {
 				ACCESS_TYPE.CHANGE_PERMISSIONS);
 		verify(mockAclDao).update(acl, ObjectType.ORGANIZATION);
 	}
-	
+
 	@Test
 	public void testUpdateOrganizationAclRevokeOwnAccess() {
 		// try to revoke all access to the organization
 		acl.setResourceAccess(new HashSet<ResourceAccess>());
-		assertThrows(InvalidModelException.class, ()->{
+		assertThrows(InvalidModelException.class, () -> {
 			// call under test
 			manager.updateOrganizationAcl(user, organization.getId(), acl);
 		});
@@ -403,23 +467,24 @@ public class JsonSchemaManagerImplTest {
 		verify(mockOrganizationDao).deleteOrganization(organization.getId());
 		verify(mockAclDao).delete(organization.getId(), ObjectType.ORGANIZATION);
 	}
-	
+
 	@Test
 	public void testDeleteOrganizationAsAdmin() {
 		boolean isAdmin = true;
 		UserInfo admin = new UserInfo(isAdmin, 123L);
 		// call under test
 		manager.deleteOrganization(admin, organization.getId());
-		verify(mockAclDao, never()).canAccess(any(UserInfo.class), anyString(), any(ObjectType.class), any(ACCESS_TYPE.class));
+		verify(mockAclDao, never()).canAccess(any(UserInfo.class), anyString(), any(ObjectType.class),
+				any(ACCESS_TYPE.class));
 		verify(mockOrganizationDao).deleteOrganization(organization.getId());
 		verify(mockAclDao).delete(organization.getId(), ObjectType.ORGANIZATION);
 	}
-	
+
 	@Test
 	public void testDeleteOrganizationUnauthorized() {
 		when(mockAclDao.canAccess(user, organization.getId(), ObjectType.ORGANIZATION, ACCESS_TYPE.DELETE))
 				.thenReturn(AuthorizationStatus.accessDenied("no way"));
-		assertThrows(UnauthorizedException.class, ()->{
+		assertThrows(UnauthorizedException.class, () -> {
 			// call under test
 			manager.deleteOrganization(user, organization.getId());
 		});
@@ -427,25 +492,25 @@ public class JsonSchemaManagerImplTest {
 		verify(mockOrganizationDao, never()).deleteOrganization(anyString());
 		verify(mockAclDao, never()).delete(anyString(), any(ObjectType.class));
 	}
-	
+
 	@Test
 	public void testDeleteOrganizationNullUser() {
 		user = null;
-		assertThrows(IllegalArgumentException.class, ()->{
+		assertThrows(IllegalArgumentException.class, () -> {
 			// call under test
 			manager.deleteOrganization(user, organization.getId());
 		});
 	}
-	
+
 	@Test
 	public void testDeleteOrganizationNullId() {
 		String id = null;
-		assertThrows(IllegalArgumentException.class, ()->{
+		assertThrows(IllegalArgumentException.class, () -> {
 			// call under test
 			manager.deleteOrganization(user, id);
 		});
 	}
-	
+
 	@Test
 	public void testGetOrganizationByName() {
 		String name = "org.org";
@@ -455,7 +520,7 @@ public class JsonSchemaManagerImplTest {
 		assertEquals(result, organization);
 		verify(mockOrganizationDao).getOrganizationByName(name);
 	}
-	
+
 	@Test
 	public void testGetOrganizationByNameTrim() {
 		String name = " org.org\n";
@@ -465,5 +530,295 @@ public class JsonSchemaManagerImplTest {
 		Organization result = manager.getOrganizationByName(user, name);
 		assertEquals(result, organization);
 		verify(mockOrganizationDao).getOrganizationByName(trimmedName);
+	}
+
+	@Test
+	public void testCreateJsonSchema() {
+		when(mockOrganizationDao.getOrganizationByName(any())).thenReturn(organization);
+		when(mockAclDao.canAccess(any(UserInfo.class), any(), any(), any()))
+				.thenReturn(AuthorizationStatus.authorized());
+		when(mockSchemaDao.createNewSchemaVersion(any())).thenReturn(versionInfo);
+		// call under test
+		CreateSchemaResponse response = manager.createJsonSchema(user, createSchemaRequest);
+		assertNotNull(response);
+		assertEquals(versionInfo, response.getNewVersionInfo());
+		verify(mockOrganizationDao).getOrganizationByName(organizationName);
+		verify(mockAclDao).canAccess(user, organization.getId(), ObjectType.ORGANIZATION, ACCESS_TYPE.CREATE);
+		NewSchemaVersionRequest expectedNewSchemaRequest = new NewSchemaVersionRequest()
+				.withOrganizationId(organization.getId()).withSchemaName(schemaName).withCreatedBy(user.getId())
+				.withJsonSchema(schema).withSemanticVersion(semanticVersionString);
+		verify(mockSchemaDao).createNewSchemaVersion(expectedNewSchemaRequest);
+	}
+
+	@Test
+	public void testCreateJsonSchemaNullVersion() {
+		when(mockOrganizationDao.getOrganizationByName(any())).thenReturn(organization);
+		when(mockAclDao.canAccess(any(UserInfo.class), any(), any(), any()))
+				.thenReturn(AuthorizationStatus.authorized());
+		when(mockSchemaDao.createNewSchemaVersion(any())).thenReturn(versionInfo);
+		schema.set$id(organizationName + "/" + schemaName);
+		// call under test
+		CreateSchemaResponse response = manager.createJsonSchema(user, createSchemaRequest);
+		assertNotNull(response);
+		assertEquals(versionInfo, response.getNewVersionInfo());
+		verify(mockOrganizationDao).getOrganizationByName(organizationName);
+		verify(mockAclDao).canAccess(user, organization.getId(), ObjectType.ORGANIZATION, ACCESS_TYPE.CREATE);
+		NewSchemaVersionRequest expectedNewSchemaRequest = new NewSchemaVersionRequest()
+				.withOrganizationId(organization.getId()).withSchemaName(schemaName).withCreatedBy(user.getId())
+				.withJsonSchema(schema).withSemanticVersion(null);
+		verify(mockSchemaDao).createNewSchemaVersion(expectedNewSchemaRequest);
+	}
+
+	@Test
+	public void testCreateJsonSchemaAnonymous() {
+		String message = assertThrows(UnauthorizedException.class, () -> {
+			manager.createJsonSchema(anonymousUser, createSchemaRequest);
+		}).getMessage();
+		assertEquals("Must login to perform this action", message);
+	}
+
+	@Test
+	public void testCreateJsonSchemaUnauthorized() {
+		when(mockOrganizationDao.getOrganizationByName(any())).thenReturn(organization);
+		when(mockAclDao.canAccess(any(UserInfo.class), any(), any(), any()))
+				.thenReturn(AuthorizationStatus.accessDenied("no"));
+		String message = assertThrows(UnauthorizedException.class, () -> {
+			manager.createJsonSchema(user, createSchemaRequest);
+		}).getMessage();
+		assertEquals("no", message);
+		verify(mockAclDao).canAccess(user, organization.getId(), ObjectType.ORGANIZATION, ACCESS_TYPE.CREATE);
+	}
+
+	@Test
+	public void testCreateJsonSchemaNullUser() {
+		user = null;
+		assertThrows(IllegalArgumentException.class, () -> {
+			manager.createJsonSchema(user, createSchemaRequest);
+		});
+	}
+
+	@Test
+	public void testCreateJsonSchemaNullRequest() {
+		createSchemaRequest = null;
+		assertThrows(IllegalArgumentException.class, () -> {
+			manager.createJsonSchema(user, createSchemaRequest);
+		});
+	}
+
+	@Test
+	public void testCreateJsonSchemaNullSchema() {
+		createSchemaRequest.setSchema(null);
+		assertThrows(IllegalArgumentException.class, () -> {
+			manager.createJsonSchema(user, createSchemaRequest);
+		});
+	}
+
+	@Test
+	public void testGetSchemaWithVersion() {
+		when(mockSchemaDao.getVersionId(any(), any(), any())).thenReturn(versionId);
+		when(mockSchemaDao.getSchema(any())).thenReturn(schema);
+		// call under test
+		JsonSchema result = manager.getSchema(organizationName, schemaName, semanticVersionString);
+		assertEquals(schema, result);
+		verify(mockSchemaDao).getVersionId(organizationName, schemaName, semanticVersionString);
+		verify(mockSchemaDao, never()).getLatestVersionId(any(), any());
+		verify(mockSchemaDao).getSchema(versionId);
+	}
+
+	@Test
+	public void testGetSchemaWithVersionTrim() {
+		when(mockSchemaDao.getVersionId(any(), any(), any())).thenReturn(versionId);
+		when(mockSchemaDao.getSchema(any())).thenReturn(schema);
+		// call under test
+		JsonSchema result = manager.getSchema(organizationName + "\n", schemaName + " ", semanticVersionString + "\t");
+		assertEquals(schema, result);
+		verify(mockSchemaDao).getVersionId(organizationName, schemaName, semanticVersionString);
+		verify(mockSchemaDao, never()).getLatestVersionId(any(), any());
+		verify(mockSchemaDao).getSchema(versionId);
+	}
+
+	@Test
+	public void testGetSchemaNullVersion() {
+		when(mockSchemaDao.getLatestVersionId(any(), any())).thenReturn(versionId);
+		when(mockSchemaDao.getSchema(any())).thenReturn(schema);
+		semanticVersionString = null;
+		// call under test
+		JsonSchema result = manager.getSchema(organizationName, schemaName, semanticVersionString);
+		assertEquals(schema, result);
+		verify(mockSchemaDao, never()).getVersionId(any(), any(), any());
+		verify(mockSchemaDao).getLatestVersionId(organizationName, schemaName);
+		verify(mockSchemaDao).getSchema(versionId);
+	}
+
+	@Test
+	public void testGetSchemaNullVersionTrim() {
+		when(mockSchemaDao.getLatestVersionId(any(), any())).thenReturn(versionId);
+		when(mockSchemaDao.getSchema(any())).thenReturn(schema);
+		semanticVersionString = null;
+		// call under test
+		JsonSchema result = manager.getSchema(organizationName + " ", schemaName + " \t", semanticVersionString);
+		assertEquals(schema, result);
+		verify(mockSchemaDao, never()).getVersionId(any(), any(), any());
+		verify(mockSchemaDao).getLatestVersionId(organizationName, schemaName);
+		verify(mockSchemaDao).getSchema(versionId);
+	}
+
+	@Test
+	public void testGetSchemaEmptyVersion() {
+		when(mockSchemaDao.getLatestVersionId(any(), any())).thenReturn(versionId);
+		when(mockSchemaDao.getSchema(any())).thenReturn(schema);
+		semanticVersionString = " ";
+		// call under test
+		JsonSchema result = manager.getSchema(organizationName, schemaName, semanticVersionString);
+		assertEquals(schema, result);
+		verify(mockSchemaDao, never()).getVersionId(any(), any(), any());
+		verify(mockSchemaDao).getLatestVersionId(organizationName, schemaName);
+		verify(mockSchemaDao).getSchema(versionId);
+	}
+
+	@Test
+	public void testGetSchemaNullOrganization() {
+		organizationName = null;
+		assertThrows(IllegalArgumentException.class, () -> {
+			manager.getSchema(organizationName, schemaName, semanticVersionString);
+		});
+	}
+
+	@Test
+	public void testGetSchemaNullSchemaName() {
+		schemaName = null;
+		assertThrows(IllegalArgumentException.class, () -> {
+			manager.getSchema(organizationName, schemaName, semanticVersionString);
+		});
+	}
+
+	@Test
+	public void testDeleteSchema() {
+		when(mockSchemaDao.getVersionLatestInfo(any(), any())).thenReturn(versionInfo);
+		when(mockAclDao.canAccess(any(UserInfo.class), any(), any(), any()))
+				.thenReturn(AuthorizationStatus.authorized());
+
+		// call under test
+		manager.deleteSchemaAllVersion(user, organizationName, schemaName);
+		verify(mockAclDao).canAccess(user, organization.getId(), ObjectType.ORGANIZATION, ACCESS_TYPE.DELETE);
+		verify(mockSchemaDao).deleteSchema(versionInfo.getSchemaId());
+	}
+
+	@Test
+	public void testDeleteSchemaAdmin() {
+		when(mockSchemaDao.getVersionLatestInfo(any(), any())).thenReturn(versionInfo);
+		// call under test
+		manager.deleteSchemaAllVersion(adminUser, organizationName, schemaName);
+		verify(mockAclDao, never()).canAccess(user, organization.getId(), ObjectType.ORGANIZATION, ACCESS_TYPE.DELETE);
+		verify(mockSchemaDao).deleteSchema(versionInfo.getSchemaId());
+	}
+
+	@Test
+	public void testDeleteSchemaUnauthorized() {
+		when(mockSchemaDao.getVersionLatestInfo(any(), any())).thenReturn(versionInfo);
+		when(mockAclDao.canAccess(any(UserInfo.class), any(), any(), any()))
+				.thenReturn(AuthorizationStatus.accessDenied("nope"));
+		assertThrows(UnauthorizedException.class, () -> {
+			// call under test
+			manager.deleteSchemaAllVersion(user, organizationName, schemaName);
+		});
+		verify(mockAclDao).canAccess(user, organization.getId(), ObjectType.ORGANIZATION, ACCESS_TYPE.DELETE);
+		verify(mockSchemaDao, never()).deleteSchema(any());
+	}
+
+	@Test
+	public void testDeleteSchemaNullUser() {
+		user = null;
+		assertThrows(IllegalArgumentException.class, () -> {
+			manager.deleteSchemaAllVersion(user, organizationName, schemaName);
+		});
+	}
+
+	@Test
+	public void testDeleteSchemaNullOrganization() {
+		organizationName = null;
+		assertThrows(IllegalArgumentException.class, () -> {
+			manager.deleteSchemaAllVersion(user, organizationName, schemaName);
+		});
+	}
+
+	@Test
+	public void testDeleteSchemaNullSchema() {
+		schemaName = null;
+		assertThrows(IllegalArgumentException.class, () -> {
+			manager.deleteSchemaAllVersion(user, organizationName, schemaName);
+		});
+	}
+
+	@Test
+	public void testDeleteSchemaVersion() {
+		when(mockSchemaDao.getVersionInfo(any(), any(), any())).thenReturn(versionInfo);
+		when(mockAclDao.canAccess(any(UserInfo.class), any(), any(), any()))
+				.thenReturn(AuthorizationStatus.authorized());
+		// call under test
+		manager.deleteSchemaVersion(user, organizationName, schemaName, semanticVersionString);
+		verify(mockSchemaDao).getVersionInfo(organizationName, schemaName, semanticVersionString);
+		verify(mockAclDao).canAccess(user, organization.getId(), ObjectType.ORGANIZATION, ACCESS_TYPE.DELETE);
+		verify(mockSchemaDao).deleteSchemaVersion(versionId);
+	}
+	
+	@Test
+	public void testDeleteSchemaVersionUnauthorized() {
+		when(mockSchemaDao.getVersionInfo(any(), any(), any())).thenReturn(versionInfo);
+		when(mockAclDao.canAccess(any(UserInfo.class), any(), any(), any()))
+				.thenReturn(AuthorizationStatus.accessDenied("naw"));
+		assertThrows(UnauthorizedException.class, ()->{
+			// call under test
+			manager.deleteSchemaVersion(user, organizationName, schemaName, semanticVersionString);
+		});
+		verify(mockSchemaDao).getVersionInfo(organizationName, schemaName, semanticVersionString);
+		verify(mockAclDao).canAccess(user, organization.getId(), ObjectType.ORGANIZATION, ACCESS_TYPE.DELETE);
+		verify(mockSchemaDao, never()).deleteSchemaVersion(any());
+	}
+	
+	@Test
+	public void testDeleteSchemaVersionAdmin() {
+		when(mockSchemaDao.getVersionInfo(any(), any(), any())).thenReturn(versionInfo);
+		// call under test
+		manager.deleteSchemaVersion(adminUser, organizationName, schemaName, semanticVersionString);
+		verify(mockSchemaDao).getVersionInfo(organizationName, schemaName, semanticVersionString);
+		verify(mockAclDao, never()).canAccess(any(UserInfo.class), any(), any(), any());
+		verify(mockSchemaDao).deleteSchemaVersion(versionId);
+	}
+	
+	@Test
+	public void testDeleteSchemaVersionNullUser() {
+		user = null;
+		assertThrows(IllegalArgumentException.class, ()->{
+			// call under test
+			manager.deleteSchemaVersion(user, organizationName, schemaName, semanticVersionString);
+		});
+	}
+	
+	@Test
+	public void testDeleteSchemaVersionNullOrganizationName() {
+		organizationName = null;
+		assertThrows(IllegalArgumentException.class, ()->{
+			// call under test
+			manager.deleteSchemaVersion(user, organizationName, schemaName, semanticVersionString);
+		});
+	}
+	
+	@Test
+	public void testDeleteSchemaVersionNullSchemaName() {
+		schemaName = null;
+		assertThrows(IllegalArgumentException.class, ()->{
+			// call under test
+			manager.deleteSchemaVersion(user, organizationName, schemaName, semanticVersionString);
+		});
+	}
+	
+	@Test
+	public void testDeleteSchemaVersionNullSemanticVersion() {
+		semanticVersionString = null;
+		assertThrows(IllegalArgumentException.class, ()->{
+			// call under test
+			manager.deleteSchemaVersion(user, organizationName, schemaName, semanticVersionString);
+		});
 	}
 }

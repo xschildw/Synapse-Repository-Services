@@ -4,10 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
@@ -68,8 +68,8 @@ import org.sagebionetworks.repo.model.table.AppendableRowSetRequest;
 import org.sagebionetworks.repo.model.table.ColumnChange;
 import org.sagebionetworks.repo.model.table.ColumnModel;
 import org.sagebionetworks.repo.model.table.ColumnType;
-import org.sagebionetworks.repo.model.table.EntityDTO;
-import org.sagebionetworks.repo.model.table.EntityField;
+import org.sagebionetworks.repo.model.table.ObjectDataDTO;
+import org.sagebionetworks.repo.model.table.ObjectField;
 import org.sagebionetworks.repo.model.table.EntityUpdateResult;
 import org.sagebionetworks.repo.model.table.EntityUpdateResults;
 import org.sagebionetworks.repo.model.table.EntityView;
@@ -90,6 +90,7 @@ import org.sagebionetworks.repo.model.table.TableUpdateRequest;
 import org.sagebionetworks.repo.model.table.TableUpdateResponse;
 import org.sagebionetworks.repo.model.table.TableUpdateTransactionRequest;
 import org.sagebionetworks.repo.model.table.TableUpdateTransactionResponse;
+import org.sagebionetworks.repo.model.table.ViewObjectType;
 import org.sagebionetworks.repo.model.table.ViewScope;
 import org.sagebionetworks.repo.model.table.ViewType;
 import org.sagebionetworks.repo.model.table.ViewTypeMask;
@@ -167,6 +168,8 @@ public class TableViewIntegrationTest {
 	ColumnModel entityIdColumn;
 	ColumnModel stringListColumn;
 	
+	ViewObjectType viewObjectType;
+	
 	@BeforeEach
 	public void before(){
 		mockProgressCallbackVoid= Mockito.mock(ProgressCallback.class);
@@ -222,7 +225,7 @@ public class TableViewIntegrationTest {
 		
 		defaultColumnIds = new LinkedList<String>();
 		for(ColumnModel cm: defaultSchema){
-			if(EntityField.etag.name().equals(cm.getName())){
+			if(ObjectField.etag.name().equals(cm.getName())){
 				etagColumn = cm;
 			}
 			defaultColumnIds.add(cm.getId());
@@ -247,7 +250,10 @@ public class TableViewIntegrationTest {
 		stringListColumn = new ColumnModel();
 		stringListColumn.setName("stringList");
 		stringListColumn.setColumnType(ColumnType.STRING_LIST);
+		stringListColumn.setMaximumListLength(3L);
 		stringListColumn = columnModelManager.createColumnModel(adminUserInfo, stringListColumn);
+		
+		viewObjectType = ViewObjectType.ENTITY;
 	}
 
 	/**
@@ -278,6 +284,7 @@ public class TableViewIntegrationTest {
 		String viewId = entityManager.createEntity(adminUserInfo, view, null);
 		view = entityManager.getEntity(adminUserInfo, viewId, EntityView.class);
 		ViewScope viewScope = new ViewScope();
+		viewScope.setObjectType(viewObjectType);
 		viewScope.setScope(view.getScopeIds());
 		viewScope.setViewType(view.getType());
 		tableViewManager.setViewSchemaAndScope(adminUserInfo, view.getColumnIds(), viewScope, viewId);
@@ -451,7 +458,7 @@ public class TableViewIntegrationTest {
 		// lookup the file
 		FileEntity file = entityManager.getEntity(adminUserInfo, ""+fileId, FileEntity.class);
 		waitForEntityReplication(fileViewId, file.getId());
-		ColumnModel benefactorColumn = EntityField.findMatch(defaultSchema, EntityField.benefactorId);
+		ColumnModel benefactorColumn = ObjectField.findMatch(defaultSchema, ObjectField.benefactorId);
 		// change the schema as a transaction
 		ColumnChange remove = new ColumnChange();
 		remove.setOldColumnId(benefactorColumn.getId());
@@ -633,6 +640,7 @@ public class TableViewIntegrationTest {
 				stringColumn);
 		defaultColumnIds.add(stringColumn.getId());
 		ViewScope scope = new ViewScope();
+		scope.setObjectType(viewObjectType);
 		scope.setScope(Lists.newArrayList(project.getId()));
 		scope.setViewType(ViewType.file);
 		tableViewManager.setViewSchemaAndScope(adminUserInfo, defaultColumnIds,
@@ -673,6 +681,7 @@ public class TableViewIntegrationTest {
 				stringColumn);
 		defaultColumnIds.add(stringColumn.getId());
 		ViewScope scope = new ViewScope();
+		scope.setObjectType(viewObjectType);
 		scope.setScope(Lists.newArrayList(project.getId()));
 		scope.setViewTypeMask(ViewTypeMask.File.getMask());
 		tableViewManager.setViewSchemaAndScope(adminUserInfo, defaultColumnIds,
@@ -818,7 +827,7 @@ public class TableViewIntegrationTest {
 		// manually delete the replicated data the file to simulate a data loss.
 		IdAndVersion idAndVersion = IdAndVersion.parse(fileViewId);
 		TableIndexDAO indexDao = tableConnectionFactory.getConnection(idAndVersion);
-		indexDao.deleteEntityData(Lists.newArrayList(firtFileIdLong));
+		indexDao.deleteObjectData(viewObjectType, Lists.newArrayList(firtFileIdLong));
 		indexDao.truncateReplicationSyncExpiration();
 
 		// This query should trigger the reconciliation to repair the lost data.
@@ -851,7 +860,7 @@ public class TableViewIntegrationTest {
 		// manually delete the replicated data of the project to simulate a data loss.
 		IdAndVersion idAndVersion = IdAndVersion.parse(viewId);
 		TableIndexDAO indexDao = tableConnectionFactory.getConnection(idAndVersion);
-		indexDao.deleteEntityData(Lists.newArrayList(projectIdLong));
+		indexDao.deleteObjectData(viewObjectType, Lists.newArrayList(projectIdLong));
 		indexDao.truncateReplicationSyncExpiration();
 
 		// This query should trigger the reconciliation to repair the lost data.
@@ -1480,6 +1489,135 @@ public class TableViewIntegrationTest {
 		assertEquals(Arrays.asList("newVal1", "newVal2"), entityManager.getAnnotations(adminUserInfo, firstChangeId).getAnnotations().get(stringListColumn.getName()).getValue());
 		assertEquals(Arrays.asList("newVal4", "newVal5", "newVal6"), entityManager.getAnnotations(adminUserInfo, secondChangeId).getAnnotations().get(stringListColumn.getName()).getValue());
 	}
+
+
+	@Test
+	public void testEntityView_multipleValueColumn_UpdatedAnnotationExceedListMaxSize() throws Exception {
+		defaultColumnIds.add(stringListColumn.getId());
+		createFileView();
+
+		assertTrue(fileCount >= 2, "setup() needs to create at least 2 entities for this test to work");
+
+		Long fileId = KeyFactory.stringToKey(fileIds.get(0));
+
+		//set annotations for 2 files
+		Annotations fileAnnotation1 = entityManager.getAnnotations(adminUserInfo, fileIds.get(0));
+		AnnotationsV2TestUtils.putAnnotations(fileAnnotation1, stringListColumn.getName(), Arrays.asList("val1", "val2"), AnnotationsValueType.STRING);
+		entityManager.updateAnnotations(adminUserInfo, fileIds.get(0), fileAnnotation1);
+		waitForEntityReplication(fileViewId, fileIds.get(0));
+
+
+		assertEquals(fileCount, waitForConsistentQuery(adminUserInfo, "select id, etag, "+ stringListColumn.getName() +" from " + fileViewId, fileCount).getQueryCount());
+		//this annotation will exceed the limit
+		Annotations fileAnnotation2 = entityManager.getAnnotations(adminUserInfo, fileIds.get(1));
+		AnnotationsV2TestUtils.putAnnotations(fileAnnotation2, stringListColumn.getName(), Arrays.asList("val2", "val3", "val1", "val4"), AnnotationsValueType.STRING);
+		entityManager.updateAnnotations(adminUserInfo, fileIds.get(1), fileAnnotation2);
+
+
+		waitForEntityReplication(fileViewId, fileIds.get(1));
+
+
+		String error = assertThrows(AsynchJobFailedException.class, () ->
+				waitForConsistentQuery(adminUserInfo, "select id, etag, "+ stringListColumn.getName() +" from " + fileViewId, fileCount)
+		).getMessage();
+		assertEquals("maximumListLength for ColumnModel \"stringList\" must be at least: 4", error);
+
+	}
+
+	@Test
+	public void testEntityView_multipleValueColumnRoundTrip_changeMaxListLength() throws Exception {
+		defaultColumnIds.add(stringListColumn.getId());
+		createFileView();
+
+		assertTrue(fileCount >= 2, "setup() needs to create at least 2 entities for this test to work");
+
+		Long fileId = KeyFactory.stringToKey(fileIds.get(0));
+
+		//set annotations for 2 files
+		Annotations fileAnnotation1 = entityManager.getAnnotations(adminUserInfo, fileIds.get(0));
+		AnnotationsV2TestUtils.putAnnotations(fileAnnotation1, stringListColumn.getName(), Arrays.asList("val1", "val2", "val3"), AnnotationsValueType.STRING);
+		entityManager.updateAnnotations(adminUserInfo, fileIds.get(0), fileAnnotation1);
+
+		Annotations fileAnnotation2 = entityManager.getAnnotations(adminUserInfo, fileIds.get(1));
+		AnnotationsV2TestUtils.putAnnotations(fileAnnotation2, stringListColumn.getName(), Arrays.asList("val2", "val3"), AnnotationsValueType.STRING);
+		entityManager.updateAnnotations(adminUserInfo, fileIds.get(1), fileAnnotation2);
+
+
+		waitForEntityReplication(fileViewId, fileIds.get(0));
+
+
+		assertEquals(fileCount, waitForConsistentQuery(adminUserInfo, "select id, etag, "+ stringListColumn.getName() +" from " + fileViewId, fileCount).getQueryCount());
+
+		//now reduce the maxListSize
+
+		ColumnModel smallerStringListColumn = new ColumnModel();
+		smallerStringListColumn.setName("stringList");
+		smallerStringListColumn.setColumnType(ColumnType.STRING_LIST);
+		smallerStringListColumn.setMaximumListLength(2L);
+		smallerStringListColumn = columnModelManager.createColumnModel(adminUserInfo, smallerStringListColumn);
+
+		// change the schema as a transaction
+		ColumnChange remove = new ColumnChange();
+		remove.setOldColumnId(stringListColumn.getId());
+		remove.setNewColumnId(smallerStringListColumn.getId());
+		List<ColumnChange> changes = Lists.newArrayList(remove);
+		TableSchemaChangeRequest request = new TableSchemaChangeRequest();
+		request.setEntityId(fileViewId);
+		request.setChanges(changes);
+
+		List<TableUpdateRequest> updates = new LinkedList<TableUpdateRequest>();
+		updates.add(request);
+		TableUpdateTransactionRequest transaction = new TableUpdateTransactionRequest();
+		transaction.setEntityId(fileViewId);
+		transaction.setChanges(updates);
+
+		// wait for the change to complete
+		startAndWaitForJob(adminUserInfo, transaction, TableUpdateTransactionResponse.class);
+
+		String error = assertThrows(AsynchJobFailedException.class, () ->
+				waitForConsistentQuery(adminUserInfo, "select id, etag, "+ stringListColumn.getName() +" from " + fileViewId, fileCount)
+		).getMessage();
+		assertEquals("maximumListLength for ColumnModel \"stringList\" must be at least: 3", error);
+	}
+
+
+	@Test
+	public void testEntityView_multipleValueColumnRoundTrip_updateRowGreaterThanMaxListLength() throws Exception {
+		defaultColumnIds.add(stringListColumn.getId());
+		createFileView();
+
+		assertTrue(fileCount >= 2, "setup() needs to create at least 2 entities for this test to work");
+
+		Long fileId = KeyFactory.stringToKey(fileIds.get(0));
+
+		//set annotations for 2 files
+		Annotations fileAnnotation1 = entityManager.getAnnotations(adminUserInfo, fileIds.get(0));
+		AnnotationsV2TestUtils.putAnnotations(fileAnnotation1, stringListColumn.getName(), Arrays.asList("val1", "val2", "val3"), AnnotationsValueType.STRING);
+		entityManager.updateAnnotations(adminUserInfo, fileIds.get(0), fileAnnotation1);
+
+		Annotations fileAnnotation2 = entityManager.getAnnotations(adminUserInfo, fileIds.get(1));
+		AnnotationsV2TestUtils.putAnnotations(fileAnnotation2, stringListColumn.getName(), Arrays.asList("val2", "val3"), AnnotationsValueType.STRING);
+		entityManager.updateAnnotations(adminUserInfo, fileIds.get(1), fileAnnotation2);
+
+
+		waitForEntityReplication(fileViewId, fileIds.get(0));
+
+
+		QueryResultBundle result = waitForConsistentQuery(adminUserInfo, "select " + stringListColumn.getName() + " from " + fileViewId, fileCount);
+		assertEquals(fileCount, result.getQueryCount());
+
+		//update annotations via row changes to exceed maximumListLength
+		RowSet rowset = result.getQueryResult().getQueryResults();
+		rowset.getRows().get(0).setValues(Collections.singletonList("[\"val1\",\"val2\",\"val3\",\"val4\"]"));
+
+		// wait for the change to complete
+//		startAndWaitForJob(adminUserInfo, transaction, TableUpdateTransactionResponse.class);
+
+		String error = assertThrows(AsynchJobFailedException.class, () ->
+				updateView(rowset,fileViewId)
+		).getMessage();
+		assertEquals("Value at [0,16] was not a valid STRING_LIST. Exceeds the maximum number of list elements defined in the ColumnModel (3): \"[\"val1\",\"val2\",\"val3\",\"val4\"]\"", error);
+	}
 	
 	/**
 	 * Test for PLFM-5651 and the addition of both file size and file MD5s in views.
@@ -1490,8 +1628,8 @@ public class TableViewIntegrationTest {
 		createFileView();
 		String fileZero = fileIds.get(0);
 		waitForEntityReplication(fileViewId, fileZero);
-		String sql = "select " + EntityField.dataFileMD5Hex + "," + EntityField.dataFileSizeBytes + " from "
-				+ fileViewId + " where " + EntityField.id + " = '" + fileZero+"'";
+		String sql = "select " + ObjectField.dataFileMD5Hex + "," + ObjectField.dataFileSizeBytes + " from "
+				+ fileViewId + " where " + ObjectField.id + " = '" + fileZero+"'";
 		int rowCount = 1;
 		QueryResultBundle results = waitForConsistentQuery(adminUserInfo, sql, rowCount);
 		List<Row> rows = extractRows(results);
@@ -1703,13 +1841,13 @@ public class TableViewIntegrationTest {
 	 * @return
 	 * @throws InterruptedException
 	 */
-	private EntityDTO waitForEntityReplication(String tableId, String entityId) throws InterruptedException{
+	private ObjectDataDTO waitForEntityReplication(String tableId, String entityId) throws InterruptedException{
 		Entity entity = entityManager.getEntity(adminUserInfo, entityId);
 		long start = System.currentTimeMillis();
 		IdAndVersion idAndVersion = IdAndVersion.parse(tableId);
 		TableIndexDAO indexDao = tableConnectionFactory.getConnection(idAndVersion);
 		while(true){
-			EntityDTO dto = indexDao.getEntityData(KeyFactory.stringToKey(entityId));
+			ObjectDataDTO dto = indexDao.getObjectData(viewObjectType, KeyFactory.stringToKey(entityId));
 			if(dto == null || !dto.getEtag().equals(entity.getEtag())){
 				assertTrue((System.currentTimeMillis()-start) <  MAX_WAIT_MS, "Timed out waiting for table view status change.");
 				System.out.println("Waiting for entity replication. id: "+entityId+" etag: "+entity.getEtag());

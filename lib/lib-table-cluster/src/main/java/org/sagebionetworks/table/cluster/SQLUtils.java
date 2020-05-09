@@ -1,22 +1,27 @@
 package org.sagebionetworks.table.cluster;
 
 import static org.sagebionetworks.repo.model.table.ColumnConstants.isTableTooLargeForFourByteUtf8;
+import static org.sagebionetworks.repo.model.table.TableConstants.ANNOTATION_KEYS_PARAM_NAME;
 import static org.sagebionetworks.repo.model.table.TableConstants.ANNOTATION_REPLICATION_ALIAS;
 import static org.sagebionetworks.repo.model.table.TableConstants.ANNOTATION_REPLICATION_COL_DOUBLE_ABSTRACT;
-import static org.sagebionetworks.repo.model.table.TableConstants.ANNOTATION_REPLICATION_COL_ENTITY_ID;
 import static org.sagebionetworks.repo.model.table.TableConstants.ANNOTATION_REPLICATION_COL_KEY;
+import static org.sagebionetworks.repo.model.table.TableConstants.ANNOTATION_REPLICATION_COL_LIST_LENGTH;
+import static org.sagebionetworks.repo.model.table.TableConstants.ANNOTATION_REPLICATION_COL_OBJECT_ID;
+import static org.sagebionetworks.repo.model.table.TableConstants.ANNOTATION_REPLICATION_COL_OBJECT_TYPE;
 import static org.sagebionetworks.repo.model.table.TableConstants.ANNOTATION_REPLICATION_TABLE;
-import static org.sagebionetworks.repo.model.table.TableConstants.ENTITY_REPLICATION_ALIAS;
-import static org.sagebionetworks.repo.model.table.TableConstants.ENTITY_REPLICATION_COL_BENEFACTOR_ID;
-import static org.sagebionetworks.repo.model.table.TableConstants.ENTITY_REPLICATION_COL_ETAG;
-import static org.sagebionetworks.repo.model.table.TableConstants.ENTITY_REPLICATION_COL_ID;
-import static org.sagebionetworks.repo.model.table.TableConstants.ENTITY_REPLICATION_COL_PARENT_ID;
-import static org.sagebionetworks.repo.model.table.TableConstants.ENTITY_REPLICATION_COL_VERSION;
-import static org.sagebionetworks.repo.model.table.TableConstants.ENTITY_REPLICATION_TABLE;
 import static org.sagebionetworks.repo.model.table.TableConstants.FILE_ID;
-import static org.sagebionetworks.repo.model.table.TableConstants.ID_PARAMETER_NAME;
+import static org.sagebionetworks.repo.model.table.TableConstants.ID_PARAM_NAME;
 import static org.sagebionetworks.repo.model.table.TableConstants.INDEX_NUM;
-import static org.sagebionetworks.repo.model.table.TableConstants.PARENT_ID_PARAMETER_NAME;
+import static org.sagebionetworks.repo.model.table.TableConstants.OBEJCT_REPLICATION_COL_ETAG;
+import static org.sagebionetworks.repo.model.table.TableConstants.OBJECT_REPLICATION_ALIAS;
+import static org.sagebionetworks.repo.model.table.TableConstants.OBJECT_REPLICATION_COL_BENEFACTOR_ID;
+import static org.sagebionetworks.repo.model.table.TableConstants.OBJECT_REPLICATION_COL_OBJECT_ID;
+import static org.sagebionetworks.repo.model.table.TableConstants.OBJECT_REPLICATION_COL_OBJECT_TYPE;
+import static org.sagebionetworks.repo.model.table.TableConstants.OBJECT_REPLICATION_COL_PARENT_ID;
+import static org.sagebionetworks.repo.model.table.TableConstants.OBJECT_REPLICATION_COL_VERSION;
+import static org.sagebionetworks.repo.model.table.TableConstants.OBJECT_REPLICATION_TABLE;
+import static org.sagebionetworks.repo.model.table.TableConstants.OBJECT_TYPE_PARAM_NAME;
+import static org.sagebionetworks.repo.model.table.TableConstants.PARENT_ID_PARAM_NAME;
 import static org.sagebionetworks.repo.model.table.TableConstants.ROW_BENEFACTOR;
 import static org.sagebionetworks.repo.model.table.TableConstants.ROW_ETAG;
 import static org.sagebionetworks.repo.model.table.TableConstants.ROW_ID;
@@ -24,8 +29,8 @@ import static org.sagebionetworks.repo.model.table.TableConstants.ROW_VERSION;
 import static org.sagebionetworks.repo.model.table.TableConstants.SCHEMA_HASH;
 import static org.sagebionetworks.repo.model.table.TableConstants.SELECT_DISTINCT_ANNOTATION_COLUMNS_TEMPLATE;
 import static org.sagebionetworks.repo.model.table.TableConstants.SINGLE_KEY;
-import static org.sagebionetworks.repo.model.table.TableConstants.SQL_ENTITY_REPLICATION_CRC_32_TEMPLATE;
 import static org.sagebionetworks.repo.model.table.TableConstants.SQL_TABLE_VIEW_CRC_32_TEMPLATE;
+import static org.sagebionetworks.repo.model.table.TableConstants.VIEW_ROWS_OUT_OF_DATE_TEMPLATE;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -43,14 +48,15 @@ import java.util.regex.Pattern;
 
 import org.json.JSONArray;
 import org.sagebionetworks.repo.model.entity.IdAndVersion;
-import org.sagebionetworks.repo.model.table.AnnotationDTO;
 import org.sagebionetworks.repo.model.table.AnnotationType;
 import org.sagebionetworks.repo.model.table.ColumnModel;
 import org.sagebionetworks.repo.model.table.ColumnType;
-import org.sagebionetworks.repo.model.table.EntityField;
+import org.sagebionetworks.repo.model.table.ObjectAnnotationDTO;
+import org.sagebionetworks.repo.model.table.ObjectField;
 import org.sagebionetworks.repo.model.table.RowReference;
 import org.sagebionetworks.repo.model.table.TableConstants;
-import org.sagebionetworks.repo.model.table.ViewTypeMask;
+import org.sagebionetworks.repo.model.table.ViewObjectType;
+import org.sagebionetworks.repo.model.table.ViewScopeFilter;
 import org.sagebionetworks.repo.model.table.parser.AllLongTypeParser;
 import org.sagebionetworks.repo.model.table.parser.BooleanParser;
 import org.sagebionetworks.repo.model.table.parser.DoubleParser;
@@ -77,10 +83,10 @@ public class SQLUtils {
 	private static final String EMPTY_STRING = "";
 	private static final String ABSTRACT_DOUBLE_ALIAS_PREFIX = "_DBL";
 	private static final String TEMPLATE_MAX_ANNOTATION_SELECT = ", MAX(IF(%1$s.%2$s ='%3$s', %1$s.%4$s, NULL)) AS %5$s%6$s";
-	private static final String TEMPLATE_MAX_ENTITY_SELECT = ", MAX(%1$s.%2$s) AS %2$s";
+	private static final String TEMPLATE_MAX_OBJECT_SELECT = ", MAX(%1$s.%2$s) AS %2$s";
 	private static final String DROP_TABLE_IF_EXISTS = "DROP TABLE IF EXISTS %1$S";
 	private static final String SELECT_COUNT_FROM_TEMP = "SELECT COUNT(*) FROM ";
-	private static final String SQL_COPY_TABLE_TO_TEMP = "INSERT INTO %1$S SELECT * FROM %2$S ORDER BY "+ROW_ID;
+	private static final String SQL_COPY_TABLE_TO_TEMP = "INSERT INTO %1$S SELECT * FROM %2$S";
 	private static final String CREATE_TABLE_LIKE = "CREATE TABLE %1$S LIKE %2$S";
 	private static final String TEMP = "TEMP";
 	private static final String IDX = "idx_";
@@ -241,8 +247,11 @@ public class SQLUtils {
 	 * @param idAndVersion
 	 * @return
 	 */
-	public static String getTableNamePrefixForMultiValueColumns(IdAndVersion idAndVersion) {
+	public static String getTableNamePrefixForMultiValueColumns(IdAndVersion idAndVersion, boolean alterTemp) {
 		StringBuilder builder = new StringBuilder();
+		if(alterTemp){
+			builder.append(TEMP);
+		}
 		//currently only TableType.INDEX (i.e. the original user table) have multi-value columns
 		appendTableNameForId(idAndVersion, TableType.INDEX, builder);
 		builder.append("_INDEX");
@@ -256,9 +265,14 @@ public class SQLUtils {
 	 * @return
 	 */
 	public static String getTableNameForMultiValueColumnIndex(IdAndVersion idAndVersion, String columnId){
+		boolean alterTemp = false;
+		return getTableNameForMultiValueColumnIndex(idAndVersion, columnId, alterTemp);
+	}
+
+	public static String getTableNameForMultiValueColumnIndex(IdAndVersion idAndVersion, String columnId, boolean alterTemp){
 		ValidateArgument.required(idAndVersion, "idAndVersion");
 		ValidateArgument.required(columnId, "columnId");
-		StringBuilder builder = new StringBuilder(getTableNamePrefixForMultiValueColumns(idAndVersion));
+		StringBuilder builder = new StringBuilder(getTableNamePrefixForMultiValueColumns(idAndVersion, alterTemp));
 		appendColumnNameForId(columnId, builder);
 		return builder.toString();
 	}
@@ -735,19 +749,19 @@ public class SQLUtils {
 		return builder.toString();
 	}
 
-	public static String createAlterListColumnIndexTable(IdAndVersion tableId, Long oldColumnId, ColumnModel newColumn){
-		String tableName = getTableNameForMultiValueColumnIndex(tableId, oldColumnId.toString());
+	public static String createAlterListColumnIndexTable(IdAndVersion tableId, Long oldColumnId, ColumnModel newColumn, boolean alterTemp){
+		String tableName = getTableNameForMultiValueColumnIndex(tableId, oldColumnId.toString(), alterTemp);
 		String oldColumnName = getUnnestedColumnNameForId(oldColumnId.toString());
 
 		String newColumnName = getUnnestedColumnNameForId(newColumn.getId());
 		String newColumnTypeSql = ColumnTypeInfo.getInfoForType(ColumnTypeListMappings.nonListType(newColumn.getColumnType()))
 				.toSql(newColumn.getMaximumSize(), null, false);
 
-		String newTableName = getTableNameForMultiValueColumnIndex(tableId, newColumn.getId());
+		String newTableName = getTableNameForMultiValueColumnIndex(tableId, newColumn.getId(), alterTemp);
 
 		String oldRowRefName = getRowIdRefColumnNameForId(oldColumnId.toString());
 		String newRowRefName = getRowIdRefColumnNameForId(newColumn.getId());
-		String parentTableName = getTableNameForId(tableId, TableType.INDEX);
+		String parentTableName = alterTemp ? getTemporaryTableName(tableId) : getTableNameForId(tableId, TableType.INDEX);
 
 		return  "ALTER TABLE " + tableName +
 				" DROP INDEX " + oldColumnName + "_IDX," +
@@ -755,9 +769,9 @@ public class SQLUtils {
 				//modify the row_id column which references the main table's row_ids
 				" DROP FOREIGN KEY " + tableName + "_FK" + "," +
 				" RENAME COLUMN " + oldRowRefName + " TO " + newRowRefName + "," +
-				" ADD CONSTRAINT "+ newTableName + "_FK" +" FOREIGN KEY ("+newRowRefName+") REFERENCES "+parentTableName+"("+ROW_ID+") ON DELETE CASCADE," +
+				" ADD " + getMultiValueIndexTableForeignKeyConstraint(parentTableName,newTableName,newRowRefName)+
 
-				" CHANGE COLUMN " + oldColumnName +  " " + newColumnName + " "+ newColumnTypeSql + "," +
+				", CHANGE COLUMN " + oldColumnName +  " " + newColumnName + " "+ newColumnTypeSql + "," +
 				" ADD INDEX " + newColumnName + "_IDX ("+newColumnName+" ASC)," +
 
 				" RENAME " + newTableName;
@@ -1219,7 +1233,8 @@ public class SQLUtils {
 	static long getColumnIdFromMultivalueColumnIndexTableName(IdAndVersion tableId, String indexTableName){
 		ValidateArgument.required(tableId, "tableId");
 		ValidateArgument.requiredNotEmpty(indexTableName, "columnName");
-		return getColumnId(indexTableName.substring(getTableNamePrefixForMultiValueColumns(tableId).length()));
+		boolean alterTemp = false;
+		return getColumnId(indexTableName.substring(getTableNamePrefixForMultiValueColumns(tableId, alterTemp).length()));
 	}
 
 	/**
@@ -1255,7 +1270,7 @@ public class SQLUtils {
 		String tempName = getTemporaryTableName(tableId);
 		return String.format(SQL_COPY_TABLE_TO_TEMP, tempName, tableName);
 	}
-	
+
 	/**
 	 * SQL to count the rows in temp table.
 	 * @param tableId
@@ -1276,42 +1291,35 @@ public class SQLUtils {
 		return String.format(DROP_TABLE_IF_EXISTS, tempName);
 	}
 
+
 	/**
-	 * Translate a list of ColumnModels to a list of ColumnMetadata.
-	 * @param currentSchema
+	 * Create the SQL used to create a temporary multivalue column index table
+	 * @param tableId
 	 * @return
 	 */
-	public static List<ColumnMetadata> translateColumns(List<ColumnModel> currentSchema){
-		List<ColumnMetadata> list = new LinkedList<ColumnMetadata>();
-		for(int i=0; i<currentSchema.size(); i++){
-			ColumnModel cm = currentSchema.get(i);
-			list.add(translateColumns(cm, i));
-		}
-		return list;
+	public static String[] createTempMultiValueColumnIndexTableSql(IdAndVersion tableId, String columnId) {
+		String tableName = getTableNameForMultiValueColumnIndex(tableId, columnId, false);
+		String tempName = getTableNameForMultiValueColumnIndex(tableId, columnId, true);
+		String tempParentTable = getTemporaryTableName(tableId);
+		String columnIndexTableName = getTableNameForMultiValueColumnIndex(tableId, columnId, true);
+		String rowIdRefColumnName = getRowIdRefColumnNameForId(columnId);
+
+		return new String[]{String.format(CREATE_TABLE_LIKE, tempName, tableName),
+				// foreign keys are not copied over so we manually add it
+				"ALTER TABLE " + tempName +
+				" ADD " + getMultiValueIndexTableForeignKeyConstraint(tempParentTable, columnIndexTableName, rowIdRefColumnName)};
 	}
-	
+
 	/**
-	 * Translate a single ColumnModel into ColumnMetadata.
-	 * @param model
-	 * @param index
+	 * Create the SQL used to copy all of the data from a table to the temp table.
+	 *
+	 * @param tableId
 	 * @return
 	 */
-	public static ColumnMetadata translateColumns(ColumnModel model, int index){
-		// First determine if this an entity column or an annotation
-		EntityField entityField = EntityField.findMatch(model);
-		String tableAlias;
-		String selectColumnName;
-		String columnNameForId = getColumnNameForId(model.getId());
-		AnnotationType annotationType = null;
-		if(entityField != null){
-			tableAlias = TableConstants.ENTITY_REPLICATION_ALIAS;
-			selectColumnName = entityField.getDatabaseColumnName();
-		}else{
-			tableAlias = TableConstants.ANNOTATION_REPLICATION_ALIAS+index;
-			selectColumnName = translateColumnTypeToAnnotationValueName(model.getColumnType());
-			annotationType =  translateColumnTypeToAnnotationType(model.getColumnType());
-		}
-		return new ColumnMetadata(model, entityField, tableAlias, selectColumnName, columnNameForId, index, annotationType);
+	public static String copyMultiValueColumnIndexTableToTempSql(IdAndVersion tableId, String columnId){
+		String tableName = getTableNameForMultiValueColumnIndex(tableId, columnId, false);
+		String tempName = getTableNameForMultiValueColumnIndex(tableId, columnId, true);
+		return String.format(SQL_COPY_TABLE_TO_TEMP, tempName, tableName);
 	}
 	
 	/**
@@ -1368,147 +1376,161 @@ public class SQLUtils {
 	}
 	
 	/**
-	 * Generate the SQL used to insert select data from the entity replication tables to a
+	 * Generate the SQL used to insert select data from the object replication tables to a
 	 * table's index.
 	 * @param viewId
 	 * @param currentSchema
 	 * @return
 	 */
-	public static String createSelectInsertFromEntityReplication(Long viewId, Long viewTypeMask,
-			List<ColumnModel> currentSchema, boolean filterByRows) {
-		List<ColumnMetadata> metadata = translateColumns(currentSchema);
+	public static String createSelectInsertFromObjectReplication(Long viewId, List<ColumnMetadata> metadata, ViewScopeFilter scopeFilter, boolean filterByRows) {
 		StringBuilder builder = new StringBuilder();
 		builder.append("INSERT INTO ");
 		builder.append(getTableNameForId(IdAndVersion.newBuilder().setId(viewId).build(), TableType.INDEX));
 		builder.append("(");
 		buildInsertValues(builder, metadata);
 		builder.append(") ");
-		createSelectFromEntityReplication(builder, viewId, viewTypeMask, currentSchema, filterByRows);
+		createSelectFromObjectReplication(builder, metadata, scopeFilter, filterByRows);
 		return builder.toString();
 	}
 	
 	/**
-	 * Generate the SQL to get all of the data for a view table from the entity replication tables.
+	 * Generate the SQL to get all of the data for a view table from the object replication tables.
 	 * @param viewId
 	 * @param viewTypeMask
 	 * @param currentSchema
 	 * @return
 	 */
-	public static List<String> createSelectFromEntityReplication(StringBuilder builder, Long viewId, Long viewTypeMask,
-			List<ColumnModel> currentSchema, boolean filterByRows) {
-		List<ColumnMetadata> metadata = translateColumns(currentSchema);
+	public static List<String> createSelectFromObjectReplication(StringBuilder builder, List<ColumnMetadata> metadata, ViewScopeFilter scopeFilter, boolean filterByRows) {
 		builder.append("SELECT ");
 		List<String> headers = buildSelect(builder, metadata);
+		objectReplicationJoinAnnotationReplicationFilter(builder, scopeFilter, filterByRows);
+		builder.append(" GROUP BY ").append(OBJECT_REPLICATION_ALIAS).append(".").append(OBJECT_REPLICATION_COL_OBJECT_ID);
+		builder.append(" ORDER BY ").append(OBJECT_REPLICATION_ALIAS).append(".").append(OBJECT_REPLICATION_COL_OBJECT_ID);
+		return headers;
+	}
+
+	private static void objectReplicationJoinAnnotationReplicationFilter(StringBuilder builder, ViewScopeFilter scopeFilter, boolean filterByRows) {
 		builder.append(" FROM ");
-		builder.append(ENTITY_REPLICATION_TABLE);
+		builder.append(OBJECT_REPLICATION_TABLE);
 		builder.append(" ");
-		builder.append(ENTITY_REPLICATION_ALIAS);
+		builder.append(OBJECT_REPLICATION_ALIAS);
 		builder.append(" LEFT JOIN ");
 		builder.append(ANNOTATION_REPLICATION_TABLE);
 		builder.append(" ").append(ANNOTATION_REPLICATION_ALIAS);
 		builder.append(" ON(");
-		builder.append(ENTITY_REPLICATION_ALIAS).append(".").append(ENTITY_REPLICATION_COL_ID);
+		builder.append(OBJECT_REPLICATION_ALIAS).append(".").append(OBJECT_REPLICATION_COL_OBJECT_TYPE);
 		builder.append(" = ");
-		builder.append(ANNOTATION_REPLICATION_ALIAS).append(".").append(ANNOTATION_REPLICATION_COL_ENTITY_ID);
+		builder.append(ANNOTATION_REPLICATION_ALIAS).append(".").append(ANNOTATION_REPLICATION_COL_OBJECT_TYPE);
+		builder.append(" AND ");
+		builder.append(OBJECT_REPLICATION_ALIAS).append(".").append(OBJECT_REPLICATION_COL_OBJECT_ID);
+		builder.append(" = ");
+		builder.append(ANNOTATION_REPLICATION_ALIAS).append(".").append(ANNOTATION_REPLICATION_COL_OBJECT_ID);
 		builder.append(")");
 		builder.append(" WHERE ");
-		builder.append(ENTITY_REPLICATION_ALIAS);
+		builder.append(OBJECT_REPLICATION_ALIAS);
 		builder.append(".");
-		builder.append(getViewScopeFilterColumnForType(viewTypeMask));
+		builder.append(OBJECT_REPLICATION_COL_OBJECT_TYPE);
+		builder.append(" = :");
+		builder.append(OBJECT_TYPE_PARAM_NAME);
+		builder.append(" AND ");
+		builder.append(OBJECT_REPLICATION_ALIAS);
+		builder.append(".");
+		builder.append(getViewScopeFilterColumn(scopeFilter));
 		builder.append(" IN (:");
-		builder.append(PARENT_ID_PARAMETER_NAME);
+		builder.append(PARENT_ID_PARAM_NAME);
 		builder.append(") AND ");
-		builder.append(createViewTypeFilter(viewTypeMask));
+		builder.append(getViewScopeSubTypeFilter(scopeFilter));
 		if (filterByRows) {
-			builder.append(" AND ").append(ENTITY_REPLICATION_ALIAS).append(".").append(ENTITY_REPLICATION_COL_ID)
-					.append(" IN (:").append(ID_PARAMETER_NAME).append(")");
+			builder
+				.append(" AND ")
+				.append(OBJECT_REPLICATION_ALIAS)
+				.append(".")
+				.append(OBJECT_REPLICATION_COL_OBJECT_ID)
+				.append(" IN (:")
+				.append(ID_PARAM_NAME)
+				.append(")");
 		}
-		builder.append(" GROUP BY ").append(ENTITY_REPLICATION_ALIAS).append(".").append(ENTITY_REPLICATION_COL_ID);
-		builder.append(" ORDER BY ").append(ENTITY_REPLICATION_ALIAS).append(".").append(ENTITY_REPLICATION_COL_ID);
-		return headers;
 	}
-	
+
 	/**
-	 * Filter for each view type.
-	 * @param type
+	 * Generate the SQL to validate that all of the list columns for a view table from the object replication tables.
+	 * @param viewId
+	 * @param viewTypeMask
+	 * @param annotationNames
 	 * @return
 	 */
-	public static String createViewTypeFilter(Long viewTypeMask){
-		ValidateArgument.required(viewTypeMask, "viewTypeMask");
+	public static String createAnnotationMaxListLengthSQL(ViewScopeFilter scopeFilter, Set<String> annotationNames, boolean filterByRows) {
+		ValidateArgument.requiredNotEmpty(annotationNames,"annotationNames");
+
 		StringBuilder builder = new StringBuilder();
-		builder.append(TableConstants.ENTITY_REPLICATION_COL_TYPE);
-		builder.append(" IN (");
-		// add all types that match the given mask
-		int count = 0;
-		for(ViewTypeMask type: ViewTypeMask.values()) {
-			if((type.getMask() & viewTypeMask) > 0) {
-				if(count > 0) {
-					builder.append(", ");
-				}
-				builder.append("'");
-				builder.append(type.getEntityType().name());
-				builder.append("'");
-				count++;
-			}
-		}
-		builder.append(")");
+		
+		builder.append("SELECT ")
+				.append(ANNOTATION_REPLICATION_ALIAS).append(".").append(ANNOTATION_REPLICATION_COL_KEY)
+				.append(", MAX(").append(ANNOTATION_REPLICATION_ALIAS).append(".").append(ANNOTATION_REPLICATION_COL_LIST_LENGTH).append(")");
+		
+		objectReplicationJoinAnnotationReplicationFilter(builder, scopeFilter, filterByRows);
+		
+		builder.append(" AND ").append(ANNOTATION_REPLICATION_ALIAS).append(".").append(ANNOTATION_REPLICATION_COL_KEY)
+				.append(" IN (:").append(ANNOTATION_KEYS_PARAM_NAME).append(")");
+		builder.append(" GROUP BY ").append(ANNOTATION_REPLICATION_ALIAS).append(".").append(ANNOTATION_REPLICATION_COL_KEY);
+		
 		return builder.toString();
 	}
 	
 	/**
-	 * Build the select clause of the entity replication insert select.
+	 * Build the select clause of the object replication insert select.
 	 * @param builder
 	 * @param metadata
 	 */
-	public static List<String> buildSelect(StringBuilder builder,
-			List<ColumnMetadata> metadata) {
-		// select the standard entity columns.
-		List<String> headers = buildEntityReplicationSelectStandardColumns(builder);
-		for(ColumnMetadata meta: metadata){
+	public static List<String> buildSelect(StringBuilder builder, List<ColumnMetadata> metadata) {
+		// select the standard object replication columns.
+		List<String> headers = buildObjectReplicationSelectStandardColumns(builder);
+		for(ColumnMetadata meta: metadata) {
 			headers.addAll(buildSelectMetadata(builder, meta));
 		}
 		return headers;
 	}
 	
 	/**
-	 * Build a entity replication select for the given ColumnMetadata.
+	 * Build a object replication select for the given ColumnMetadata.
 	 * 
 	 * @param builder
 	 * @param meta
 	 */
 	public static List<String> buildSelectMetadata(StringBuilder builder, ColumnMetadata meta) {
-		if (meta.getEntityField() != null) {
-			// entity field select
-			buildEntityReplicationSelect(builder, meta.getEntityField().getDatabaseColumnName());
-			return Lists.newArrayList(meta.getColumnNameForId());
-		}
-		List<String> headers = new LinkedList<>();
-		// annotation select
-		if (ColumnType.DOUBLE.equals(meta.getColumnModel().getColumnType())) {
-			// For doubles, the double-meta columns is also selected.
-			boolean isDoubleAbstract = true;
+		List<String> headers = new ArrayList<>();
+		if (meta.isObjectReplicationField()) {
+			// object field select
+			buildObjectReplicationSelect(builder, meta.getSelectColumnName());
+			headers.add(meta.getColumnNameForId());
+		} else {
+			// annotation select
+			if (ColumnType.DOUBLE.equals(meta.getColumnModel().getColumnType())) {
+				// For doubles, the double-meta columns is also selected.
+				boolean isDoubleAbstract = true;
+				headers.add(buildAnnotationSelect(builder, meta, isDoubleAbstract));
+			}
+			// select the annotation
+			boolean isDoubleAbstract = false;
 			headers.add(buildAnnotationSelect(builder, meta, isDoubleAbstract));
 		}
-		// select the annotation
-		boolean isDoubleAbstract = false;
-		headers.add(buildAnnotationSelect(builder, meta, isDoubleAbstract));
 		return headers;
 
 	}
 	
 	/**
-	 * Build the select including the standard entity columns of, id, version, etag, and benefactor..
+	 * Build the select including the standard object columns of, id, version, etag, and benefactor..
 	 * @param builder
 	 */
-	public static List<String> buildEntityReplicationSelectStandardColumns(StringBuilder builder) {
+	public static List<String> buildObjectReplicationSelectStandardColumns(StringBuilder builder) {
 
-		builder.append(ENTITY_REPLICATION_ALIAS);
+		builder.append(OBJECT_REPLICATION_ALIAS);
 		builder.append(".");
-		builder.append(ENTITY_REPLICATION_COL_ID);
-		buildEntityReplicationSelect(builder,
-				ENTITY_REPLICATION_COL_VERSION,
-				ENTITY_REPLICATION_COL_ETAG,
-				ENTITY_REPLICATION_COL_BENEFACTOR_ID);
+		builder.append(OBJECT_REPLICATION_COL_OBJECT_ID);
+		buildObjectReplicationSelect(builder,
+				OBJECT_REPLICATION_COL_VERSION,
+				OBEJCT_REPLICATION_COL_ETAG,
+				OBJECT_REPLICATION_COL_BENEFACTOR_ID);
 		List<String> headers = new LinkedList<>();
 		headers.add(ROW_ID);
 		headers.add(ROW_VERSION);
@@ -1521,9 +1543,9 @@ public class SQLUtils {
 	 * @param builder
 	 * @param names
 	 */
-	public static void buildEntityReplicationSelect(StringBuilder builder, String...names) {
+	public static void buildObjectReplicationSelect(StringBuilder builder, String...names) {
 		for(String name: names) {
-			builder.append(String.format(TEMPLATE_MAX_ENTITY_SELECT, ENTITY_REPLICATION_ALIAS, name));
+			builder.append(String.format(TEMPLATE_MAX_OBJECT_SELECT, OBJECT_REPLICATION_ALIAS, name));
 		}
 	}
 	/**
@@ -1549,13 +1571,12 @@ public class SQLUtils {
 	}
 
 	/**
-	 * Build the insert clause section of entity replication insert select.
+	 * Build the insert clause section of object replication insert select.
 	 * 
 	 * @param builder
 	 * @param metadata
 	 */
-	public static void buildInsertValues(StringBuilder builder,
-			List<ColumnMetadata> metadata) {
+	public static void buildInsertValues(StringBuilder builder, List<ColumnMetadata> metadata) {
 		builder.append(ROW_ID);
 		builder.append(", ");
 		builder.append(ROW_VERSION);
@@ -1696,6 +1717,7 @@ public class SQLUtils {
 	 *            The possible column models for the annotations within the
 	 *            view's scope.
 	 */
+	@Deprecated
 	public static void determineCauseOfException(Exception exception,
 			List<ColumnModel> viewSchema, List<ColumnModel> possibleAnnotations) {
 		// Find matches
@@ -1721,9 +1743,10 @@ public class SQLUtils {
 	 * are strings, and the annotation value size is larger than the view column size.
 	 * No other case will throw an exception.
 	 */
+	@Deprecated
 	public static void determineCauseOfException(Exception exception,
 			ColumnModel columnModel, ColumnModel annotationModel) {
-		EntityField entityField = EntityField.findMatch(columnModel);
+		ObjectField entityField = ObjectField.findMatch(columnModel);
 		if(entityField != null){
 			// entity field are not matched to annotations.
 			return;
@@ -1752,42 +1775,15 @@ public class SQLUtils {
 	}
 	
 	/**
-	 * Get the column used to filter the rows in a view. Project views scopes
-	 * are filtered by entityIds, while all other view types scopes are filtered
-	 * parentId.
-	 * 
-	 * @param type
-	 * @return
-	 */
-	public static String getViewScopeFilterColumnForType(Long viewTypeMask) {
-		if(ViewTypeMask.Project.getMask() == viewTypeMask) {
-			return ENTITY_REPLICATION_COL_ID;
-		}else {
-			return ENTITY_REPLICATION_COL_PARENT_ID;
-		}
-	}
-	
-	/**
 	 * Generate the SQL used to get the distinct annotations for a view
 	 * of the given type.
 	 * 
 	 * @param type
 	 * @return
 	 */
-	public static String getDistinctAnnotationColumnsSql(Long viewTypeMask){
-		String filterColumln = getViewScopeFilterColumnForType(viewTypeMask);
-		return String.format(SELECT_DISTINCT_ANNOTATION_COLUMNS_TEMPLATE, filterColumln);
-	}
-	
-	/**
-	 * Generate the SQL used to calculate CRC32 for views. 
-	 * @param type
-	 * @return
-	 */
-	public static String getCalculateCRC32Sql(Long viewTypeMask){
-		String typeFilter = createViewTypeFilter(viewTypeMask);
-		String filterColumln = getViewScopeFilterColumnForType(viewTypeMask);
-		return String.format(SQL_ENTITY_REPLICATION_CRC_32_TEMPLATE, typeFilter, filterColumln);
+	public static String getDistinctAnnotationColumnsSql(ViewScopeFilter scopeFilter){
+		String filterColumn = getViewScopeFilterColumn(scopeFilter);
+		return String.format(SELECT_DISTINCT_ANNOTATION_COLUMNS_TEMPLATE, filterColumn);
 	}
 	
 	/**
@@ -1797,9 +1793,10 @@ public class SQLUtils {
 	 * @param dto
 	 * @throws SQLException
 	 */
-	public static void writeAnnotationDtoToPreparedStatement(PreparedStatement ps, AnnotationDTO dto) throws SQLException{
+	public static void writeAnnotationDtoToPreparedStatement(ViewObjectType objectType, PreparedStatement ps, ObjectAnnotationDTO dto) throws SQLException{
 		int parameterIndex = 1;
-		ps.setLong(parameterIndex++, dto.getEntityId());
+		ps.setString(parameterIndex++, objectType.name());
+		ps.setLong(parameterIndex++, dto.getObjectId());
 		ps.setString(parameterIndex++, dto.getKey());
 		ps.setString(parameterIndex++, dto.getType().name());
 		List<String> stringList = dto.getValue();
@@ -1888,6 +1885,7 @@ public class SQLUtils {
 				.max(Integer::compareTo)
 				.orElse(0);
 		ps.setLong(parameterIndex++, maxElementStringSize);
+		ps.setLong(parameterIndex++, stringList.size());
 	}
 
 	/**
@@ -1943,24 +1941,28 @@ public class SQLUtils {
 	}
 
 
-	static String createListColumnIndexTable(IdAndVersion tableIdAndVersion, ColumnModel columnModel){
+	static String createListColumnIndexTable(IdAndVersion tableIdAndVersion, ColumnModel columnModel, boolean alterTemp){
 		ValidateArgument.required(tableIdAndVersion, "tableIdAndVersion");
 		ValidateArgument.required(columnModel, "columnModel");
 		ValidateArgument.requirement(ColumnTypeListMappings.isList(columnModel.getColumnType()), "columnModel's type must be a LIST type");
 
-		String parentTable = getTableNameForId(tableIdAndVersion, TableType.INDEX);
-		String columnIndexTableName = getTableNameForMultiValueColumnIndex(tableIdAndVersion, columnModel.getId());
+		String parentTable = alterTemp ? getTemporaryTableName(tableIdAndVersion) : getTableNameForId(tableIdAndVersion, TableType.INDEX);
+		String columnIndexTableName = getTableNameForMultiValueColumnIndex(tableIdAndVersion, columnModel.getId(), alterTemp);
 		String columnName = getUnnestedColumnNameForId(columnModel.getId());
 		String rowIdRefColumnName = getRowIdRefColumnNameForId(columnModel.getId());
 		String columnTypeSql = ColumnTypeInfo.getInfoForType(ColumnTypeListMappings.nonListType(columnModel.getColumnType())).toSql(columnModel.getMaximumSize(), null, false);
 		return "CREATE TABLE IF NOT EXISTS " + columnIndexTableName + " (" +
-				rowIdRefColumnName+" BIGINT NOT NULL, " +
+				rowIdRefColumnName + " BIGINT NOT NULL, " +
 				INDEX_NUM + " BIGINT NOT NULL, " + //index of value in its list
 				columnName + " " + columnTypeSql + ", " +
-				"PRIMARY KEY ("+rowIdRefColumnName+", "+INDEX_NUM+"), " +
-				"INDEX "+columnName+"_IDX ("+columnName+" ASC), " +
-				"CONSTRAINT " + columnIndexTableName + "_FK" + " FOREIGN KEY ("+rowIdRefColumnName+") REFERENCES "+parentTable+"("+ROW_ID+") ON DELETE CASCADE"+
+				"PRIMARY KEY (" + rowIdRefColumnName + ", " + INDEX_NUM + "), " +
+				"INDEX " + columnName + "_IDX (" + columnName + " ASC), " +
+				getMultiValueIndexTableForeignKeyConstraint(parentTable, columnIndexTableName, rowIdRefColumnName) +
 				");";
+	}
+
+	private static String getMultiValueIndexTableForeignKeyConstraint(String parentTable, String columnIndexTableName, String rowIdRefColumnName) {
+		return "CONSTRAINT " + columnIndexTableName + "_FK" + " FOREIGN KEY (" + rowIdRefColumnName + ") REFERENCES " + parentTable + "(" + ROW_ID + ") ON DELETE CASCADE";
 	}
 
 	/**
@@ -1968,21 +1970,22 @@ public class SQLUtils {
 	 * @param tableIdAndVersion
 	 * @param columnInfo
 	 * @param filterRows When true a where clause to filter by ROW_ID will be included.
+	 * @param alterTemp
 	 * @return
 	 */
-	public static String insertIntoListColumnIndexTable(IdAndVersion tableIdAndVersion, ColumnModel columnInfo, boolean filterRows){
+	public static String insertIntoListColumnIndexTable(IdAndVersion tableIdAndVersion, ColumnModel columnInfo, boolean filterRows, boolean alterTemp){
 		String columnName = getColumnNameForId(columnInfo.getId());
 		String unnestedColumnName = getUnnestedColumnNameForId(columnInfo.getId());
 
 		String rowIdRefColumnName = getRowIdRefColumnNameForId(columnInfo.getId());
-		String columnIndexTableName = getTableNameForMultiValueColumnIndex(tableIdAndVersion, columnInfo.getId());
-		String tableName = getTableNameForId(tableIdAndVersion, TableType.INDEX);
+		String columnIndexTableName = getTableNameForMultiValueColumnIndex(tableIdAndVersion, columnInfo.getId(), alterTemp);
+		String tableName = alterTemp ? getTemporaryTableName(tableIdAndVersion) : getTableNameForId(tableIdAndVersion, TableType.INDEX);
 		MySqlColumnType mySqlColumnType = ColumnTypeInfo.getInfoForType(ColumnTypeListMappings.nonListType(columnInfo.getColumnType())).getMySqlType();
 
 		String columnExpandTypeSQl =  mySqlColumnType.name() + (mySqlColumnType.hasSize() && columnInfo.getMaximumSize() != null ? "("  + columnInfo.getMaximumSize() + ")" : "");
 		String rowFilter = "";
 		if(filterRows) {
-			rowFilter = " WHERE "+tableName+"."+ROW_ID+" IN (:"+ID_PARAMETER_NAME+")";
+			rowFilter = " WHERE "+tableName+"."+ROW_ID+" IN (:"+ID_PARAM_NAME+")";
 		}
 
 		return "INSERT INTO " + columnIndexTableName + " (" + rowIdRefColumnName + "," + INDEX_NUM + ","+ unnestedColumnName +") " +
@@ -1997,34 +2000,16 @@ public class SQLUtils {
 				") TEMP_JSON_TABLE"+rowFilter;
 	}
 	
-	public static String VIEW_ROWS_OUT_OF_DATE_TEMPLATE = 
-			"WITH DELTAS (ID, MISSING) AS ( " 
-			+ "SELECT R."+ENTITY_REPLICATION_COL_ID+", V."+ROW_ID+" FROM "+ENTITY_REPLICATION_TABLE+" R "
-			+ "   LEFT JOIN %1$s V ON ("
-			+ "		 R."+ENTITY_REPLICATION_COL_ID+" = V."+ROW_ID
-			+ "      AND R."+ENTITY_REPLICATION_COL_ETAG+" = V."+ROW_ETAG
-			+ "      AND R."+ENTITY_REPLICATION_COL_BENEFACTOR_ID+" = V."+ROW_BENEFACTOR+")"
-			+ "   WHERE R.%2$s IN (:scopeIds) AND R.%3$s" 
-			+ " UNION ALL"
-			+ " SELECT V."+ROW_ID+", R."+ENTITY_REPLICATION_COL_ID+" FROM "+ENTITY_REPLICATION_TABLE+" R "
-			+ "   RIGHT JOIN %1$s V ON ("
-			+ "      R."+ENTITY_REPLICATION_COL_ID+" = V."+ROW_ID
-			+ "      AND R."+ENTITY_REPLICATION_COL_ETAG+" = V."+ROW_ETAG
-			+ "      AND R."+ENTITY_REPLICATION_COL_BENEFACTOR_ID+" = V."+ROW_BENEFACTOR
-			+ "      AND R.%2$s IN (:scopeIds) AND R.%3$s)"
-			+ ")"
-			+ "SELECT ID FROM DELTAS WHERE MISSING IS NULL ORDER BY ID DESC LIMIT :limitParam";
-	
 	/**
 	 * Create SQL to find out-of-date rows for a view.
 	 * @param viewId
 	 * @param viewTypeMask
 	 * @return
 	 */
-	public static String getOutOfDateRowsForViewSql(IdAndVersion viewId, long viewTypeMask) {
+	public static String getOutOfDateRowsForViewSql(IdAndVersion viewId, ViewScopeFilter scopeFilter) {
 		String viewName = SQLUtils.getTableNameForId(viewId, TableType.INDEX);
-		String scopeColumn = SQLUtils.getViewScopeFilterColumnForType(viewTypeMask);
-		String viewTypeFilter = createViewTypeFilter(viewTypeMask);
+		String scopeColumn = getViewScopeFilterColumn(scopeFilter);
+		String viewTypeFilter = getViewScopeSubTypeFilter(scopeFilter);
 		return String.format(VIEW_ROWS_OUT_OF_DATE_TEMPLATE, viewName, scopeColumn, viewTypeFilter);
 	}
 	
@@ -2038,5 +2023,27 @@ public class SQLUtils {
 	public static String getDeleteRowsFromViewSql(IdAndVersion viewId) {
 		String viewName = SQLUtils.getTableNameForId(viewId, TableType.INDEX);
 		return String.format(DELETE_ROWS_FROM_VIEW_TEMPLATE, viewName);
+	}
+	
+	public static String getViewScopeFilterColumn(ViewScopeFilter scopeFilter) {
+		if (scopeFilter.isFilterByObjectId()) {
+			return OBJECT_REPLICATION_COL_OBJECT_ID;
+		}
+		return OBJECT_REPLICATION_COL_PARENT_ID;
+	}
+	
+	public static String getViewScopeSubTypeFilter(ViewScopeFilter scopeFilter) {
+		List<String> subTypes = scopeFilter.getSubTypes();
+		
+		StringBuilder builder = new StringBuilder();
+		
+		builder.append(OBJECT_REPLICATION_ALIAS);
+		builder.append(".");
+		builder.append(TableConstants.OBJECT_REPLICATION_COL_SUBTYPE);
+		builder.append(" IN (");
+		builder.append(TableConstants.joinStringForSQL(subTypes.stream()));
+		builder.append(")");
+		
+		return builder.toString();
 	}
 }

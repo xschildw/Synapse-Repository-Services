@@ -10,7 +10,8 @@ import org.sagebionetworks.repo.model.entity.IdAndVersion;
 import org.sagebionetworks.repo.model.jdo.KeyFactory;
 import org.sagebionetworks.repo.model.message.ChangeMessage;
 import org.sagebionetworks.repo.model.message.ChangeType;
-import org.sagebionetworks.repo.model.table.EntityDTO;
+import org.sagebionetworks.repo.model.table.ObjectDataDTO;
+import org.sagebionetworks.repo.model.table.ViewObjectType;
 import org.sagebionetworks.table.cluster.ConnectionFactory;
 import org.sagebionetworks.table.cluster.TableIndexDAO;
 import org.sagebionetworks.util.ValidateArgument;
@@ -24,12 +25,16 @@ public class ReplicationManagerImpl implements ReplicationManager {
 
 	public static final int MAX_ANNOTATION_CHARS = 500;
 	
-	@Autowired
-	NodeDAO nodeDao;
+	private NodeDAO nodeDao;
 
+	private ConnectionFactory connectionFactory;
+		
 	@Autowired
-	ConnectionFactory connectionFactory;
-	
+	public ReplicationManagerImpl(NodeDAO nodeDao, ConnectionFactory connectionFactory) {
+		this.nodeDao = nodeDao;
+		this.connectionFactory = connectionFactory;
+	}
+
 	/**
 	 * Replicate the data for the provided entities.
 	 * 
@@ -47,7 +52,7 @@ public class ReplicationManagerImpl implements ReplicationManager {
 		allIds.addAll(KeyFactory.stringToKey(deleteIds));
 		
 		// Get a copy of the batch of data.
-		final List<EntityDTO> entityDTOs = nodeDao.getEntityDTOs(createOrUpdateIds,
+		final List<ObjectDataDTO> entityDTOs = nodeDao.getEntityDTOs(createOrUpdateIds,
 				MAX_ANNOTATION_CHARS);
 		validateEntityDtos(entityDTOs);
 		// Get the connections
@@ -70,6 +75,7 @@ public class ReplicationManagerImpl implements ReplicationManager {
 	public static void groupByChangeType(List<ChangeMessage> messages,
 			List<String> createOrUpdateIds, List<String> deleteIds) {
 		for (ChangeMessage change : messages) {
+			// TODO map to ViewObjectType
 			if (ObjectType.ENTITY.equals(change.getObjectType())) {
 				if (ChangeType.DELETE.equals(change.getChangeType())) {
 					// entity delete
@@ -87,8 +93,8 @@ public class ReplicationManagerImpl implements ReplicationManager {
 	 * @param indexDaos
 	 * @throws RecoverableMessageException 
 	 */
-	public static void validateEntityDtos(List<EntityDTO> dtos) throws RecoverableMessageException{
-		for(EntityDTO dto: dtos){
+	public static void validateEntityDtos(List<ObjectDataDTO> dtos) throws RecoverableMessageException{
+		for(ObjectDataDTO dto: dtos){
 			// See PLFM-4497.
 			if(dto.getBenefactorId() == null){
 				if(dtos.size() > 1){
@@ -107,7 +113,7 @@ public class ReplicationManagerImpl implements ReplicationManager {
 	@Override
 	public void replicate(String entityId) {
 		ValidateArgument.required(entityId, "EntityId");
-		final List<EntityDTO> entityDTOs = nodeDao.getEntityDTOs(Collections.singletonList(entityId),
+		final List<ObjectDataDTO> entityDTOs = nodeDao.getEntityDTOs(Collections.singletonList(entityId),
 				MAX_ANNOTATION_CHARS);
 		// Connect only to the index for this table
 		
@@ -122,10 +128,12 @@ public class ReplicationManagerImpl implements ReplicationManager {
 	 * @param entityDTOs DTO to be created/updated
 	 * @param ids All of the ids to be created/updated/deleted.
 	 */
-	void replicateInIndex(final TableIndexDAO indexDao, final List<EntityDTO> entityDTOs, List<Long> ids) {
+	void replicateInIndex(final TableIndexDAO indexDao, final List<ObjectDataDTO> entityDTOs, List<Long> ids) {
+		// TODO should get the object type in input
+		ViewObjectType objectType = ViewObjectType.ENTITY;
 		indexDao.executeInWriteTransaction((TransactionStatus status) -> {
-			indexDao.deleteEntityData(ids);
-			indexDao.addEntityData(entityDTOs);
+			indexDao.deleteObjectData(objectType, ids);
+			indexDao.addObjectData(objectType, entityDTOs);
 			return null;
 		});
 	}

@@ -49,8 +49,6 @@ import org.sagebionetworks.repo.web.NotFoundException;
 @ExtendWith(MockitoExtension.class)
 public class AuthenticationServiceImplTest {
 
-	@InjectMocks
-	private AuthenticationServiceImpl service;
 	
 	@Mock
 	private UserManager mockUserManager;
@@ -62,7 +60,8 @@ public class AuthenticationServiceImplTest {
 	private OAuthManager mockOAuthManager;
 	@Mock
 	private OpenIDConnectManager mockOidcManager;
-
+	@InjectMocks
+	private AuthenticationServiceImpl service;
 	
 	private LoginCredentials credential;
 	private UserInfo userInfo;
@@ -330,13 +329,9 @@ public class AuthenticationServiceImplTest {
 	public void testHasUserAcceptedTermsOfUseJWT() {
 		when(mockAuthenticationManager.hasUserAcceptedTermsOfUse(userId)).thenReturn(true);
 		
-		String token = "jwt-token";
-		when(mockOidcManager.getUserId(token)).thenReturn(""+userId);
-		
 		// method under test
-		assertTrue(service.hasUserAcceptedTermsOfUse(token));
+		assertTrue(service.hasUserAcceptedTermsOfUse(userId));
 		
-		verify(mockOidcManager).getUserId(token);
 		verify(mockAuthenticationManager).hasUserAcceptedTermsOfUse(userId);
 
 		

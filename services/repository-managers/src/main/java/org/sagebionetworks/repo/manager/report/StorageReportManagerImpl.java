@@ -6,6 +6,7 @@ import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.report.DownloadStorageReportRequest;
 import org.sagebionetworks.repo.model.report.StorageReportType;
 import org.sagebionetworks.repo.model.report.SynapseStorageProjectStats;
+import org.sagebionetworks.repo.model.table.ViewObjectType;
 import org.sagebionetworks.repo.web.NotFoundException;
 import org.sagebionetworks.table.cluster.ConnectionFactory;
 import org.sagebionetworks.table.cluster.TableIndexDAO;
@@ -49,7 +50,7 @@ public class StorageReportManagerImpl implements StorageReportManager {
 					writer.writeNext(row);
 				};
 
-				tableIndexDAO.streamSynapseStorageStats(callback);
+				tableIndexDAO.streamSynapseStorageStats(ViewObjectType.ENTITY, callback);
 				break;
 			default:
 				throw new IllegalArgumentException("Only storage reports of type \"ALL_PROJECTS\" are currently supported.");

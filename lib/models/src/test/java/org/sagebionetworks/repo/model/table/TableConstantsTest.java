@@ -1,11 +1,26 @@
 package org.sagebionetworks.repo.model.table;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import com.google.common.collect.ImmutableList;
+
 
 public class TableConstantsTest {
+	
+	private enum TestEnum {
+		A, B, C;
+		
+		// Makes sure we are not using the toString
+		@Override
+		public String toString() {
+			return this.name().toLowerCase();
+		}
+	}
+	
 	@Test
 	public void testIsReservedColumnNameNegative(){
 		assertFalse(TableConstants.isReservedColumnName("notReserved"));
@@ -18,7 +33,7 @@ public class TableConstantsTest {
 	
 	@Test
 	public void testIsReservedColumnNameRowIdCaseInsensitive(){
-		assertTrue("The isReservedColumnName() method should be case insensitive.", TableConstants.isReservedColumnName("row_id"));
+		assertTrue(TableConstants.isReservedColumnName("row_id"), "The isReservedColumnName() method should be case insensitive.");
 	}
 
 	@Test
@@ -30,5 +45,15 @@ public class TableConstantsTest {
 	@Test
 	public void testIsReservedColumnNameRowBenefactor(){
 		assertTrue(TableConstants.isReservedColumnName("row_benefactor"));
+	}
+	
+	@Test
+	public void testJoinEnumForSQL() {
+		assertEquals("'A','B','C'", TableConstants.joinEnumForSQL(TestEnum.values()));
+	}
+	
+	@Test
+	public void testJoinStringForSQL() {
+		assertEquals("'A','B','C'", TableConstants.joinStringForSQL(ImmutableList.of("A", "B", "C").stream()));
 	}
 }

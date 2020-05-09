@@ -8,6 +8,7 @@ import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.jdo.KeyFactory;
 import org.sagebionetworks.repo.model.table.EntityView;
+import org.sagebionetworks.repo.model.table.ViewObjectType;
 import org.sagebionetworks.repo.model.table.ViewScope;
 import org.sagebionetworks.repo.web.NotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +44,7 @@ public class EntityViewMetadataProvider implements TypeSpecificCreateProvider<En
 	
 	public static ViewScope createViewScope(EntityView view) {
 		ViewScope scope = new ViewScope();
+		scope.setObjectType(ViewObjectType.ENTITY);
 		scope.setScope(view.getScopeIds());
 		scope.setViewType(view.getType());
 		scope.setViewTypeMask(view.getViewTypeMask());

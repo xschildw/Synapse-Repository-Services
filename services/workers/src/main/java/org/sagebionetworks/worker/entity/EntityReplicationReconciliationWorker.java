@@ -25,6 +25,9 @@ import org.sagebionetworks.repo.model.entity.IdAndVersion;
 import org.sagebionetworks.repo.model.jdo.KeyFactory;
 import org.sagebionetworks.repo.model.message.ChangeMessage;
 import org.sagebionetworks.repo.model.message.ChangeType;
+import org.sagebionetworks.repo.model.table.ViewObjectType;
+import org.sagebionetworks.repo.model.table.ViewScopeType;
+import org.sagebionetworks.repo.model.table.ViewScopeUtils;
 import org.sagebionetworks.repo.model.table.ViewTypeMask;
 import org.sagebionetworks.schema.adapter.JSONObjectAdapterException;
 import org.sagebionetworks.table.cluster.ConnectionFactory;
@@ -115,16 +118,20 @@ public class EntityReplicationReconciliationWorker implements ChangeMessageDrive
 			
 			// Get all of the containers for the given view.
 			IdAndVersion idAndVersion = IdAndVersion.parse(message.getObjectId());
-			List<Long> containerIds = getContainersToReconcile(idAndVersion);
+
+			// Gather the scope type
+			ViewScopeType viewScopeType = tableManagerSupport.getViewScopeType(idAndVersion);
+			
+			List<Long> containerIds = getContainersToReconcile(idAndVersion, viewScopeType);
 			if (containerIds.isEmpty()) {
 				// nothing to do.
 				return;
 			}
+			ViewObjectType objectType = viewScopeType.getObjectType();
 			// get a connection to an index database.
 			TableIndexDAO indexDao = getRandomConnection();
 			// Determine which of the given container IDs have expired.
-			List<Long> expiredContainerIds = indexDao
-					.getExpiredContainerIds(containerIds);
+			List<Long> expiredContainerIds = indexDao.getExpiredContainerIds(objectType, containerIds);
 			if (expiredContainerIds.isEmpty()) {
 				// nothing to do.
 				return;
@@ -134,14 +141,11 @@ public class EntityReplicationReconciliationWorker implements ChangeMessageDrive
 			Set<Long> trashedParents = getTrashedContainers(expiredContainerIds);
 			
 			// Find all children deltas for the expired containers.
-			findChildrenDeltas(progressCallback, indexDao, expiredContainerIds,
-					trashedParents);
+			findChildrenDeltas(objectType, indexDao, expiredContainerIds, trashedParents);
 			
 			// re-set the expiration for all containers that were synchronized.
-			long newExpirationDateMs = clock.currentTimeMillis()
-					+ SYNCHRONIZATION_FEQUENCY_MS;
-			indexDao.setContainerSynchronizationExpiration(expiredContainerIds,
-					newExpirationDateMs);
+			long newExpirationDateMs = clock.currentTimeMillis() + SYNCHRONIZATION_FEQUENCY_MS;
+			indexDao.setContainerSynchronizationExpiration(objectType, expiredContainerIds, newExpirationDateMs);
 
 		} catch (Throwable cause) {
 			log.error("Failed:", cause);
@@ -157,15 +161,15 @@ public class EntityReplicationReconciliationWorker implements ChangeMessageDrive
 	 * @param idAndVersion
 	 * @return
 	 */
-	public List<Long> getContainersToReconcile(IdAndVersion idAndVersion) {
-		Long viewTypeMask = tableManagerSupport.getViewTypeMask(idAndVersion);
+	public List<Long> getContainersToReconcile(IdAndVersion idAndVersion, ViewScopeType scopeType) {
+		Long viewTypeMask = scopeType.getTypeMask();
 		if(ViewTypeMask.Project.getMask() == viewTypeMask){
 			// project views reconcile with root.
 			Long rootId = KeyFactory.stringToKey(NodeUtils.ROOT_ENTITY_ID);
 			return Lists.newArrayList(rootId);
 		}else{
 			// all other views reconcile one the view's scope.
-			return  new ArrayList<Long>(tableManagerSupport.getAllContainerIdsForViewScope(idAndVersion, viewTypeMask));
+			return  new ArrayList<Long>(tableManagerSupport.getAllContainerIdsForViewScope(idAndVersion, scopeType));
 		}
 	}
 
@@ -194,18 +198,18 @@ public class EntityReplicationReconciliationWorker implements ChangeMessageDrive
 	 * @param parentIds
 	 * @throws JSONObjectAdapterException
 	 */
-	public void findChildrenDeltas(ProgressCallback progressCallback,
+	public void findChildrenDeltas(ViewObjectType objectType,
 			TableIndexDAO indexDao, List<Long> parentIds,
 			Set<Long> trashedParents) throws JSONObjectAdapterException {
 		// Find the parents out-of-synch.
-		Set<Long> outOfSynchParentIds = compareCheckSums(progressCallback,
+		Set<Long> outOfSynchParentIds = compareCheckSums(objectType,
 				indexDao, parentIds, trashedParents);
 		log.info("Out-of-synch parents: " + outOfSynchParentIds.size());
 		for (Long outOfSynchParentId : outOfSynchParentIds) {
 			boolean isParentInTrash = trashedParents
 					.contains(outOfSynchParentId);
 			List<ChangeMessage> childChanges = findChangesForParentId(
-					progressCallback, indexDao, outOfSynchParentId,
+					objectType, indexDao, outOfSynchParentId,
 					isParentInTrash);
 			replicationMessageManager.pushChangeMessagesToReplicationQueue(childChanges);
 			log.info("Published: " + childChanges.size() + " messages to replication queue");
@@ -232,12 +236,17 @@ public class EntityReplicationReconciliationWorker implements ChangeMessageDrive
 	 * @param isParentInTrash
 	 * @return
 	 */
-	public List<ChangeMessage> findChangesForParentId(
-			ProgressCallback progressCallback, TableIndexDAO firstIndex,
+	public List<ChangeMessage> findChangesForParentId(ViewObjectType viewObjectType, TableIndexDAO firstIndex,
 			Long outOfSynchParentId, boolean isParentInTrash) {
+		
+		ObjectType objectType = ViewScopeUtils.map(viewObjectType);
+		
 		List<ChangeMessage> changes = new LinkedList<>();
+		
 		Set<IdAndEtag> replicaChildren = new LinkedHashSet<>(
-				firstIndex.getEntityChildren(outOfSynchParentId));
+				firstIndex.getObjectChildren(viewObjectType, outOfSynchParentId)
+		);
+		
 		if (!isParentInTrash) {
 			// The parent is not in the trash so find entities that are
 			// out-of-synch
@@ -247,21 +256,21 @@ public class EntityReplicationReconciliationWorker implements ChangeMessageDrive
 			// find the create/updates
 			for (IdAndEtag test : truthChildren) {
 				if (!replicaChildren.contains(test)) {
-					changes.add(createChange(test, ChangeType.UPDATE));
+					changes.add(createChange(objectType, test.getId(), ChangeType.UPDATE));
 				}
 				truthIds.add(test.getId());
 			}
 			// find the deletes
 			for (IdAndEtag test : replicaChildren) {
 				if (!truthIds.contains(test.getId())) {
-					changes.add(createChange(test, ChangeType.DELETE));
+					changes.add(createChange(objectType, test.getId(), ChangeType.DELETE));
 				}
 			}
 		} else {
 			// the parent is the the trash so setup the delete of any children
 			// that appear in the replica.
 			for (IdAndEtag toDelete : replicaChildren) {
-				changes.add(createChange(toDelete, ChangeType.DELETE));
+				changes.add(createChange(objectType, toDelete.getId(), ChangeType.DELETE));
 			}
 		}
 		return changes;
@@ -274,12 +283,12 @@ public class EntityReplicationReconciliationWorker implements ChangeMessageDrive
 	 * @param type
 	 * @return
 	 */
-	public ChangeMessage createChange(IdAndEtag info, ChangeType type) {
+	public ChangeMessage createChange(ObjectType objectType, Long id, ChangeType type) {
 		ChangeMessage message = new ChangeMessage();
 		message.setChangeNumber(1L);
 		message.setChangeType(type);
-		message.setObjectId("" + info.getId());
-		message.setObjectType(ObjectType.ENTITY);
+		message.setObjectId(id.toString());
+		message.setObjectType(objectType);
 		message.setTimestamp(new Date());
 		return message;
 	}
@@ -295,13 +304,13 @@ public class EntityReplicationReconciliationWorker implements ChangeMessageDrive
 	 * @param trashedParents
 	 * @return
 	 */
-	public Set<Long> compareCheckSums(ProgressCallback progressCallback,
+	public Set<Long> compareCheckSums(ViewObjectType objectType,
 			TableIndexDAO indexDao, List<Long> parentIds,
 			Set<Long> trashedParents) {
 		Map<Long, Long> truthCRCs = nodeDao
 				.getSumOfChildCRCsForEachParent(parentIds);
 		Map<Long, Long> indexCRCs = indexDao
-				.getSumOfChildCRCsForEachParent(parentIds);
+				.getSumOfChildCRCsForEachParent(objectType, parentIds);
 		HashSet<Long> parentsOutOfSynch = new HashSet<Long>();
 		// Find the mismatches
 		for (Long parentId : parentIds) {

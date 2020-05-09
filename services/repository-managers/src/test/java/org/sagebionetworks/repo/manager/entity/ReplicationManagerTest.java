@@ -26,11 +26,12 @@ import org.mockito.quality.Strictness;
 import org.mockito.stubbing.Answer;
 import org.sagebionetworks.repo.model.NodeDAO;
 import org.sagebionetworks.repo.model.ObjectType;
+import org.sagebionetworks.repo.model.table.ViewObjectType;
 import org.sagebionetworks.repo.model.entity.IdAndVersion;
 import org.sagebionetworks.repo.model.jdo.KeyFactory;
 import org.sagebionetworks.repo.model.message.ChangeMessage;
 import org.sagebionetworks.repo.model.message.ChangeType;
-import org.sagebionetworks.repo.model.table.EntityDTO;
+import org.sagebionetworks.repo.model.table.ObjectDataDTO;
 import org.sagebionetworks.table.cluster.ConnectionFactory;
 import org.sagebionetworks.table.cluster.TableIndexDAO;
 import org.sagebionetworks.workers.util.aws.message.RecoverableMessageException;
@@ -56,6 +57,8 @@ public class ReplicationManagerTest {
 	ReplicationManagerImpl manager;
 	
 	List<ChangeMessage> changes;
+	
+	ViewObjectType viewObjectType;
 
 	@SuppressWarnings("unchecked")
 	@BeforeEach
@@ -85,6 +88,8 @@ public class ReplicationManagerTest {
 				callback.doInTransaction(transactionStatus);
 				return null;
 			}}).when(mockIndexDao).executeInWriteTransaction(any(TransactionCallback.class));
+		
+		viewObjectType = ViewObjectType.ENTITY;
 	}
 	
 	@Test
@@ -101,14 +106,14 @@ public class ReplicationManagerTest {
 	@Test
 	public void testRun() throws RecoverableMessageException, Exception{
 		int count = 5;
-		List<EntityDTO> entityData = createEntityDtos(count);
+		List<ObjectDataDTO> entityData = createEntityDtos(count);
 		when(mockNodeDao.getEntityDTOs(anyListOf(String.class), anyInt())).thenReturn(entityData);
 		
 		// call under test
 		manager.replicate(changes);
 		verify(mockNodeDao).getEntityDTOs(Lists.newArrayList("111", "222"), ReplicationManagerImpl.MAX_ANNOTATION_CHARS);
-		verify(mockIndexDao).deleteEntityData(eq(Lists.newArrayList(111L,222L,333L)));
-		verify(mockIndexDao).addEntityData(eq(entityData));
+		verify(mockIndexDao).deleteObjectData(viewObjectType, Lists.newArrayList(111L,222L,333L));
+		verify(mockIndexDao).addObjectData(viewObjectType, entityData);
 	}
 
 	
@@ -120,7 +125,7 @@ public class ReplicationManagerTest {
 	@Test
 	public void testPLFM_4497Single() throws Exception{
 		int count = 1;
-		List<EntityDTO> entityData = createEntityDtos(count);
+		List<ObjectDataDTO> entityData = createEntityDtos(count);
 		// set a benefactor ID to be null;
 		entityData.get(0).setBenefactorId(null);
 		when(mockNodeDao.getEntityDTOs(anyListOf(String.class), anyInt())).thenReturn(entityData);
@@ -141,7 +146,7 @@ public class ReplicationManagerTest {
 	@Test
 	public void testPLFM_4497Batch() throws Exception{
 		int count = 2;
-		List<EntityDTO> entityData = createEntityDtos(count);
+		List<ObjectDataDTO> entityData = createEntityDtos(count);
 		// set a benefactor ID to be null;
 		entityData.get(0).setBenefactorId(null);
 		when(mockNodeDao.getEntityDTOs(anyListOf(String.class), anyInt())).thenReturn(entityData);
@@ -159,14 +164,14 @@ public class ReplicationManagerTest {
 		when(mockConnectionFactory.getConnection(ideAndVersion)).thenReturn(mockIndexDao);
 		List<String> entityids = Collections.singletonList(entityId);
 		int count = 1;
-		List<EntityDTO> entityData = createEntityDtos(count);
+		List<ObjectDataDTO> entityData = createEntityDtos(count);
 		when(mockNodeDao.getEntityDTOs(entityids, ReplicationManagerImpl.MAX_ANNOTATION_CHARS)).thenReturn(entityData);
 
 		// call under test
 		manager.replicate(entityId);
 		verify(mockNodeDao).getEntityDTOs(entityids, ReplicationManagerImpl.MAX_ANNOTATION_CHARS);
-		verify(mockIndexDao).deleteEntityData(Lists.newArrayList(123L));
-		verify(mockIndexDao).addEntityData(entityData);
+		verify(mockIndexDao).deleteObjectData(viewObjectType, Lists.newArrayList(123L));
+		verify(mockIndexDao).addObjectData(viewObjectType, entityData);
 	}
 	
 	/**
@@ -175,10 +180,10 @@ public class ReplicationManagerTest {
 	 * @param count
 	 * @return
 	 */
-	List<EntityDTO> createEntityDtos(int count){
-		List<EntityDTO> dtos = new LinkedList<>();
+	List<ObjectDataDTO> createEntityDtos(int count){
+		List<ObjectDataDTO> dtos = new LinkedList<>();
 		for(int i=0; i<count; i++){
-			EntityDTO dto = new EntityDTO();
+			ObjectDataDTO dto = new ObjectDataDTO();
 			dto.setId(new Long(i));
 			dto.setBenefactorId(new Long(i-1));
 			dtos.add(dto);

@@ -1,7 +1,5 @@
 package org.sagebionetworks.table.cluster.columntranslation;
 
-import java.util.Optional;
-
 import org.sagebionetworks.repo.model.table.ColumnType;
 import org.sagebionetworks.repo.model.table.TableConstants;
 
@@ -17,8 +15,7 @@ public enum RowMetadataColumnTranslationReference implements ColumnTranslationRe
 
 	//the translated name and queried name are the same
 	private final String columnName;
-	private final ColumnType columnType;
-
+	private final ColumnType columnType;	
 
 	RowMetadataColumnTranslationReference(final String columnName, final ColumnType columnType){
 		this.columnName = columnName.toUpperCase();

@@ -26,7 +26,9 @@ import org.sagebionetworks.repo.model.principal.PrincipalAlias;
 import org.sagebionetworks.repo.transactions.WriteTransaction;
 import org.sagebionetworks.repo.web.NotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
+@Service
 public class AuthenticationServiceImpl implements AuthenticationService {
 
 
@@ -107,9 +109,8 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 	}
 	
 	@Override
-	public boolean hasUserAcceptedTermsOfUse(String accessToken) throws NotFoundException {
-		String userId = oidcManager.getUserId(accessToken);
-		return authManager.hasUserAcceptedTermsOfUse(Long.parseLong(userId));
+	public boolean hasUserAcceptedTermsOfUse(Long userId) throws NotFoundException {
+		return authManager.hasUserAcceptedTermsOfUse(userId);
 	}
 
 	@Override

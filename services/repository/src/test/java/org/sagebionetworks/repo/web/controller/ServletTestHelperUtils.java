@@ -63,11 +63,14 @@ public class ServletTestHelperUtils {
 	 *            Optional, object to serialize into the body of the request
 	 */
 	public static MockHttpServletRequest initRequest(HTTPMODE mode, String path,
-			String requestURI, Long userId, JSONEntity entity)
+			String requestURI, Long userId, String accessToken, JSONEntity entity)
 			throws Exception {
 		MockHttpServletRequest request = initRequestUnauthenticated(mode, path, requestURI, entity);
 		if (userId != null) {
 			request.setParameter(AuthorizationConstants.USER_ID_PARAM, userId.toString());
+		}
+		if (accessToken != null) {
+			request.addHeader(AuthorizationConstants.SYNAPSE_AUTHORIZATION_HEADER_NAME, "Bearer "+accessToken);
 		}
 		return request;
 	}
@@ -91,20 +94,9 @@ public class ServletTestHelperUtils {
 	}
 	
 	public static MockHttpServletRequest initRequest(HTTPMODE mode,
-			String requestURI, Long userId, JSONEntity entity)
+			String requestURI, Long userId, String accessToken, JSONEntity entity)
 			throws Exception {
-		return initRequest(mode, "/repo/v1", requestURI, userId, entity);
-	}
-
-	public static MockHttpServletRequest initRequestWithAccessTokenAuth(HTTPMODE mode,
-			String requestURI, String accessToken, JSONEntity entity)
-			throws Exception {
-		MockHttpServletRequest request = initRequestUnauthenticated(mode, "/repo/v1", requestURI, entity);
-		if (accessToken != null) {
-			request.addHeader(AuthorizationConstants.SYNAPSE_AUTHORIZATION_HEADER_NAME, "Bearer "+accessToken);
-		}
-		return request;
-
+		return initRequest(mode, "/repo/v1", requestURI, userId, accessToken, entity);
 	}
 
 	/**

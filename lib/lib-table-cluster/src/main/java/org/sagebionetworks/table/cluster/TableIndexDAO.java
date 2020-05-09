@@ -9,12 +9,16 @@ import javax.sql.DataSource;
 
 import org.sagebionetworks.common.util.progress.ProgressCallback;
 import org.sagebionetworks.repo.model.IdAndEtag;
+import org.sagebionetworks.repo.model.table.ViewObjectType;
 import org.sagebionetworks.repo.model.dao.table.RowHandler;
 import org.sagebionetworks.repo.model.entity.IdAndVersion;
 import org.sagebionetworks.repo.model.report.SynapseStorageProjectStats;
 import org.sagebionetworks.repo.model.table.ColumnModel;
-import org.sagebionetworks.repo.model.table.EntityDTO;
+import org.sagebionetworks.repo.model.table.ObjectDataDTO;
 import org.sagebionetworks.repo.model.table.RowSet;
+import org.sagebionetworks.repo.model.table.ViewScopeFilter;
+import org.sagebionetworks.table.cluster.metadata.ObjectFieldModelResolver;
+import org.sagebionetworks.table.cluster.metadata.ObjectFieldTypeMapper;
 import org.sagebionetworks.table.model.Grouping;
 import org.sagebionetworks.util.Callback;
 import org.sagebionetworks.util.csv.CSVWriterStream;
@@ -160,8 +164,7 @@ public interface TableIndexDAO {
 	 * @param tableId
 	 * @param fileHandleIds
 	 */
-	void applyFileHandleIdsToTable(IdAndVersion tableId,
-			Set<Long> fileHandleIds);
+	void applyFileHandleIdsToTable(IdAndVersion tableId, Set<Long> fileHandleIds);
 	
 	/**
 	 * Given a set of FileHandleIds and a talbeId, get the sub-set of
@@ -170,8 +173,7 @@ public interface TableIndexDAO {
 	 * @param objectId
 	 * @return
 	 */
-	Set<Long> getFileHandleIdsAssociatedWithTable(
-			Set<Long> toTest, IdAndVersion tableId);
+	Set<Long> getFileHandleIdsAssociatedWithTable(Set<Long> toTest, IdAndVersion tableId);
 	
 	/**
 	 * Does the state of the index match the given data?
@@ -202,22 +204,25 @@ public interface TableIndexDAO {
 	 * Creates an index table for the multi-value column described in the columnModel.
 	 * @param tableId
 	 * @param columnModel
+	 * @param alterTemp
 	 */
-	void createMultivalueColumnIndexTable(IdAndVersion tableId, ColumnModel columnModel);
+	void createMultivalueColumnIndexTable(IdAndVersion tableId, ColumnModel columnModel, boolean alterTemp);
 
 	/**
 	 * Drop the multi-value column index table associated with the table id and column id
 	 * @param tableId
 	 * @param columnId
+	 * @param alterTemp
 	 */
-	void deleteMultivalueColumnIndexTable(IdAndVersion tableId, Long columnId);
+	void deleteMultivalueColumnIndexTable(IdAndVersion tableId, Long columnId, boolean alterTemp);
 
 	/**
 	 * Drop the multi-value column index table associated with the table id and column id
 	 * @param columnId
 	 * @param tableId
+	 * @param alterTemp
 	 */
-	void updateMultivalueColumnIndexTable(IdAndVersion tableId, Long oldColumnId, ColumnModel newColumn);
+	void updateMultivalueColumnIndexTable(IdAndVersion tableId, Long oldColumnId, ColumnModel newColumn, boolean alterTemp);
 
 	/**
 	 * Truncate all of the data in the given table.
@@ -275,8 +280,9 @@ public interface TableIndexDAO {
 	 * @param tableId
 	 * @param listColumn
 	 * @param rowIds Optional.  When included, only rows with the given IDs will be populated.
+	 * @param alterTemp
 	 */
-	void populateListColumnIndexTable(IdAndVersion tableId, ColumnModel listColumn, Set<Long> rowIds);
+	void populateListColumnIndexTable(IdAndVersion tableId, ColumnModel listColumn, Set<Long> rowIds, boolean alterTemp);
 
 	/**
 	 * Delete rows from an a specific list column's index table.
@@ -309,79 +315,90 @@ public interface TableIndexDAO {
 	 * @return
 	 */
 	long getTempTableCount(IdAndVersion tableId);
-	
+
+	/**
+	 * Create a temporary multivalue column index table like the given table.
+	 * @param tableId
+	 */
+	void createTemporaryMultiValueColumnIndexTable(IdAndVersion tableId, String columnId);
+
+	/**
+	 * Copy all of the data from the original multivalue column index table to the temporary table.
+	 * @param tableId
+	 */
+	void copyAllDataToTemporaryMultiValueColumnIndexTable(IdAndVersion tableId, String columnId);
+
+	/**
+	 * Delete all of the temporary multivalue column index table associated with the given table.
+	 */
+	void deleteAllTemporaryMultiValueColumnIndexTable(IdAndVersion tableId);
+
+	/**
+	 * Count the rows in the temp multi value index table.
+	 * @param tableId
+	 * @return
+	 */
+	long getTempTableMultiValueColumnIndexCount(IdAndVersion tableId, String columnName);
+
 	/**
 	 * Create the entity replication tables if they do not exist.
 	 * 
 	 */
-	void createEntityReplicationTablesIfDoesNotExist();
+	void createObjectReplicationTablesIfDoesNotExist();
 
 	/**
-	 * Delete all entity data with the given Ids.
+	 * Delete all object data with the given Ids.
+	 * @param objectsType TODO
+	 * @param objectIds
 	 * @param progressCallback 
-	 * 
-	 * @param allIds
 	 */
-	void deleteEntityData(List<Long> allIds);
+	void deleteObjectData(ViewObjectType objectsType, List<Long> objectIds);
 
 	/**
-	 * Add the given entity data to the index.
-	 * 
-	 * @param entityDTOs
+	 * Add the given object data to the index.
+	 * @param objectType TODO
+	 * @param objectDtos
 	 */
-	void addEntityData(List<EntityDTO> entityDTOs);
-	
-	/**
-	 * Get the entity DTO for a given entity ID.
-	 * @param entityId
-	 * @return
-	 */
-	EntityDTO getEntityData(Long entityId);
+	void addObjectData(ViewObjectType objectType, List<ObjectDataDTO> objectDtos);
 
 	/**
-	 * Given a container scope calculate the CRC32 of the entity replication table on 'id-etag'.
-	 * @param viewType 
-	 * 
-	 * @param allContainersInScope
-	 * @return
+	 * Queries for max length of list values in a column in the temporary copy of the table
+	 * (created using {@link #createTemporaryTable(IdAndVersion)})
+	 * @param tableId
+	 * @param columnId
+	 * @return max list value length of the column
 	 */
-	long calculateCRC32ofEntityReplicationScope(
-			Long viewTypeMask, Set<Long> allContainersInScope);
+	long tempTableListColumnMaxLength(IdAndVersion tableId, String columnId);
 
 	/**
 	 * Copy the data from the entity replication tables to the given view.
 	 * 
 	 * @param viewId
-	 * @param viewType
-	 * @param allContainersInScope
+	 * @param scopeFilter
 	 * @param currentSchema
 	 */
-	void copyEntityReplicationToView(Long viewId, Long viewTypeMask,
-			Set<Long> allContainersInScope, List<ColumnModel> currentSchema);
+	void copyObjectReplicationToView(Long viewId, ViewScopeFilter scopeFilter, List<ColumnModel> currentSchema, ObjectFieldTypeMapper fieldTypeMapper);
 	
 	/**
 	 * Copy the data from the entity replication tables to the given view.
 	 * 
 	 * @param viewId
-	 * @param viewTypeMask
-	 * @param allContainersInScope
+	 * @param scopeFilter
 	 * @param currentSchema
 	 * @param rowIdsToCopy Optional.  When included, copy rows with these Ids to the view.
 	 */
-	void copyEntityReplicationToView(Long viewId, Long viewTypeMask, Set<Long> allContainersInScope,
-			List<ColumnModel> currentSchema, Set<Long> rowIdsToCopy);
+	void copyObjectReplicationToView(Long viewId, ViewScopeFilter scopeFilter, List<ColumnModel> currentSchema, ObjectFieldTypeMapper fieldTypeMapper, Set<Long> rowIdsToCopy);
 	
 	/**
 	 * Copy the data from the entity replication tables to the given view's table.
 	 * 
 	 * @param viewId
-	 * @param viewType
-	 * @param allContainersInScope
+	 * @param scopeFilter
 	 * @param currentSchema
 	 */
-	void createViewSnapshotFromEntityReplication(Long viewId, Long viewTypeMask,
-			Set<Long> allContainersInScope, List<ColumnModel> currentSchema, CSVWriterStream outStream);
+	void createViewSnapshotFromObjectReplication(Long viewId, ViewScopeFilter scopeFilter, List<ColumnModel> currentSchema, ObjectFieldTypeMapper fieldTypeMapper, CSVWriterStream outStream);
 
+	
 	/**
 	 * Calculate the Cyclic-Redundancy-Check (CRC) of a table view's concatenation
 	 * of ROW_ID + ETAG.  Used to determine if a view is synchronized with the
@@ -400,18 +417,17 @@ public interface TableIndexDAO {
 	 * @param viewCRC
 	 * @param schemaMD5Hex
 	 */
-	void setIndexVersionAndSchemaMD5Hex(IdAndVersion tableId, Long viewCRC,
-			String schemaMD5Hex);
+	void setIndexVersionAndSchemaMD5Hex(IdAndVersion tableId, Long viewCRC, String schemaMD5Hex);
 
 	/**
-	 * Get the distinct possible ColumnModels for a given set of container ids.
-	 * @param containerIds
+	 * Get the distinct possible ColumnModels for the given scope filter
+	 * 
+	 * @param scopeFilter
 	 * @param limit
 	 * @param offset
 	 * @return
 	 */
-	List<ColumnModel> getPossibleColumnModelsForContainers(
-			Set<Long> containerIds, Long viewTypeMask, Long limit, Long offset);
+	List<ColumnModel> getPossibleColumnModelsForContainers(ViewScopeFilter scopeFilter, Long limit, Long offset);
 	
 	/**
 	 * The process for synchronizing entity replication data with the truth is
@@ -429,9 +445,8 @@ public interface TableIndexDAO {
 	 * @param entityContainerIds
 	 * @return
 	 */
-	List<Long> getExpiredContainerIds(List<Long> entityContainerIds);
+	List<Long> getExpiredContainerIds(ViewObjectType objectType, List<Long> entityContainerIds);
 	
-
 	/**
 	 * @see {@link #getExpiredContainerIds(List)}.
 	 * 
@@ -439,26 +454,22 @@ public interface TableIndexDAO {
 	 * 
 	 * @param expirations
 	 */
-	void setContainerSynchronizationExpiration(List<Long> toSet, long newExpirationDateMS);
-	
-	/**
-	 * Clear all expirations.
-	 */
-	void truncateReplicationSyncExpiration();
+	void setContainerSynchronizationExpiration(ViewObjectType objectType, List<Long> toSet, long newExpirationDateMS);
 
 	/**
 	 * For each parent, get the sum of CRCs of their children.
 	 *   
 	 * @return Map.key = parentId and map.value = sum of children CRCs.
 	 */
-	Map<Long, Long> getSumOfChildCRCsForEachParent(List<Long> parentIds);
+	Map<Long, Long> getSumOfChildCRCsForEachParent(ViewObjectType objectType, List<Long> parentIds);
 
 	/**
-	 * Get the Id and Etag for each child of the given Entity parentId.
+	 * Get the Id and Etag for each child of the given parentId.
+	 * @param objectType TODO
 	 * @param outOfSynchParentId
 	 * @return
 	 */
-	List<IdAndEtag> getEntityChildren(Long parentId);
+	List<IdAndEtag> getObjectChildren(ViewObjectType objectType, Long parentId);
 
 	/**
 	 * Get the rowIds for the given query.
@@ -475,13 +486,13 @@ public interface TableIndexDAO {
 	 * @param rowIds
 	 * @return
 	 */
-	long getSumOfFileSizes(List<Long> rowIds);
+	long getSumOfFileSizes(ViewObjectType objectType, List<Long> rowIds);
 
 	/**
 	 * Get the statistics about Synapse storage usage per-project.
 	 * @return
 	 */
-	void streamSynapseStorageStats(Callback<SynapseStorageProjectStats> callback);
+	void streamSynapseStorageStats(ViewObjectType objectType, Callback<SynapseStorageProjectStats> callback);
 
 	/**
 	 * Populate a view from a snapshot.
@@ -516,12 +527,11 @@ public interface TableIndexDAO {
 	 * </ul>
 	 * 
 	 * @param viewId The id of the view to check.
-	 * @param viewTypeMask  The type of view.
-	 * @param allContainersInScope All of the containers that define the scope 
+	 * @param scopeFilter the filter to be applied to the view scope
 	 * @param limit Limit the number of rows returned. 
 	 * @return
 	 */
-	Set<Long> getOutOfDateRowsForView(IdAndVersion viewId, long viewTypeMask, Set<Long> allContainersInScope, long limit);
+	Set<Long> getOutOfDateRowsForView(IdAndVersion viewId, ViewScopeFilter scopeFilter, long limit);
 
 	/**
 	 * Delete a batch of rows from a view.
@@ -530,5 +540,28 @@ public interface TableIndexDAO {
 	 * @param idsToDelete
 	 */
 	void deleteRowsFromViewBatch(IdAndVersion viewId, Long...idsToDelete);
+	
+	/**
+	 * @param fieldTypeMapper
+	 * @return An instance of an {@link ObjectFieldModelResolver} that can be used to map default object fields
+	 */
+	ObjectFieldModelResolver getObjectFieldModelResolver(ObjectFieldTypeMapper fieldTypeMapper);
+	
+	// For testing:
+	
+	/**
+	 * Clear all expirations.
+	 */
+	void truncateReplicationSyncExpiration();
+
+	/** 
+	 * Cleanup all the index tables
+	 */
+	void truncateIndex();
+	
+	/**
+	 * @return the entity DTO for a given entity ID
+	 */
+	ObjectDataDTO getObjectData(ViewObjectType objectType, Long objectId);
 
 }

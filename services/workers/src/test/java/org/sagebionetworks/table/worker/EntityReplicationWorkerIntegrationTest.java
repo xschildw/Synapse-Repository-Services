@@ -17,7 +17,8 @@ import org.sagebionetworks.repo.model.AuthorizationConstants.BOOTSTRAP_PRINCIPAL
 import org.sagebionetworks.repo.model.Project;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.jdo.KeyFactory;
-import org.sagebionetworks.repo.model.table.EntityDTO;
+import org.sagebionetworks.repo.model.table.ObjectDataDTO;
+import org.sagebionetworks.repo.model.table.ViewObjectType;
 import org.sagebionetworks.table.cluster.ConnectionFactory;
 import org.sagebionetworks.table.cluster.TableIndexDAO;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -64,17 +65,17 @@ public class EntityReplicationWorkerIntegrationTest {
 	@Test
 	public void testReplication() throws InterruptedException{
 		// Wait for the project data to be replicated
-		EntityDTO entityDto = waitForEntityDto(project.getId());
+		ObjectDataDTO entityDto = waitForEntityDto(project.getId());
 		assertEquals(KeyFactory.stringToKey(project.getId()), entityDto.getId());
 		assertEquals(project.getEtag(), entityDto.getEtag());
 		assertEquals(project.getName(), entityDto.getName());
 	}
 	
-	public EntityDTO waitForEntityDto(String entityId) throws InterruptedException{
+	public ObjectDataDTO waitForEntityDto(String entityId) throws InterruptedException{
 		TableIndexDAO indexDao = tableConnectionFactory.getAllConnections().get(0);
 		long startTimeMS = System.currentTimeMillis();
 		while(true){
-			EntityDTO entityDto = indexDao.getEntityData(KeyFactory.stringToKey(entityId));
+			ObjectDataDTO entityDto = indexDao.getObjectData(ViewObjectType.ENTITY, KeyFactory.stringToKey(entityId));
 			if(entityDto != null){
 				return entityDto;
 			}

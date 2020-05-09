@@ -32,6 +32,7 @@ import org.sagebionetworks.repo.model.table.TableConstants;
 import org.sagebionetworks.repo.model.table.TableFailedException;
 import org.sagebionetworks.repo.model.table.TableStatus;
 import org.sagebionetworks.repo.model.table.TableUnavailableException;
+import org.sagebionetworks.repo.model.table.ViewObjectType;
 import org.sagebionetworks.repo.web.NotFoundException;
 import org.sagebionetworks.table.cluster.ConnectionFactory;
 import org.sagebionetworks.table.cluster.SqlQuery;
@@ -557,7 +558,7 @@ public class TableQueryManagerImpl implements TableQueryManager {
 				boolean isGreaterThan = rowIds.size() > MAX_ROWS_PER_CALL;
 				result.setGreaterThan(isGreaterThan);
 				// Use the rowIds to calculate the sum of the file sizes.
-				long sumFileSizesBytes = indexDao.getSumOfFileSizes(rowIds);
+				long sumFileSizesBytes = indexDao.getSumOfFileSizes(ViewObjectType.ENTITY, rowIds);
 				result.setSumFileSizesBytes(sumFileSizesBytes);
 			} catch (SimpleAggregateQueryException e) {
 				// zero results will be returned for this case.

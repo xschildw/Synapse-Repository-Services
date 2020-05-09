@@ -56,7 +56,10 @@ public enum IdType {
 	SES_NOTIFICATION_ID(null),
 	QUARANTINED_EMAIL_ID(null),
 	VIEW_SNAPSHOT_ID(null),
-	ORGANIZATION_ID(null)
+	ORGANIZATION_ID(null),
+	JSON_SCHEMA_ID(null),
+	JSON_SCHEMA_BLOB_ID(null),
+	JSON_SCHEMA_VERSION_ID(null)
 	;
 	
 	Long startingId;

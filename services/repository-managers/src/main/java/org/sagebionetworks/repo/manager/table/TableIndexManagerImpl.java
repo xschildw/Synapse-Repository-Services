@@ -17,14 +17,22 @@ import org.apache.logging.log4j.Logger;
 import org.sagebionetworks.common.util.progress.ProgressCallback;
 import org.sagebionetworks.repo.manager.table.change.ListColumnIndexTableChange;
 import org.sagebionetworks.repo.manager.table.change.TableChangeMetaData;
+import org.sagebionetworks.repo.manager.table.metadata.MetadataIndexProvider;
+import org.sagebionetworks.repo.manager.table.metadata.MetadataIndexProviderFactory;
+import org.sagebionetworks.repo.manager.table.metadata.ViewScopeFilterBuilder;
+import org.sagebionetworks.repo.manager.table.metadata.ViewScopeFilterProvider;
 import org.sagebionetworks.repo.model.NextPageToken;
 import org.sagebionetworks.repo.model.dbo.dao.table.InvalidStatusTokenException;
 import org.sagebionetworks.repo.model.entity.IdAndVersion;
 import org.sagebionetworks.repo.model.jdo.KeyFactory;
 import org.sagebionetworks.repo.model.table.ColumnModel;
 import org.sagebionetworks.repo.model.table.ColumnModelPage;
+import org.sagebionetworks.repo.model.table.ColumnType;
 import org.sagebionetworks.repo.model.table.TableUnavailableException;
+import org.sagebionetworks.repo.model.table.ViewObjectType;
 import org.sagebionetworks.repo.model.table.ViewScope;
+import org.sagebionetworks.repo.model.table.ViewScopeFilter;
+import org.sagebionetworks.repo.model.table.ViewScopeType;
 import org.sagebionetworks.repo.model.table.ViewTypeMask;
 import org.sagebionetworks.repo.web.NotFoundException;
 import org.sagebionetworks.table.cluster.ColumnChangeDetails;
@@ -53,16 +61,21 @@ public class TableIndexManagerImpl implements TableIndexManager {
 
 	private final TableIndexDAO tableIndexDao;
 	private final TableManagerSupport tableManagerSupport;
+	private final MetadataIndexProviderFactory metadataIndexProviderFactory;
 
-	public TableIndexManagerImpl(TableIndexDAO dao, TableManagerSupport tableManagerSupport){
+	public TableIndexManagerImpl(TableIndexDAO dao, TableManagerSupport tableManagerSupport, MetadataIndexProviderFactory metadataIndexProviderFactory){
 		if(dao == null){
 			throw new IllegalArgumentException("TableIndexDAO cannot be null");
 		}
 		if(tableManagerSupport == null){
 			throw new IllegalArgumentException("TableManagerSupport cannot be null");
 		}
+		if(metadataIndexProviderFactory == null) {
+			throw new IllegalArgumentException("MetadataIndexProviderFactory cannot be null");
+		}
 		this.tableIndexDao = dao;
 		this.tableManagerSupport = tableManagerSupport;
+		this.metadataIndexProviderFactory = metadataIndexProviderFactory;
 	}
 	/*
 	 * (non-Javadoc)
@@ -107,11 +120,11 @@ public class TableIndexManagerImpl implements TableIndexManager {
 								tableIndexDao.applyFileHandleIdsToTable(
 										tableId, fileHandleIds);
 							}
-
+							boolean alterTemp = false;
 							//once all changes to main table are applied, populate the list-type columns with the changes.
 							for(ListColumnRowChanges listColumnChange : rowset.groupListColumnChanges()){
 								tableIndexDao.deleteFromListColumnIndexTable(tableId, listColumnChange.getColumnModel(), listColumnChange.getRowIds());
-								tableIndexDao.populateListColumnIndexTable(tableId, listColumnChange.getColumnModel(), listColumnChange.getRowIds());
+								tableIndexDao.populateListColumnIndexTable(tableId, listColumnChange.getColumnModel(), listColumnChange.getRowIds(), alterTemp);
 							}
 
 							// set the new max version for the index
@@ -155,7 +168,8 @@ public class TableIndexManagerImpl implements TableIndexManager {
 		//apply changes to multi-value column indexes
 		Set<Long> existingListColumnIndexTableNames = tableIndexDao.getMultivalueColumnIndexTableColumnIds(tableId);
 		List<ListColumnIndexTableChange> listColumnIndexTableChanges = listColumnIndexTableChangesFromExpectedSchema(newSchema, existingListColumnIndexTableNames);
-		applyListColumnIndexTableChanges(tableId, listColumnIndexTableChanges);
+		boolean alterTemp = false;
+		applyListColumnIndexTableChanges(tableId, listColumnIndexTableChanges, alterTemp);
 		return changes;
 	}
 
@@ -255,18 +269,18 @@ public class TableIndexManagerImpl implements TableIndexManager {
 		return result;
 	}
 
-	void applyListColumnIndexTableChanges(IdAndVersion tableId, List<ListColumnIndexTableChange> changes){
+	void applyListColumnIndexTableChanges(IdAndVersion tableId, List<ListColumnIndexTableChange> changes, boolean alterTemp){
 		for(ListColumnIndexTableChange change : changes){
 			switch (change.getListIndexTableChangeType()){
 				case ADD:
-					tableIndexDao.createMultivalueColumnIndexTable(tableId, change.getNewColumnChange());
-					tableIndexDao.populateListColumnIndexTable(tableId, change.getNewColumnChange(), null);
+					tableIndexDao.createMultivalueColumnIndexTable(tableId, change.getNewColumnChange(), alterTemp);
+					tableIndexDao.populateListColumnIndexTable(tableId, change.getNewColumnChange(), null, alterTemp);
 					break;
 				case REMOVE:
-					tableIndexDao.deleteMultivalueColumnIndexTable(tableId, change.getOldColumnId());
+					tableIndexDao.deleteMultivalueColumnIndexTable(tableId, change.getOldColumnId(), alterTemp);
 					break;
 				case UPDATE:
-					tableIndexDao.updateMultivalueColumnIndexTable(tableId, change.getOldColumnId(), change.getNewColumnChange());
+					tableIndexDao.updateMultivalueColumnIndexTable(tableId, change.getOldColumnId(), change.getNewColumnChange(), alterTemp);
 					break;
 			}
 		}
@@ -301,9 +315,35 @@ public class TableIndexManagerImpl implements TableIndexManager {
 	}	
 	
 	@Override
-	public boolean alterTempTableSchmea(final IdAndVersion tableId, final List<ColumnChangeDetails> changes){
+	public void alterTempTableSchmea(final IdAndVersion tableId, final List<ColumnChangeDetails> changes){
 		boolean alterTemp = true;
-		return alterTableAsNeededWithinAutoProgress(tableId, changes, alterTemp);
+		validateTableMaximumListLengthChanges(tableId,changes);
+		alterTableAsNeededWithinAutoProgress(tableId, changes, alterTemp);
+		alterListColumnIndexTableWithSchemaChange(tableId,changes, alterTemp);
+	}
+
+	void validateTableMaximumListLengthChanges(final IdAndVersion tableId, final List<ColumnChangeDetails> changes){
+		for(ColumnChangeDetails change: changes){
+			validateTableMaximumListLengthChanges(tableId, change);
+		}
+	}
+
+	void validateTableMaximumListLengthChanges(IdAndVersion tableId, ColumnChangeDetails change) {
+		ColumnModel oldColumn = change.getOldColumn();
+		ColumnType oldColumnType = oldColumn != null ? oldColumn.getColumnType() : null;
+		ColumnModel newColumn = change.getNewColumn();
+		ColumnType newColumnType = newColumn != null ? newColumn.getColumnType() : null;
+		if(ColumnTypeListMappings.isList(oldColumnType)
+				&& ColumnTypeListMappings.isList(newColumnType)
+				//we are decreasing the maximum list size
+				&& oldColumn.getMaximumListLength() > newColumn.getMaximumListLength()) {
+
+			long maximumListLengthInTable = tableIndexDao.tempTableListColumnMaxLength(tableId, oldColumn.getId());
+			if (newColumn.getMaximumListLength() < maximumListLengthInTable) {
+				throw new IllegalArgumentException("maximumListLength for ColumnModel \"" + newColumn.getName() +
+						"\" must be at least: " + maximumListLengthInTable);
+			}
+		}
 	}
 
 	/**
@@ -352,46 +392,58 @@ public class TableIndexManagerImpl implements TableIndexManager {
 	public void populateListColumnIndexTables(final IdAndVersion tableIdAndVersion, final List<ColumnModel> schema, Set<Long> rowIds){
 		ValidateArgument.required(tableIdAndVersion, "tableIdAndVersion");
 		ValidateArgument.required(schema, "schema");
+		boolean alterTemp = false;
+
 		for(ColumnModel column: schema) {
 			if (ColumnTypeListMappings.isList(column.getColumnType())) {
-				tableIndexDao.populateListColumnIndexTable(tableIdAndVersion, column, rowIds);
+				tableIndexDao.populateListColumnIndexTable(tableIdAndVersion, column, rowIds, alterTemp);
 			}
 		}
 	}
 
 	@Override
-	public void createTemporaryTableCopy(final IdAndVersion tableId, ProgressCallback callback) {
+	public void createTemporaryTableCopy(final IdAndVersion tableId) {
 		// creating a temp table can take a long time so auto-progress is used.
-		try {
-			// create the table.
-			tableIndexDao.createTemporaryTable(tableId);
-			// copy all the data from the original to the temp.
-			tableIndexDao.copyAllDataToTemporaryTable(tableId);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
+		// create the table.
+		tableIndexDao.createTemporaryTable(tableId);
+		// copy all the data from the original to the temp.
+		tableIndexDao.copyAllDataToTemporaryTable(tableId);
+
+		// if any multi-value column index tables exist, create a copy of them
+		for(Long columnId: tableIndexDao.getMultivalueColumnIndexTableColumnIds(tableId)) {
+			String colIdStr = columnId.toString();
+			tableIndexDao.createTemporaryMultiValueColumnIndexTable(tableId, colIdStr);
+			tableIndexDao.copyAllDataToTemporaryMultiValueColumnIndexTable(tableId, colIdStr);
 		}
-		
 	}
 	@Override
-	public void deleteTemporaryTableCopy(final IdAndVersion tableId, ProgressCallback callback) {
+	public void deleteTemporaryTableCopy(final IdAndVersion tableId) {
+		// delete multi-value index table first as they have a foreign key ref to the temp table
+		tableIndexDao.deleteAllTemporaryMultiValueColumnIndexTable(tableId);
 		// delete
 		tableIndexDao.deleteTemporaryTable(tableId);
 	}
+	
 	@Override
-	public long populateViewFromEntityReplication(final Long tableId, final Long viewTypeMask,
+	public long populateViewFromEntityReplication(final Long viewId, final ViewScopeType scopeType,
 			final Set<Long> allContainersInScope, final List<ColumnModel> currentSchema) {
-		ValidateArgument.required(viewTypeMask, "viewTypeMask");
+		ValidateArgument.required(scopeType, "scopeType");
 		ValidateArgument.required(allContainersInScope, "allContainersInScope");
 		ValidateArgument.required(currentSchema, "currentSchema");
+		
+		MetadataIndexProvider provider = metadataIndexProviderFactory.getMetadataIndexProvider(scopeType.getObjectType());
+		
+		ViewScopeFilter scopeFilter = buildViewScopeFilter(provider, scopeType.getTypeMask(), allContainersInScope);
+		
 		// copy the data from the entity replication tables to table's index
 		try {
-			tableIndexDao.copyEntityReplicationToView(tableId, viewTypeMask, allContainersInScope, currentSchema);
+			tableIndexDao.copyObjectReplicationToView(viewId, scopeFilter, currentSchema, provider);
 		} catch (Exception e) {
 			// if the copy failed. Attempt to determine the cause.
-			determineCauseOfReplicationFailure(e, currentSchema,  allContainersInScope, viewTypeMask);
+			determineCauseOfReplicationFailure(e, scopeFilter, currentSchema);
 		}
 		// calculate the new CRC32;
-		return tableIndexDao.calculateCRC32ofTableView(tableId);
+		return tableIndexDao.calculateCRC32ofTableView(viewId);
 	}
 	
 	/**
@@ -401,10 +453,10 @@ public class TableIndexManagerImpl implements TableIndexManager {
 	 * @param currentSchema
 	 * @throws Exception 
 	 */
-	public void determineCauseOfReplicationFailure(Exception exception, List<ColumnModel> currentSchema, Set<Long> containersInScope, Long viewTypeMask) {
+	public void determineCauseOfReplicationFailure(Exception exception, ViewScopeFilter scopeFilter, List<ColumnModel> currentSchema) {
 		// Calculate the schema from the annotations
-		List<ColumnModel> schemaFromAnnotations = tableIndexDao.getPossibleColumnModelsForContainers(containersInScope, viewTypeMask, Long.MAX_VALUE, 0L);
-		// check the 
+		List<ColumnModel> schemaFromAnnotations = tableIndexDao.getPossibleColumnModelsForContainers(scopeFilter, Long.MAX_VALUE, 0L);
+		// TODO: Should use a provider that given the object type skips the column models that are mapped to the object replication table
 		SQLUtils.determineCauseOfException(exception, currentSchema, schemaFromAnnotations);
 		// Have not determined the cause so throw the original exception
 		if(exception instanceof RuntimeException) {
@@ -419,9 +471,9 @@ public class TableIndexManagerImpl implements TableIndexManager {
 			final Long viewId, String nextPageToken) {
 		ValidateArgument.required(viewId, "viewId");
 		IdAndVersion idAndVersion = IdAndVersion.newBuilder().setId(viewId).build();
-		Long type = tableManagerSupport.getViewTypeMask(idAndVersion);
-		Set<Long> containerIds = tableManagerSupport.getAllContainerIdsForViewScope(idAndVersion, type);
-		return getPossibleAnnotationDefinitionsForContainerIds(containerIds, type, nextPageToken);
+		ViewScopeType scopeType = tableManagerSupport.getViewScopeType(idAndVersion);
+		Set<Long> containerIds = tableManagerSupport.getAllContainerIdsForViewScope(idAndVersion, scopeType);
+		return getPossibleAnnotationDefinitionsForContainerIds(scopeType, containerIds, nextPageToken);
 	}
 	
 	@Override
@@ -429,11 +481,20 @@ public class TableIndexManagerImpl implements TableIndexManager {
 			ViewScope scope, String nextPageToken) {
 		ValidateArgument.required(scope, "scope");
 		ValidateArgument.required(scope.getScope(), "scope.scopeIds");
+		
+		ViewObjectType objectType = scope.getObjectType();
+		
+		// When the scope does not specify the object type we defaults to ENTITY as not to break the API
+		if (objectType == null) {
+			objectType = ViewObjectType.ENTITY;
+		}
+		
 		long viewTypeMask = ViewTypeMask.getViewTypeMask(scope);
+		ViewScopeType scopeType = new ViewScopeType(objectType, viewTypeMask);
 		// lookup the containers for the given scope
 		Set<Long> scopeSet = new HashSet<Long>(KeyFactory.stringToKey(scope.getScope()));
-		Set<Long> containerIds = tableManagerSupport.getAllContainerIdsForScope(scopeSet, viewTypeMask);
-		return getPossibleAnnotationDefinitionsForContainerIds(containerIds, viewTypeMask, nextPageToken);
+		Set<Long> containerIds = tableManagerSupport.getAllContainerIdsForScope(scopeSet, scopeType);
+		return getPossibleAnnotationDefinitionsForContainerIds(scopeType, containerIds, nextPageToken);
 	}
 	
 	
@@ -444,18 +505,24 @@ public class TableIndexManagerImpl implements TableIndexManager {
 	 * @param nextPageToken Optional: Controls pagination.
 	 * @return
 	 */
-	ColumnModelPage getPossibleAnnotationDefinitionsForContainerIds(
-			Set<Long> containerIds, Long viewTypeMask, String nextPageToken) {
+	ColumnModelPage getPossibleAnnotationDefinitionsForContainerIds(ViewScopeType viewScopeType,
+			Set<Long> containerIds, String nextPageToken) {
 		ValidateArgument.required(containerIds, "containerIds");
 		NextPageToken token =  new NextPageToken(nextPageToken);
 		ColumnModelPage results = new ColumnModelPage();
+		
 		if(containerIds.isEmpty()){
 			results.setResults(new LinkedList<ColumnModel>());
 			results.setNextPageToken(null);
 			return results;
 		}
+		
+		MetadataIndexProvider provider = metadataIndexProviderFactory.getMetadataIndexProvider(viewScopeType.getObjectType());
+		
+		ViewScopeFilter scopeFilter = buildViewScopeFilter(provider, viewScopeType.getTypeMask(), containerIds);
+		
 		// request one page with a limit one larger than the passed limit.
-		List<ColumnModel> columns = tableIndexDao.getPossibleColumnModelsForContainers(containerIds, viewTypeMask, token.getLimitForQuery(), token.getOffset());
+		List<ColumnModel> columns = tableIndexDao.getPossibleColumnModelsForContainers(scopeFilter, token.getLimitForQuery(), token.getOffset());
 		results.setNextPageToken(token.getNextPageTokenForCurrentResults(columns));
 		results.setResults(columns);
 		return results;
@@ -605,16 +672,21 @@ public class TableIndexManagerImpl implements TableIndexManager {
 		boolean isTableView = false;
 		updateTableSchema(idAndVersion, isTableView, schemaChangeData.getChange().getDetails());
 
-		//apply changes to multi-value column indexes
-		Set<Long> existingListColumnIndexTableNames = tableIndexDao.getMultivalueColumnIndexTableColumnIds(idAndVersion);
-		List<ListColumnIndexTableChange> listColumnIndexTableChanges = listColumnIndexTableChangesFromChangeDetails(schemaChangeData.getChange().getDetails(), existingListColumnIndexTableNames);
-
-		applyListColumnIndexTableChanges(idAndVersion, listColumnIndexTableChanges);
+		boolean alterTemp = false;
+		alterListColumnIndexTableWithSchemaChange(idAndVersion, schemaChangeData.getChange().getDetails(), alterTemp);
 
 		// set the new max version for the index
 		tableIndexDao.setMaxCurrentCompleteVersionForTable(idAndVersion, schemaChangeData.getChangeNumber());
 	}
-	
+
+	private void alterListColumnIndexTableWithSchemaChange(IdAndVersion idAndVersion, List<ColumnChangeDetails> columnChangeDetails, boolean alterTemp) {
+		//apply changes to multi-value column indexes
+		Set<Long> existingListColumnIndexTableNames = tableIndexDao.getMultivalueColumnIndexTableColumnIds(idAndVersion);
+		List<ListColumnIndexTableChange> listColumnIndexTableChanges = listColumnIndexTableChangesFromChangeDetails(columnChangeDetails, existingListColumnIndexTableNames);
+
+		applyListColumnIndexTableChanges(idAndVersion, listColumnIndexTableChanges, alterTemp);
+	}
+
 	/**
 	 * Apply the provided row change set to the provide table's index.
 	 * @param idAndVersion
@@ -631,9 +703,14 @@ public class TableIndexManagerImpl implements TableIndexManager {
 	}
 	
 	@Override
-	public void createViewSnapshot(Long viewId, Long viewTypeMask, Set<Long> allContainersInScope,
+	public void createViewSnapshot(Long viewId, ViewScopeType scopeType, Set<Long> allContainersInScope,
 			List<ColumnModel> viewSchema, CSVWriterStream writter) {
-		tableIndexDao.createViewSnapshotFromEntityReplication(viewId, viewTypeMask, allContainersInScope, viewSchema, writter);
+
+		MetadataIndexProvider provider = metadataIndexProviderFactory.getMetadataIndexProvider(scopeType.getObjectType());
+		
+		ViewScopeFilter scopeFilter = buildViewScopeFilter(provider, scopeType.getTypeMask(), allContainersInScope);
+		
+		tableIndexDao.createViewSnapshotFromObjectReplication(viewId, scopeFilter, viewSchema, provider, writter);
 	}
 	@Override
 	public void populateViewFromSnapshot(IdAndVersion idAndVersion, Iterator<String[]> input) {
@@ -641,34 +718,50 @@ public class TableIndexManagerImpl implements TableIndexManager {
 	}
 
 	@Override
-	public Set<Long> getOutOfDateRowsForView(IdAndVersion viewId, long viewTypeMask, Set<Long> allContainersInScope,
+	public Set<Long> getOutOfDateRowsForView(IdAndVersion viewId, ViewScopeType scopeType, Set<Long> allContainersInScope,
 			long limit) {
-		return tableIndexDao.getOutOfDateRowsForView(viewId, viewTypeMask, allContainersInScope, limit);
+		
+		MetadataIndexProvider provider = metadataIndexProviderFactory.getMetadataIndexProvider(scopeType.getObjectType());
+		
+		ViewScopeFilter scopeFilter = buildViewScopeFilter(provider, scopeType.getTypeMask(), allContainersInScope);
+		
+		return tableIndexDao.getOutOfDateRowsForView(viewId, scopeFilter, limit);
 	}
 	
 	@Override
-	public void updateViewRowsInTransaction(IdAndVersion viewId, Set<Long> rowsIdsWithChanges, Long viewTypeMask,
+	public void updateViewRowsInTransaction(IdAndVersion viewId, Set<Long> rowsIdsWithChanges, ViewScopeType scopeType,
 			Set<Long> allContainersInScope, List<ColumnModel> currentSchema) {
 		ValidateArgument.required(viewId, "viewId");
 		ValidateArgument.required(rowsIdsWithChanges, "rowsIdsWithChanges");
-		ValidateArgument.required(viewTypeMask, "viewTypeMask");
+		ValidateArgument.required(scopeType, "scopeType");
 		ValidateArgument.required(allContainersInScope, "allContainersInScope");
 		ValidateArgument.required(currentSchema, "currentSchema");
+		
+		MetadataIndexProvider provider = metadataIndexProviderFactory.getMetadataIndexProvider(scopeType.getObjectType());
+		
+		ViewScopeFilter scopeFilter = buildViewScopeFilter(provider, scopeType.getTypeMask(), allContainersInScope);
+
 		// all calls are in a single transaction.
 		tableIndexDao.executeInWriteTransaction((TransactionStatus status) -> {
-			Long[] rowsIdsArray = rowsIdsWithChanges.stream().toArray(Long[] ::new); 
+			Long[] rowsIdsArray = rowsIdsWithChanges.stream().toArray(Long[] ::new);
  			// First delete the provided rows from the view
 			tableIndexDao.deleteRowsFromViewBatch(viewId, rowsIdsArray);
 			try {
 				// Apply any updates to the view for the given Ids
-				tableIndexDao.copyEntityReplicationToView(viewId.getId(), viewTypeMask, allContainersInScope, currentSchema, rowsIdsWithChanges);
+				tableIndexDao.copyObjectReplicationToView(viewId.getId(), scopeFilter, currentSchema, provider, rowsIdsWithChanges);
 				populateListColumnIndexTables(viewId, currentSchema, rowsIdsWithChanges);
 			} catch (Exception e) {
 				// if the copy failed. Attempt to determine the cause.  This will always throw an exception.
-				determineCauseOfReplicationFailure(e, currentSchema,  allContainersInScope, viewTypeMask);
+				determineCauseOfReplicationFailure(e, scopeFilter, currentSchema);
 			}
 			return null;
 		});
+	}
+	
+	private ViewScopeFilter buildViewScopeFilter(ViewScopeFilterProvider provider, Long viewTypeMask, Set<Long> containerIds) {
+		return new ViewScopeFilterBuilder(provider, viewTypeMask)
+				.withContainerIds(containerIds)
+				.build();
 	}
 
 }

@@ -10,6 +10,7 @@ import org.sagebionetworks.repo.model.entity.IdAndVersion;
 import org.sagebionetworks.repo.model.table.ColumnModel;
 import org.sagebionetworks.repo.model.table.ColumnModelPage;
 import org.sagebionetworks.repo.model.table.ViewScope;
+import org.sagebionetworks.repo.model.table.ViewScopeType;
 import org.sagebionetworks.table.cluster.ColumnChangeDetails;
 import org.sagebionetworks.table.model.SparseChangeSet;
 import org.sagebionetworks.util.csv.CSVWriterStream;
@@ -143,16 +144,14 @@ public interface TableIndexManager {
 
 	/**
 	 * Create a temporary copy of the table's index table.
-	 * 
-	 * @param callback
+	 *
 	 */
-	void createTemporaryTableCopy(IdAndVersion tableId, ProgressCallback callback);
+	void createTemporaryTableCopy(IdAndVersion tableId);
 
 	/**
 	 * Delete the temporary copy of table's index.
-	 * @param callback
 	 */
-	void deleteTemporaryTableCopy(IdAndVersion tableId, ProgressCallback callback);
+	void deleteTemporaryTableCopy(IdAndVersion tableId);
 
 	/**
 	 * Attempt to alter the schema of a temporary copy of a table.
@@ -163,7 +162,7 @@ public interface TableIndexManager {
 	 * @param changes
 	 * @return
 	 */
-	boolean alterTempTableSchmea(IdAndVersion tableId, List<ColumnChangeDetails> changes);
+	void alterTempTableSchmea(IdAndVersion tableId, List<ColumnChangeDetails> changes);
 
 
 	/**
@@ -171,23 +170,22 @@ public interface TableIndexManager {
 	 * replication tables.
 	 * @param callback 
 	 * 
-	 * @param viewType
+	 * @param scopeType
 	 * @param allContainersInScope
 	 * @param currentSchema
 	 * @return View CRC32
 	 */
-	long populateViewFromEntityReplication(Long tableId, Long viewTypeMask,
-			Set<Long> allContainersInScope, List<ColumnModel> currentSchema);
+	long populateViewFromEntityReplication(Long viewId, ViewScopeType scopeType, Set<Long> allContainersInScope, List<ColumnModel> currentSchema);
 	
 	/**
 	 * Create a snapshot of the given view.
 	 * @param tableId
-	 * @param viewTypeMask
+	 * @param scopeType
 	 * @param allContainersInScope
 	 * @param viewSchema
 	 * @param writter
 	 */
-	void createViewSnapshot(Long viewId, Long viewTypeMask, Set<Long> allContainersInScope,
+	void createViewSnapshot(Long viewId, ViewScopeType scopeType, Set<Long> allContainersInScope,
 			List<ColumnModel> viewSchema, CSVWriterStream writter);	
 	
 	/**
@@ -238,12 +236,12 @@ public interface TableIndexManager {
 	 * </ul>
 	 * 
 	 * @param viewId The id of the view to check.
-	 * @param viewTypeMask  The type of view.
+	 * @param scopeType  The scope type of the view.
 	 * @param allContainersInScope All of the containers that define the scope 
 	 * @param limit Limit the number of rows returned. 
 	 * @return
 	 */
-	Set<Long> getOutOfDateRowsForView(IdAndVersion viewId, long viewTypeMask, Set<Long> allContainersInScope, long limit);
+	Set<Long> getOutOfDateRowsForView(IdAndVersion viewId, ViewScopeType scopeType, Set<Long> allContainersInScope, long limit);
 
 	/**
 	 * In a single transaction, update the provided rowIds for a view. For each
@@ -256,7 +254,7 @@ public interface TableIndexManager {
 	 * @param allContainersInScope The container Ids that define the scope of this view.
 	 * @param currentSchema The current schema of the view.
 	 */
-	void updateViewRowsInTransaction(IdAndVersion viewId, Set<Long> rowsIdsWithChanges, Long viewTypeMask,
+	void updateViewRowsInTransaction(IdAndVersion viewId, Set<Long> rowsIdsWithChanges, ViewScopeType scopeType,
 			Set<Long> allContainersInScope, List<ColumnModel> currentSchema);
 
 }

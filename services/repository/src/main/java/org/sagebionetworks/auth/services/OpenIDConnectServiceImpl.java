@@ -29,8 +29,11 @@ import org.sagebionetworks.repo.web.ServiceUnavailableException;
 import org.sagebionetworks.repo.web.UrlHelpers;
 import org.sagebionetworks.util.ValidateArgument;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
+@Service
 public class OpenIDConnectServiceImpl implements OpenIDConnectService {
+	
 	private static final List<String> TOKEN_ENDPOINT_AUTHENTICATION_TYPES = Collections.singletonList("client_secret_basic");
 	
 	@Autowired
@@ -146,8 +149,6 @@ public class OpenIDConnectServiceImpl implements OpenIDConnectService {
 
 	@Override
 	public Object getUserInfo(String accessToken, String oauthEndpoint) {
-		UserInfo userAuthorization = oidcManager.getUserAuthorization(accessToken);
-		String oauthClientId = oidcTokenHelper.parseJWT(accessToken).getBody().getAudience();
-		return oidcManager.getUserInfo(userAuthorization, oauthClientId, oauthEndpoint);
+		return oidcManager.getUserInfo(accessToken, oauthEndpoint);
 	}
 }
