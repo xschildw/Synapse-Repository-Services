@@ -8,7 +8,6 @@ import java.io.StringReader;
 import java.util.LinkedList;
 import java.util.List;
 
-import org.sagebionetworks.schema.*;
 import org.sagebionetworks.schema.id.*;
 import org.sagebionetworks.schema.element.*;
 import org.sagebionetworks.schema.semantic.version.*;
