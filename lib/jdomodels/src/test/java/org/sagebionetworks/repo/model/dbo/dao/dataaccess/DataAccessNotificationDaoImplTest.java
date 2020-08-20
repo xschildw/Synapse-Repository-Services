@@ -688,23 +688,23 @@ public class DataAccessNotificationDaoImplTest {
 		
 		AccessApproval approval = createApproval(requirement);
 		
-		Instant sentOn = Instant.now();
+		Instant sentOn = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 		
 		DBODataAccessNotification n1 = newNotification(DataAccessNotificationType.REVOCATION, requirement, approval, sentOn, -1L);
 		
-		Instant firstSentOn = sentOn.minus(2, ChronoUnit.DAYS);
+		Instant firstSentOn = sentOn.minus(2, ChronoUnit.DAYS).truncatedTo(ChronoUnit.MILLIS);
 		
 		DBODataAccessNotification n2 = newNotification(DataAccessNotificationType.FIRST_RENEWAL_REMINDER, requirement, approval, firstSentOn, -1L);
 		
-		Instant secondSentOn = sentOn.minus(1, ChronoUnit.DAYS);
+		Instant secondSentOn = sentOn.minus(1, ChronoUnit.DAYS).truncatedTo(ChronoUnit.MILLIS);
 		
 		DBODataAccessNotification n3 = newNotification(DataAccessNotificationType.SECOND_RENEWAL_REMINDER, requirement, approval, secondSentOn, -1L);
 		
 		storeNotifications(n1, n2, n3);
-		
+
 		Long requirementId = requirement.getId();
 		List<Long> recipientIds = Arrays.asList(Long.valueOf(approval.getAccessorId()));
-		
+
 		List<DBODataAccessNotification> expected = Arrays.asList(n2, n3, n1);
 		
 		// Call under test
@@ -798,7 +798,7 @@ public class DataAccessNotificationDaoImplTest {
 
 	private DBODataAccessNotification newNotification(DataAccessNotificationType type, Long requirement, Long recipient,
 			Long approval, Long messageId) {
-		return newNotification(type, requirement, recipient, Instant.now(), approval, messageId);
+		return newNotification(type, requirement, recipient, Instant.now().truncatedTo(ChronoUnit.MILLIS), approval, messageId);
 	}
 	
 	private DBODataAccessNotification newNotification(DataAccessNotificationType type, Long requirement, Long recipient,
