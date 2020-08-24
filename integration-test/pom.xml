@@ -15,7 +15,7 @@
 
 	<properties>
 		<jacoco.skip>true</jacoco.skip>
-		<tomcat-version>7.0.32</tomcat-version>
+		<tomcat-version>8.5.57</tomcat-version>
 		<tomcat-file>apache-tomcat-${tomcat-version}</tomcat-file>
 		<!-- This is where the repository war will be deployed -->
 		<org.sagebionetworks.auth.context>services-authentication-${project.version}</org.sagebionetworks.auth.context>
@@ -114,11 +114,11 @@
 					<!-- Container configuration -->
 					<container>
 						<timeout>360000</timeout>
-						<containerId>tomcat7x</containerId>
+						<containerId>tomcat8x</containerId>
 						<!-- Download and install tomcat -->
 						<zipUrlInstaller>
 							<url>https://sagebionetworks.jfrog.io/sagebionetworks/libs-releases-local/apache-tomcat/apache-tomcat/${tomcat-version}/apache-tomcat-${tomcat-version}.zip</url>
-							<extractDir>${project.build.directory}/tomcat7x/container</extractDir>
+							<extractDir>${project.build.directory}/tomcat8x/container</extractDir>
 						</zipUrlInstaller>
 						<systemProperties>
 							<org.sagebionetworks.stack>${org.sagebionetworks.stack}</org.sagebionetworks.stack>
@@ -157,7 +157,7 @@
 						</properties>
 					</configuration>
 					<type>standalone</type>
-					<home>${project.build.directory}/tomcat7x/container/${tomcat-file}/bin</home>
+					<home>${project.build.directory}/tomcat8x/container/${tomcat-file}/bin</home>
 					<deployables>
 						<deployable>
 							<groupId>org.sagebionetworks</groupId>
