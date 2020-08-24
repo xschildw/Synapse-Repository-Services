@@ -14,6 +14,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.reflections.Reflections;
 import org.reflections.scanners.MethodAnnotationsScanner;
+import org.reflections.scanners.SubTypesScanner;
 import org.reflections.scanners.TypeAnnotationsScanner;
 import org.sagebionetworks.repo.transactions.MandatoryWriteTransaction;
 import org.sagebionetworks.repo.transactions.NewWriteTransaction;
@@ -63,7 +64,7 @@ public class BeanTest implements ApplicationContextAware {
 	@Test
 	public void testTransactionalNotUsed() {
 		// Transactional is not used anymore, use @WriteTransaction, @NewWriteTransaction or @MandatoryWriteTransaction
-		Reflections reflections = new Reflections("org.sagebionetworks", new MethodAnnotationsScanner(), new TypeAnnotationsScanner());
+		Reflections reflections = new Reflections("org.sagebionetworks", new MethodAnnotationsScanner(), new TypeAnnotationsScanner(), new SubTypesScanner());
 		assertEquals(0, reflections.getTypesAnnotatedWith(Transactional.class).size());
 		assertEquals(0, reflections.getMethodsAnnotatedWith(Transactional.class).size());
 	}
@@ -83,11 +84,14 @@ public class BeanTest implements ApplicationContextAware {
 			"getDoiAssociationForUpdate",
 			"getUnsuccessfulLoginLockoutInfoIfExist",
 			"checkIsLockedOut",
-			"getTableIdWithLock");
+			"getTableIdWithLock",
+			"getMatchingTokenByHashForUpdate",
+			"getAddedPartRanges",
+			"getFormDataStatusForUpdate");
 
 	@Test
 	public void testNoGetterWriteTransactions() {
-		Reflections reflections = new Reflections("org.sagebionetworks", new MethodAnnotationsScanner());
+		Reflections reflections = new Reflections("org.sagebionetworks", new MethodAnnotationsScanner(), new SubTypesScanner());
 		Set<Method> writeMethods = reflections.getMethodsAnnotatedWith(WriteTransaction.class);
 		writeMethods.addAll(reflections.getMethodsAnnotatedWith(NewWriteTransaction.class));
 		writeMethods.addAll(reflections.getMethodsAnnotatedWith(MandatoryWriteTransaction.class));

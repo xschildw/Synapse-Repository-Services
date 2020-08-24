@@ -11,6 +11,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.reflections.Reflections;
 import org.reflections.scanners.MethodAnnotationsScanner;
+import org.reflections.scanners.SubTypesScanner;
 import org.reflections.scanners.TypeAnnotationsScanner;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
@@ -56,7 +57,7 @@ public class BeanTest implements ApplicationContextAware {
 	@Test
 	public void testTransactionalNotUsed() {
 		// Transactional is not used anymore, use @WriteTransaction, @NewWriteTransaction or @MandatoryWriteTransaction
-		Reflections reflections = new Reflections("org.sagebionetworks", new MethodAnnotationsScanner(), new TypeAnnotationsScanner());
+		Reflections reflections = new Reflections("org.sagebionetworks", new MethodAnnotationsScanner(), new TypeAnnotationsScanner(), new SubTypesScanner());
 		assertEquals(0, reflections.getTypesAnnotatedWith(Transactional.class).size());
 		assertEquals(0, reflections.getMethodsAnnotatedWith(Transactional.class).size());
 	}
