@@ -195,6 +195,14 @@ public interface TableIndexManager {
 	 * @return A ColumnModel for each distinct annotation for the given scope.
 	 */
 	ColumnModelPage getPossibleColumnModelsForScope(ViewScope scope, String nextPageToken);
+	
+	/**
+	 * Get the possible ColumnModel definitions based on annotations for a given view.
+	 * @param viewId The id of the view to fetch annotation definitions for.
+	 * @param nextPageToken Optional: Controls pagination.
+	 * @return A ColumnModel for each distinct annotation for the given scope.
+	 */
+	ColumnModelPage getPossibleColumnModelsForView(Long viewId, String nextPageToken);
 
 	/**
 	 * Build the index for the given table using the provided change metadata up to and
@@ -248,5 +256,12 @@ public interface TableIndexManager {
 	 */
 	void updateViewRowsInTransaction(IdAndVersion viewId, Set<Long> rowsIdsWithChanges, ViewScopeType scopeType,
 			Set<Long> allContainersInScope, List<ColumnModel> currentSchema);
+
+	/**
+	 * Ensure the benefactor IDs for the given view snapshot are up-to-date.
+	 * 
+	 * @param viewId
+	 */
+	void refreshViewBenefactors(IdAndVersion viewId);
 
 }
