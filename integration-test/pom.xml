@@ -53,8 +53,8 @@
 				or deploy to a local tomcat via tomcat:deploy -->
 			<plugin>
 				<groupId>org.apache.tomcat.maven</groupId>
-				<artifactId>tomcat7-maven-plugin</artifactId>
-				<version>2.0</version>
+				<artifactId>tomcat8-maven-plugin</artifactId>
+				<version>2.2</version>
 				<configuration>
 					<!-- Deploy this as the root application -->
 					<path>/</path>
@@ -155,14 +155,26 @@
 							</cargo.jvmargs>
 							
 						</properties>
+						<users>
+							<user>
+								<name>tomcat</name>
+								<password>tomcat</password>
+								<roles>
+									<role>manager-gui</role>
+									<role>manager-status</role>
+								</roles>
+							</user>
+						</users>
 					</configuration>
 					<type>standalone</type>
-					<home>${project.build.directory}/tomcat8x/container/${tomcat-file}/bin</home>
 					<deployables>
 						<deployable>
 							<groupId>org.sagebionetworks</groupId>
 							<artifactId>services-repository</artifactId>
 							<type>war</type>
+							<properties>
+								<context>services-repository-${project.version}</context>
+							</properties>
 						</deployable>
 						<deployable>
 							<groupId>org.sagebionetworks</groupId>
