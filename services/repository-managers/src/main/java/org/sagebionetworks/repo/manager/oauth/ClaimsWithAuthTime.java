@@ -18,7 +18,7 @@ public class ClaimsWithAuthTime extends DefaultClaims {
 	}
 	
 	public Date getAuthTime() {
-		return get(OIDCClaimName.auth_time.name(), Date.class);
+		return new Date(get(OIDCClaimName.auth_time.name(), Long.class)*1000L);
 	}
 
 }
