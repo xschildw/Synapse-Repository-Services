@@ -8,7 +8,12 @@ import java.util.Date;
 public class ClaimsWithAuthTimeHelper {
 
     public static void setAuthTime(Claims claims, Date authTime) {
-        claims.put(OIDCClaimName.auth_time.name(), authTime.getTime()/1000L);
+        // Match what JwtMap does
+        if (authTime == null) {
+            claims.remove(OIDCClaimName.auth_time.name());
+        } else {
+            claims.put(OIDCClaimName.auth_time.name(), authTime.getTime()/1000L);
+        }
     }
 
     public static Date getAuthTime(Claims claims) {
