@@ -1144,7 +1144,7 @@ public class OpenIDConnectManagerImplUnitTest {
 
 	private void mockAccessToken(String oAuthClientId) {
 		when(oidcTokenHelper.parseJWT(ACCESS_TOKEN)).thenReturn(mockJWT);
-		Claims claims = ClaimsWithAuthTime.newClaims();
+		Claims claims = Jwts.claims();
 		claims.setAudience(oAuthClientId);
 		String ppid;
 		if (AuthorizationConstants.SYNAPSE_OAUTH_CLIENT_ID.equals(oAuthClientId)) {
@@ -1245,7 +1245,7 @@ public class OpenIDConnectManagerImplUnitTest {
 		String refreshTokenId = "12345";
 		String token = "access token";
 		when(oidcTokenHelper.parseJWT(token)).thenReturn(mockJWT);
-		Claims claims = ClaimsWithAuthTime.newClaims();
+		Claims claims = Jwts.claims();
 		claims.put(OIDCClaimName.token_type.name(), TokenType.OIDC_ACCESS_TOKEN.name());
 		claims.put(OIDCClaimName.refresh_token_id.name(), refreshTokenId);
 		ClaimsJsonUtil.addAccessClaims(Collections.emptyList(), Collections.emptyMap(), claims);
@@ -1267,7 +1267,7 @@ public class OpenIDConnectManagerImplUnitTest {
 	public void testValidateAccessToken_noRefreshTokenId() {
 		String token = "access token";
 		when(oidcTokenHelper.parseJWT(token)).thenReturn(mockJWT);
-		Claims claims = ClaimsWithAuthTime.newClaims();
+		Claims claims = Jwts.claims();
 		claims.put(OIDCClaimName.token_type.name(), TokenType.OIDC_ACCESS_TOKEN.name());
 		ClaimsJsonUtil.addAccessClaims(Collections.emptyList(), Collections.emptyMap(), claims);
 		when(mockJWT.getBody()).thenReturn(claims);
@@ -1288,7 +1288,7 @@ public class OpenIDConnectManagerImplUnitTest {
 		String refreshTokenId = "12345";
 		String token = "access token";
 		when(oidcTokenHelper.parseJWT(token)).thenReturn(mockJWT);
-		Claims claims = ClaimsWithAuthTime.newClaims();
+		Claims claims = Jwts.claims();
 		claims.put(OIDCClaimName.token_type.name(), TokenType.OIDC_ACCESS_TOKEN.name());
 		claims.put(OIDCClaimName.refresh_token_id.name(), refreshTokenId);
 		ClaimsJsonUtil.addAccessClaims(Collections.emptyList(), Collections.emptyMap(), claims);
@@ -1330,7 +1330,7 @@ public class OpenIDConnectManagerImplUnitTest {
 		String token = "personal access token";
 		String tokenId = "9999";
 		when(oidcTokenHelper.parseJWT(token)).thenReturn(mockJWT);
-		Claims claims = ClaimsWithAuthTime.newClaims();
+		Claims claims = Jwts.claims();
 		claims.setId(tokenId);
 		claims.put(OIDCClaimName.token_type.name(), TokenType.PERSONAL_ACCESS_TOKEN.name());
 		ClaimsJsonUtil.addAccessClaims(Collections.emptyList(), Collections.emptyMap(), claims);
@@ -1353,7 +1353,7 @@ public class OpenIDConnectManagerImplUnitTest {
 		String token = "personal access token";
 		String tokenId = "9999";
 		when(oidcTokenHelper.parseJWT(token)).thenReturn(mockJWT);
-		Claims claims = ClaimsWithAuthTime.newClaims();
+		Claims claims = Jwts.claims();
 		claims.setId(tokenId);
 		claims.put(OIDCClaimName.token_type.name(), TokenType.PERSONAL_ACCESS_TOKEN.name());
 		ClaimsJsonUtil.addAccessClaims(Collections.emptyList(), Collections.emptyMap(), claims);

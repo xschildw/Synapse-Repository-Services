@@ -38,7 +38,7 @@ public class ClaimsJsonUtilTest {
 			details.setEssential(true);
 			oidcClaims.put(OIDCClaimName.family_name, details);
 		}
-		Claims claims = ClaimsWithAuthTime.newClaims();
+		Claims claims = Jwts.claims();
 		
 		// method under test
 		ClaimsJsonUtil.addAccessClaims(scopes, oidcClaims, claims);

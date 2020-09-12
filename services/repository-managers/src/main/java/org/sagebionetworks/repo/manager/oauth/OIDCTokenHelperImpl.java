@@ -82,20 +82,21 @@ public class OIDCTokenHelperImpl implements InitializingBean, OIDCTokenHelper {
 			String tokenId,
 			Map<OIDCClaimName,Object> userInfo) {
 		
-		ClaimsWithAuthTime claims = ClaimsWithAuthTime.newClaims();
+		Claims claims = Jwts.claims();
 		
 		for (OIDCClaimName claimName: userInfo.keySet()) {
 			claims.put(claimName.name(), userInfo.get(claimName));
 		}
 		
-		claims.setAuthTime(authTime)
-			.setIssuer(issuer)
+		claims.setIssuer(issuer)
 			.setAudience(oauthClientId)
 			.setExpiration(new Date(now+ID_TOKEN_EXPIRATION_TIME_SECONDS*1000L))
 			.setNotBefore(new Date(now))
 			.setIssuedAt(new Date(now))
 			.setId(tokenId)
 			.setSubject(subject);
+
+		ClaimsWithAuthTimeHelper.setAuthTime(claims, authTime);
 
 		claims.put(OIDCClaimName.token_type.name(), TokenType.OIDC_ID_TOKEN);
 
@@ -117,18 +118,19 @@ public class OIDCTokenHelperImpl implements InitializingBean, OIDCTokenHelper {
 			List<OAuthScope> scopes,
 			Map<OIDCClaimName, OIDCClaimsRequestDetails> oidcClaims) {
 		
-		ClaimsWithAuthTime claims = ClaimsWithAuthTime.newClaims();
+		Claims claims = Jwts.claims();
 		
 		ClaimsJsonUtil.addAccessClaims(scopes, oidcClaims, claims);
 		
-		claims.setAuthTime(authTime)
-			.setIssuer(issuer)
+		claims.setIssuer(issuer)
 			.setAudience(oauthClientId)
 			.setExpiration(new Date(now+expirationTimeSeconds*1000L))
 			.setNotBefore(new Date(now))
 			.setIssuedAt(new Date(now))
 			.setId(accessTokenId)
 			.setSubject(subject);
+
+		ClaimsWithAuthTimeHelper.setAuthTime(claims, authTime);
 
 		claims.put(OIDCClaimName.token_type.name(), TokenType.OIDC_ACCESS_TOKEN);
 
@@ -138,7 +140,7 @@ public class OIDCTokenHelperImpl implements InitializingBean, OIDCTokenHelper {
 
 	@Override
 	public String createPersonalAccessToken(String issuer, AccessTokenRecord record) {
-		ClaimsWithAuthTime claims = ClaimsWithAuthTime.newClaims();
+		Claims claims = Jwts.claims();
 
 		ClaimsJsonUtil.addAccessClaims(record.getScopes(), EnumKeyedJsonMapUtil.convertKeysToEnums(record.getUserInfoClaims(), OIDCClaimName.class), claims);
 
