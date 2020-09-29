@@ -33,6 +33,9 @@ import org.sagebionetworks.client.exceptions.SynapseResultNotReadyException;
 import org.sagebionetworks.client.exceptions.SynapseTermsOfUseException;
 import org.sagebionetworks.evaluation.model.BatchUploadResponse;
 import org.sagebionetworks.evaluation.model.Evaluation;
+import org.sagebionetworks.evaluation.model.EvaluationRound;
+import org.sagebionetworks.evaluation.model.EvaluationRoundListRequest;
+import org.sagebionetworks.evaluation.model.EvaluationRoundListResponse;
 import org.sagebionetworks.evaluation.model.Submission;
 import org.sagebionetworks.evaluation.model.SubmissionBundle;
 import org.sagebionetworks.evaluation.model.SubmissionStatus;
@@ -158,6 +161,7 @@ import org.sagebionetworks.repo.model.doi.v2.DoiRequest;
 import org.sagebionetworks.repo.model.doi.v2.DoiResponse;
 import org.sagebionetworks.repo.model.entity.BindSchemaToEntityRequest;
 import org.sagebionetworks.repo.model.entity.EntityLookupRequest;
+import org.sagebionetworks.repo.model.entity.FileHandleUpdateRequest;
 import org.sagebionetworks.repo.model.entity.query.SortDirection;
 import org.sagebionetworks.repo.model.entitybundle.v2.EntityBundle;
 import org.sagebionetworks.repo.model.entitybundle.v2.EntityBundleCreate;
@@ -408,6 +412,7 @@ public class SynapseClientImpl extends BaseClientImpl implements SynapseClient {
 			+ REDIRECT_PARAMETER;
 
 	private static final String EVALUATION_URI_PATH = "/evaluation";
+	private static final String EVALUATION_ROUND = "/round";
 	private static final String AVAILABLE_EVALUATION_URI_PATH = "/evaluation/available";
 	private static final String NAME = "name";
 	private static final String ALL = "/all";
@@ -2990,6 +2995,55 @@ public class SynapseClientImpl extends BaseClientImpl implements SynapseClient {
 	public void deleteEvaluation(String evalId) throws SynapseException {
 		ValidateArgument.required(evalId, "Evaluation ID");
 		String uri = createEntityUri(EVALUATION_URI_PATH, evalId);
+		deleteUri(getRepoEndpoint(), uri);
+	}
+
+	@Override
+	public EvaluationRound createEvaluationRound(EvaluationRound round) throws SynapseException {
+		ValidateArgument.required(round, "round");
+		ValidateArgument.required(round.getEvaluationId(), "round.evaluationId");
+		String uri = EVALUATION_URI_PATH + "/" + round.getEvaluationId() + EVALUATION_ROUND;
+		return postJSONEntity(getRepoEndpoint(), uri, round, EvaluationRound.class);
+	}
+
+	@Override
+	public EvaluationRound getEvaluationRound(String evalId, String roundId) throws SynapseException {
+		ValidateArgument.required(evalId, "Evaluation ID");
+		ValidateArgument.required(roundId, "EvaluationRound ID");
+
+		String uri = EVALUATION_URI_PATH + "/" + evalId + EVALUATION_ROUND + "/" + roundId;
+
+		return getJSONEntity(getRepoEndpoint(), uri, EvaluationRound.class);
+	}
+
+	@Override
+	public EvaluationRoundListResponse getAllEvaluationRounds(String evalId, EvaluationRoundListRequest request) throws SynapseException {
+		ValidateArgument.required(evalId, "Evaluation ID");
+		ValidateArgument.required(request, "request");
+
+		String uri = EVALUATION_URI_PATH + "/" + evalId + EVALUATION_ROUND + LIST;
+
+		return postJSONEntity(getRepoEndpoint(), uri, request, EvaluationRoundListResponse.class);
+	}
+
+	@Override
+	public EvaluationRound updateEvaluationRound(EvaluationRound round) throws SynapseException {
+		ValidateArgument.required(round, "round");
+		ValidateArgument.required(round.getEvaluationId(), "round.evaluationId");
+		ValidateArgument.required(round.getId(), "round.id");
+
+		String uri = EVALUATION_URI_PATH + "/" + round.getEvaluationId() + EVALUATION_ROUND + "/" + round.getId();
+
+		return putJSONEntity(getRepoEndpoint(), uri, round, EvaluationRound.class);
+	}
+
+	@Override
+	public void deleteEvaluationRound(String evalId, String roundId) throws SynapseException {
+		ValidateArgument.required(evalId, "evalId");
+		ValidateArgument.required(roundId, "roundId");
+
+		String uri = EVALUATION_URI_PATH + "/" + evalId + EVALUATION_ROUND + "/" + roundId;
+
 		deleteUri(getRepoEndpoint(), uri);
 	}
 
@@ -5867,6 +5921,19 @@ public class SynapseClientImpl extends BaseClientImpl implements SynapseClient {
 		ValidateArgument.required(request.getContainerId(), "request.containerId");
 		String url = "/entity/"+request.getContainerId()+"/schema/validation/invalid";
 		return postJSONEntity(getRepoEndpoint(), url, request, ListValidationResultsResponse.class);
+	}
+	
+	@Override
+	public void updateEntityFileHandle(String entityId, Long versionNumber, FileHandleUpdateRequest request)
+			throws SynapseException {
+		ValidateArgument.required(entityId, "entityId");
+		ValidateArgument.required(versionNumber, "versionNumber");
+		ValidateArgument.required(request, "request");
+		
+		String url = "/entity/" + entityId + "/version/" + versionNumber + "/filehandle";
+		
+		voidPut(getRepoEndpoint(), url, request);
+		
 	}
 
 }

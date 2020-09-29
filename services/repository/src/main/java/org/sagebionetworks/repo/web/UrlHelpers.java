@@ -1,5 +1,11 @@
 package org.sagebionetworks.repo.web;
 
+import org.sagebionetworks.repo.model.Annotations;
+import org.sagebionetworks.repo.model.PrefixConst;
+import org.sagebionetworks.repo.model.ServiceConstants;
+import org.sagebionetworks.repo.model.ServiceConstants.AttachmentType;
+
+import javax.servlet.http.HttpServletRequest;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.Collections;
@@ -7,13 +13,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import javax.servlet.http.HttpServletRequest;
-
-import org.sagebionetworks.repo.model.Annotations;
-import org.sagebionetworks.repo.model.PrefixConst;
-import org.sagebionetworks.repo.model.ServiceConstants;
-import org.sagebionetworks.repo.model.ServiceConstants.AttachmentType;
 
 /**
  * UrlHelpers is responsible for the formatting of all URLs exposed by the
@@ -365,6 +364,8 @@ public class UrlHelpers {
 	 * Get the generating activity for a specific version of an entity
 	 */
 	public static final String ENTITY_VERSION_GENERATED_BY = ENTITY_VERSION_NUMBER+GENERATED_BY;
+	
+	public static final String ENTITY_VERSION_FILE_HANDLE = ENTITY_VERSION_NUMBER + "/filehandle";
 
 	/**
 	 * DOI (Digital Object Identifier).
@@ -736,7 +737,12 @@ public class UrlHelpers {
 	public static final String EVALUATION_WITH_NAME = EVALUATION + "/name/{name}";
 	public static final String EVALUATION_COUNT = EVALUATION + "/count";
 	public static final String EVALUATION_AVAILABLE = EVALUATION+"/available";
-	
+
+	//EvaluationRounds
+	public static final String EVALUATION_ROUND = EVALUATION_WITH_ID + "/round";
+	public static final String EVALUATION_ROUND_ID_PATH_VAR = "{roundId}";
+	public static final String EVALUATION_ROUND_WITH_ROUND_ID = EVALUATION_ROUND + "/" + EVALUATION_ROUND_ID_PATH_VAR;
+
 	public static final String PARTICIPANT = EVALUATION_WITH_ID + "/participant";
 	public static final String PARTICIPANT_WITH_ID = PARTICIPANT + "/{partId}";
 	public static final String PARTICIPANT_COUNT = PARTICIPANT + "/count";
@@ -916,6 +922,7 @@ public class UrlHelpers {
 	public static final String NAME_FRAGMENT_FILTER = "fragment";
 	public static final String MEMBER_TYPE_FILTER = "memberType";
 	public static final String TEAM_ID_ICON = TEAM_ID+"/icon";
+	public static final String TEAM_ID_ICON_PREVIEW = TEAM_ID+TEAM_ID_ICON+"/preview";
 	private static final String MEMBER = "/member";
 	public static final String PRINCIPAL_ID_PATH_VARIABLE = "principalId";
 	public static final String PRINCIPAL_ID = "/{"+PRINCIPAL_ID_PATH_VARIABLE+"}";
