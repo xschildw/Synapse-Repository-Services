@@ -20,6 +20,8 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.sagebionetworks.asynchronous.workers.sqs.MessageUtils;
 import org.sagebionetworks.audit.dao.ObjectRecordDAO;
+import org.sagebionetworks.audit.kinesis.AclKinesisLogRecord;
+import org.sagebionetworks.audit.kinesis.ObjectRecordLogger;
 import org.sagebionetworks.audit.utils.ObjectRecordBuilderUtils;
 import org.sagebionetworks.common.util.progress.ProgressCallback;
 import org.sagebionetworks.repo.model.AccessControlList;
@@ -41,6 +43,9 @@ public class AclObjectRecordWriterTest {
 	private ObjectRecordDAO mockObjectRecordDao;
 	@Mock
 	private ProgressCallback mockCallback;
+	@Mock
+	private ObjectRecordLogger mockObjectRecordLogger;
+
 	private AclObjectRecordWriter writer;
 	private long id = 123L;
 
@@ -50,6 +55,7 @@ public class AclObjectRecordWriterTest {
 		writer = new AclObjectRecordWriter();
 		ReflectionTestUtils.setField(writer, "accessControlListDao", mockAccessControlListDao);
 		ReflectionTestUtils.setField(writer, "objectRecordDAO", mockObjectRecordDao);
+		ReflectionTestUtils.setField(writer, "objectRecordLogger", mockObjectRecordLogger);
 	}
 
 	@Test
@@ -78,10 +84,12 @@ public class AclObjectRecordWriterTest {
 		ChangeMessage changeMessage = MessageUtils.extractMessageBody(message);
 		AclRecord record = AclObjectRecordWriter.buildAclRecord(acl, ObjectType.ENTITY);
 		ObjectRecord expected = ObjectRecordBuilderUtils.buildObjectRecord(record, changeMessage.getTimestamp().getTime());
+		AclKinesisLogRecord expectedKinesisLogRecord = new AclKinesisLogRecord().withAclRecord(record).withTimestamp(changeMessage.getTimestamp().getTime());
 		writer.buildAndWriteRecords(mockCallback, Arrays.asList(changeMessage, changeMessage));
 		verify(mockAccessControlListDao, times(2)).get(id);
 		verify(mockAccessControlListDao, times(2)).getOwnerType(id);
 		verify(mockObjectRecordDao).saveBatch(eq(Arrays.asList(expected, expected)), eq(expected.getJsonClassName()));
+		verify(mockObjectRecordLogger).saveBatch(eq(AclKinesisLogRecord.KINESIS_STREAM_NAME), eq(Arrays.asList(expectedKinesisLogRecord, expectedKinesisLogRecord)));
 	}
 
 	@Test

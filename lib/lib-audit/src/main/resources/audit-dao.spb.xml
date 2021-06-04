@@ -27,4 +27,8 @@
 		<property name="stackInstanceNumber" ref="stackConfiguration.stackInstanceNumber" />
 		<property name="snapshotRecordBucketName" ref="stackConfiguration.snapshotRecordBucketName" />
 	</bean>
+
+	<bean id="objectRecordLogger" class="org.sagebionetworks.audit.kinesis.ObjectRecordLoggerImpl"
+		  scope="singleton">
+	</bean>
 </beans>

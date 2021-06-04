@@ -16,6 +16,9 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.sagebionetworks.asynchronous.workers.sqs.MessageUtils;
 import org.sagebionetworks.audit.dao.ObjectRecordDAO;
+import org.sagebionetworks.audit.kinesis.DeletedNodeKinesisLogRecord;
+import org.sagebionetworks.audit.kinesis.NodeKinesisLogRecord;
+import org.sagebionetworks.audit.kinesis.ObjectRecordLogger;
 import org.sagebionetworks.audit.utils.ObjectRecordBuilderUtils;
 import org.sagebionetworks.common.util.progress.ProgressCallback;
 import org.sagebionetworks.repo.manager.UserManager;
@@ -58,6 +61,8 @@ public class NodeObjectRecordWriterTest {
 	@Mock
 	private ObjectRecordDAO mockObjectRecordDao;
 	@Mock
+	private ObjectRecordLogger mockObjectRecordLogger;
+	@Mock
 	private ProgressCallback mockCallback;
 
 	private NodeObjectRecordWriter writer;
@@ -74,6 +79,7 @@ public class NodeObjectRecordWriterTest {
 		ReflectionTestUtils.setField(writer, "accessRequirementDao", mockAccessRequirementDao);
 		ReflectionTestUtils.setField(writer, "entityAuthorizationManager", mockEntityAuthorizationManager);
 		ReflectionTestUtils.setField(writer, "objectRecordDAO", mockObjectRecordDao);
+		ReflectionTestUtils.setField(writer, "objectRecordLogger", mockObjectRecordLogger);
 
 		node = new NodeRecord();
 		node.setId("123");
@@ -103,8 +109,10 @@ public class NodeObjectRecordWriterTest {
 		writer.buildAndWriteRecords(mockCallback, Arrays.asList(changeMessage));
 		DeletedNode deletedNode = new DeletedNode();
 		deletedNode.setId(nodeId);
-		ObjectRecord expected = ObjectRecordBuilderUtils.buildObjectRecord(deletedNode, timestamp);;
+		ObjectRecord expected = ObjectRecordBuilderUtils.buildObjectRecord(deletedNode, timestamp);
 		Mockito.verify(mockObjectRecordDao).saveBatch(Mockito.eq(Arrays.asList(expected)), Mockito.eq(expected.getJsonClassName()));
+		DeletedNodeKinesisLogRecord expectedDeletedNodeKinesisLogRecord = new DeletedNodeKinesisLogRecord().withTimestamp(timestamp).withDeletedNodeRecord(deletedNode);
+		Mockito.verify(mockObjectRecordLogger).saveBatch(eq(DeletedNodeKinesisLogRecord.KINESIS_STREAM_NAME), eq(Arrays.asList(expectedDeletedNodeKinesisLogRecord)));
 	}
 
 	@Test (expected=IllegalArgumentException.class)
@@ -124,10 +132,12 @@ public class NodeObjectRecordWriterTest {
 		node.setIsControlled(stats.getHasACT());
 		node.setIsRestricted(stats.getHasToU());
 		ObjectRecord expected = ObjectRecordBuilderUtils.buildObjectRecord(node, timestamp);
+		NodeKinesisLogRecord expectedKinesisRecord = new NodeKinesisLogRecord().withNodeRecord(node).withTimestamp(timestamp);
 
 		writer.buildAndWriteRecords(mockCallback, Arrays.asList(changeMessage));
 		verify(mockNodeDAO).getNode(eq("123"));
 		verify(mockObjectRecordDao).saveBatch(eq(Arrays.asList(expected)), eq(expected.getJsonClassName()));
+		verify(mockObjectRecordLogger).saveBatch(eq(NodeKinesisLogRecord.KINESIS_STREAM_NAME), eq(Arrays.asList(expectedKinesisRecord)));
 	}
 
 	@Test

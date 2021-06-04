@@ -1,12 +1,16 @@
 package org.sagebionetworks.object.snapshot.worker.utils;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.sagebionetworks.audit.dao.ObjectRecordDAO;
+import org.sagebionetworks.audit.kinesis.DeletedNodeKinesisLogRecord;
+import org.sagebionetworks.audit.kinesis.NodeKinesisLogRecord;
+import org.sagebionetworks.audit.kinesis.ObjectRecordLogger;
 import org.sagebionetworks.audit.utils.ObjectRecordBuilderUtils;
 import org.sagebionetworks.common.util.progress.ProgressCallback;
 import org.sagebionetworks.repo.manager.UserManager;
@@ -30,7 +34,7 @@ import org.sagebionetworks.repo.web.NotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 
 public class NodeObjectRecordWriter implements ObjectRecordWriter {
-	private static Logger log = LogManager.getLogger(NodeObjectRecordWriter.class);
+	private static final Logger log = LogManager.getLogger(NodeObjectRecordWriter.class);
 
 	@Autowired
 	private NodeDAO nodeDAO;
@@ -42,14 +46,16 @@ public class NodeObjectRecordWriter implements ObjectRecordWriter {
 	private EntityAuthorizationManager entityAuthorizationManager;
 	@Autowired
 	private ObjectRecordDAO objectRecordDAO;
-
+	@Autowired
+	private ObjectRecordLogger objectRecordLogger;
 	/**
 	 * set record's isPublic, isRestricted, and isControlled fields
 	 * 
 	 * @param record
 	 * @param userManager
-	 * @param accessRequirementManager
-	 * @param entityPermissionManager
+	 * @param accessRequirementDao
+	 * @param entityAuthorizationManager
+	 * @param nodeDao
 	 * @return a record that contains all data from the passed in record and
 	 * addition information about whether the node is public, restricted, and
 	 * controlled.
@@ -97,14 +103,18 @@ public class NodeObjectRecordWriter implements ObjectRecordWriter {
 
 	@Override
 	public void buildAndWriteRecords(ProgressCallback progressCallback, List<ChangeMessage> messages) throws IOException {
-		List<ObjectRecord> nonDeleteRecords = new LinkedList<ObjectRecord>();
-		List<ObjectRecord> deleteRecords = new LinkedList<ObjectRecord>();
+		List<ObjectRecord> nonDeleteRecords = new LinkedList<>();
+		List<ObjectRecord> deleteRecords = new LinkedList<>();
+		List<NodeKinesisLogRecord> kinesisNonDeleteToWrite = new ArrayList<>(messages.size());
+		List<DeletedNodeKinesisLogRecord> kinesisDeleteToWrite = new ArrayList<>(messages.size());
+
 		for (ChangeMessage message : messages) {
 			if (message.getObjectType() != ObjectType.ENTITY) {
 				throw new IllegalArgumentException();
 			}
 			if (message.getChangeType() == ChangeType.DELETE) {
 				deleteRecords.add(buildDeletedNodeRecord(message));
+				kinesisDeleteToWrite.add(buildDeletedNodeKinesisLogRecord(message));
 			} else {
 				try {
 					Node node = nodeDAO.getNode(message.getObjectId());
@@ -114,10 +124,12 @@ public class NodeObjectRecordWriter implements ObjectRecordWriter {
 					record = setAccessProperties(record, userManager, accessRequirementDao, entityAuthorizationManager, nodeDAO);
 					ObjectRecord objectRecord = ObjectRecordBuilderUtils.buildObjectRecord(record, message.getTimestamp().getTime());
 					nonDeleteRecords.add(objectRecord);
+					NodeKinesisLogRecord nodeKinesisLogRecord = new NodeKinesisLogRecord().withNodeRecord(record).withTimestamp(message.getTimestamp().getTime());
+					kinesisNonDeleteToWrite.add(nodeKinesisLogRecord);
 				} catch (EntityInTrashCanException e) {
 					deleteRecords.add(buildDeletedNodeRecord(message));
 				} catch (NotFoundException e) {
-					log.error("Cannot find node for a " + message.getChangeType() + " message: " + message.toString()) ;
+					log.error("Cannot find node for a " + message.getChangeType() + " message: " + message) ;
 				}
 			}
 		}
@@ -127,12 +139,27 @@ public class NodeObjectRecordWriter implements ObjectRecordWriter {
 		if (!deleteRecords.isEmpty()) {
 			objectRecordDAO.saveBatch(deleteRecords, deleteRecords.get(0).getJsonClassName());
 		}
+		if (! kinesisNonDeleteToWrite.isEmpty()) {
+			objectRecordLogger.saveBatch(NodeKinesisLogRecord.KINESIS_STREAM_NAME, kinesisNonDeleteToWrite);
+		}
+		if (! kinesisDeleteToWrite.isEmpty()) {
+			objectRecordLogger.saveBatch(DeletedNodeKinesisLogRecord.KINESIS_STREAM_NAME, kinesisDeleteToWrite);
+		}
 	}
 
-	public static ObjectRecord buildDeletedNodeRecord(ChangeMessage message) throws IOException {
+	public static ObjectRecord buildDeletedNodeRecord(ChangeMessage message) {
 		DeletedNode deletedNode = new DeletedNode();
 		deletedNode.setId(message.getObjectId());
 		ObjectRecord objectRecord = ObjectRecordBuilderUtils.buildObjectRecord(deletedNode, message.getTimestamp().getTime());
 		return objectRecord;
+	}
+
+	public static DeletedNodeKinesisLogRecord buildDeletedNodeKinesisLogRecord(ChangeMessage message) {
+		DeletedNode deletedNode = new DeletedNode();
+		deletedNode.setId(message.getObjectId());
+		DeletedNodeKinesisLogRecord deletedNodeKinesisLogRecord = new DeletedNodeKinesisLogRecord()
+				.withDeletedNodeRecord(deletedNode)
+				.withTimestamp(message.getTimestamp().getTime());
+		return deletedNodeKinesisLogRecord;
 	}
 }
