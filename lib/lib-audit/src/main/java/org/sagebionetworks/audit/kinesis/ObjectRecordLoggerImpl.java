@@ -11,10 +11,10 @@ import java.util.List;
 public class ObjectRecordLoggerImpl implements ObjectRecordLogger {
 
 	@Autowired
-	AwsKinesisFirehoseLogger firehoseLogger;
+	AwsKinesisFirehoseLogger awsKinesisFirehoseLogger;
 
 	@Override
 	public void saveBatch(String kinesisDataStreamSuffix, List<? extends AwsKinesisLogRecord> batch) {
-		firehoseLogger.logBatch(kinesisDataStreamSuffix, batch);
+		awsKinesisFirehoseLogger.logBatch(kinesisDataStreamSuffix, batch);
 	}
 }
