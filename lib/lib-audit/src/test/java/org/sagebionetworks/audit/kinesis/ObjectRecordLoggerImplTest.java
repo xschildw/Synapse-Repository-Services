@@ -15,6 +15,7 @@ import org.sagebionetworks.repo.model.audit.NodeRecord;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.eq;
@@ -55,8 +56,17 @@ class ObjectRecordLoggerImplTest {
 	@Test
 	void saveBatchNodeRecord() {
 		NodeRecord nodeRec = new NodeRecord();
-		nodeRec.setId("987654");
+		nodeRec.setBenefactorId("12345");
+		nodeRec.setCreatedByPrincipalId(123L);
+		nodeRec.setCreatedOn(new Date());
+		nodeRec.setModifiedOn(new Date());
+		nodeRec.setModifiedByPrincipalId(123L);
+		nodeRec.setParentId("12345");
+		nodeRec.setProjectId("12345");
+		nodeRec.setVersionNumber(1L);
 		nodeRec.setNodeType(EntityType.file);
+		nodeRec.setId("987654");
+		nodeRec.setFileHandleId("789012");
 		NodeKinesisLogRecord nodeKinesisLogRecord = new NodeKinesisLogRecord().withTimestamp(123456L).withNodeRecord(nodeRec);
 		List<NodeKinesisLogRecord> nodeKinesisLogRecords = Collections.singletonList(nodeKinesisLogRecord);
 
