@@ -56,13 +56,13 @@ class ObjectRecordLoggerImplTest {
 	@Test
 	void saveBatchNodeRecord() {
 		NodeRecord nodeRec = new NodeRecord();
-		nodeRec.setBenefactorId("12345");
+		nodeRec.setBenefactorId("syn12345");
 		nodeRec.setCreatedByPrincipalId(123L);
 		nodeRec.setCreatedOn(new Date());
 		nodeRec.setModifiedOn(new Date());
 		nodeRec.setModifiedByPrincipalId(123L);
-		nodeRec.setParentId("12345");
-		nodeRec.setProjectId("12345");
+		nodeRec.setParentId("syn12345");
+		nodeRec.setProjectId("syn12345");
 		nodeRec.setVersionNumber(1L);
 		nodeRec.setNodeType(EntityType.file);
 		nodeRec.setId("987654");
@@ -80,7 +80,7 @@ class ObjectRecordLoggerImplTest {
 	@Test
 	void saveBatchDeletedNodeRecord() {
 		DeletedNode deletedNode = new DeletedNode();
-		deletedNode.setId("987654");
+		deletedNode.setId("syn987654");
 		DeletedNodeKinesisLogRecord deletedNodeKinesisLogRecord = new DeletedNodeKinesisLogRecord().withTimestamp(123456L).withDeletedNodeRecord(deletedNode);
 		List<DeletedNodeKinesisLogRecord> deletedNodeKinesisLogRecords = Collections.singletonList(deletedNodeKinesisLogRecord);
 

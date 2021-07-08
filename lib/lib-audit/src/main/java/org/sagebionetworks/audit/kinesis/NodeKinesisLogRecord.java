@@ -1,5 +1,6 @@
 package org.sagebionetworks.audit.kinesis;
 
+import org.sagebionetworks.audit.utils.ObjectRecordUtils;
 import org.sagebionetworks.kinesis.AwsKinesisLogRecord;
 import org.sagebionetworks.repo.model.audit.NodeRecord;
 
@@ -57,16 +58,16 @@ public class NodeKinesisLogRecord implements AwsKinesisLogRecord {
 	}
 
 	public NodeKinesisLogRecord withNodeRecord(NodeRecord nodeRecord) {
-		this.benefactorId = Long.parseLong(nodeRecord.getBenefactorId());
+		this.benefactorId = ObjectRecordUtils.synapseIdToLong(nodeRecord.getBenefactorId());
 		this.createdBy = nodeRecord.getCreatedByPrincipalId();
 		this.createdOn = nodeRecord.getCreatedOn().getTime();
 		this.fileHandleId = Long.parseLong(nodeRecord.getFileHandleId());
 		this.modifiedBy = nodeRecord.getModifiedByPrincipalId();
 		this.modifiedOn = nodeRecord.getModifiedOn().getTime();
 		this.name = nodeRecord.getName();
-		this.nodeId = Long.parseLong(nodeRecord.getId());
-		this.parentId = Long.parseLong(nodeRecord.getParentId());
-		this.projectId = Long.parseLong(nodeRecord.getProjectId());
+		this.nodeId = ObjectRecordUtils.synapseIdToLong(nodeRecord.getId());
+		this.parentId = ObjectRecordUtils.synapseIdToLong(nodeRecord.getParentId());
+		this.projectId = ObjectRecordUtils.synapseIdToLong(nodeRecord.getProjectId());
 		this.type = nodeRecord.getNodeType().toString();
 		this.versionNumber = nodeRecord.getVersionNumber();
 		this.isPublic = nodeRecord.getIsPublic();
