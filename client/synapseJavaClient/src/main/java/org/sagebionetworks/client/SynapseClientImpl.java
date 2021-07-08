@@ -162,6 +162,10 @@ import org.sagebionetworks.repo.model.download.AddBatchOfFilesToDownloadListRequ
 import org.sagebionetworks.repo.model.download.AddBatchOfFilesToDownloadListResponse;
 import org.sagebionetworks.repo.model.download.AddToDownloadListRequest;
 import org.sagebionetworks.repo.model.download.AddToDownloadListResponse;
+import org.sagebionetworks.repo.model.download.DownloadListManifestRequest;
+import org.sagebionetworks.repo.model.download.DownloadListManifestResponse;
+import org.sagebionetworks.repo.model.download.DownloadListPackageRequest;
+import org.sagebionetworks.repo.model.download.DownloadListPackageResponse;
 import org.sagebionetworks.repo.model.download.DownloadListQueryRequest;
 import org.sagebionetworks.repo.model.download.DownloadListQueryResponse;
 import org.sagebionetworks.repo.model.download.RemoveBatchOfFilesFromDownloadListRequest;
@@ -194,6 +198,8 @@ import org.sagebionetworks.repo.model.file.ExternalObjectStoreFileHandle;
 import org.sagebionetworks.repo.model.file.FileHandle;
 import org.sagebionetworks.repo.model.file.FileHandleAssociation;
 import org.sagebionetworks.repo.model.file.FileHandleAssociationList;
+import org.sagebionetworks.repo.model.file.FileHandleRestoreRequest;
+import org.sagebionetworks.repo.model.file.FileHandleRestoreResponse;
 import org.sagebionetworks.repo.model.file.FileHandleResults;
 import org.sagebionetworks.repo.model.file.GoogleCloudFileHandle;
 import org.sagebionetworks.repo.model.file.MultipartUploadRequest;
@@ -655,6 +661,8 @@ public class SynapseClientImpl extends BaseClientImpl implements SynapseClient {
 	
 	public static final String DOWNLOAD_LIST = "/download/list";
 	public static final String DOWNLOAD_LIST_ADD = DOWNLOAD_LIST+"/add";
+	public static final String DOWNLOAD_LIST_PACKAGE = DOWNLOAD_LIST+"/package";
+	public static final String DOWNLOAD_LIST_MANIFEST = DOWNLOAD_LIST+"/manifest";
 	public static final String DOWNLOAD_LIST_REMOVE = DOWNLOAD_LIST+"/remove";
 	public static final String DOWNLOAD_LIST_CLEAR = DOWNLOAD_LIST+"/clear";
 	
@@ -670,6 +678,8 @@ public class SynapseClientImpl extends BaseClientImpl implements SynapseClient {
 	public static final String SCHEMA_TYPE_CREATE = "/schema/type/create/";
 	public static final String SCHEMA_TYPE_VALIDATION = "/schema/type/validation/";
 	public static final String VIEW_COLUMNS = "/column/view/scope/";
+	
+	public static final String FILE_HANDLE_RESTORE = FILE_HANDLE + "/restore";
 	
 
 	/**
@@ -5976,5 +5986,47 @@ public class SynapseClientImpl extends BaseClientImpl implements SynapseClient {
 		ValidateArgument.required(asyncJobToken, "asyncJobToken");
 		String url = DOWNLOAD_LIST_ADD + ASYNC_GET + asyncJobToken;
 		return (AddToDownloadListResponse) getAsynchJobResponse(url, AddToDownloadListResponse.class, getRepoEndpoint());
+	}
+	
+	@Override
+	public String startDownloadListPackage(DownloadListPackageRequest request) throws SynapseException {
+		ValidateArgument.required(request, "request");
+		return startAsynchJob(AsynchJobType.DownloadPackageList, request);
+	}
+
+	@Override
+	public DownloadListPackageResponse getDownloadListPackageResponse(String asyncJobToken)
+			throws SynapseException, SynapseResultNotReadyException {
+		ValidateArgument.required(asyncJobToken, "asyncJobToken");
+		String url = DOWNLOAD_LIST_PACKAGE + ASYNC_GET + asyncJobToken;
+		return (DownloadListPackageResponse) getAsynchJobResponse(url, DownloadListPackageResponse.class, getRepoEndpoint());
+	}
+	
+	@Override
+	public String startDownloadListManifest(DownloadListManifestRequest request) throws SynapseException {
+		ValidateArgument.required(request, "request");
+		return startAsynchJob(AsynchJobType.DownloadPackageList, request);
+	}
+
+	@Override
+	public DownloadListManifestResponse getDownloadListManifestResponse(String asyncJobToken)
+			throws SynapseException, SynapseResultNotReadyException {
+		ValidateArgument.required(asyncJobToken, "asyncJobToken");
+		String url = DOWNLOAD_LIST_MANIFEST + ASYNC_GET + asyncJobToken;
+		return (DownloadListManifestResponse) getAsynchJobResponse(url, DownloadListManifestResponse.class, getRepoEndpoint());
+	}
+	
+	@Override
+	public String startFileHandleRestoreRequest(FileHandleRestoreRequest request) throws SynapseException {
+		ValidateArgument.required(request, "request");
+		return startAsynchJob(AsynchJobType.FileHandleRestore, request);
+	}
+	
+	@Override
+	public FileHandleRestoreResponse getFileHandleRestoreResponse(String asyncJobToken)
+			throws SynapseException, SynapseResultNotReadyException {
+		ValidateArgument.required(asyncJobToken, "asyncJobToken");
+		String url = FILE_HANDLE_RESTORE + ASYNC_GET + asyncJobToken;
+		return (FileHandleRestoreResponse) getAsynchJobResponse(url, FileHandleRestoreResponse.class, getRepoEndpoint());
 	}
 }

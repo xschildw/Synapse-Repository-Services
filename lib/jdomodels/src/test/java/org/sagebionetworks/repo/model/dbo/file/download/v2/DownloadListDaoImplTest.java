@@ -11,14 +11,30 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+import static org.sagebionetworks.repo.model.annotation.v2.AnnotationsValueType.BOOLEAN;
+import static org.sagebionetworks.repo.model.annotation.v2.AnnotationsValueType.DOUBLE;
+import static org.sagebionetworks.repo.model.annotation.v2.AnnotationsValueType.LONG;
+import static org.sagebionetworks.repo.model.annotation.v2.AnnotationsValueType.STRING;
+import static org.sagebionetworks.repo.model.annotation.v2.AnnotationsValueType.TIMESTAMP_MS;
+import static org.sagebionetworks.repo.model.dbo.file.download.v2.DownloadListDAOImpl.ACTUAL_VERSION;
+import static org.sagebionetworks.repo.model.dbo.file.download.v2.DownloadListDAOImpl.CONTENT_SIZE;
+import static org.sagebionetworks.repo.model.dbo.file.download.v2.DownloadListDAOImpl.CREATED_BY;
+import static org.sagebionetworks.repo.model.dbo.file.download.v2.DownloadListDAOImpl.CREATED_ON;
+import static org.sagebionetworks.repo.model.dbo.file.download.v2.DownloadListDAOImpl.ENTITY_NAME;
+import static org.sagebionetworks.repo.model.dbo.file.download.v2.DownloadListDAOImpl.IS_ELIGIBLE_FOR_PACKAGING;
+import static org.sagebionetworks.repo.model.dbo.file.download.v2.DownloadListDAOImpl.PROJECT_NAME;
+import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.COL_DOWNLOAD_LIST_ITEM_V2_ADDED_ON;
+import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.COL_DOWNLOAD_LIST_ITEM_V2_ENTITY_ID;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.json.JSONObject;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,8 +46,11 @@ import org.sagebionetworks.repo.model.NodeConstants;
 import org.sagebionetworks.repo.model.NodeDAO;
 import org.sagebionetworks.repo.model.UserGroup;
 import org.sagebionetworks.repo.model.UserGroupDAO;
+import org.sagebionetworks.repo.model.annotation.v2.Annotations;
+import org.sagebionetworks.repo.model.annotation.v2.AnnotationsValue;
 import org.sagebionetworks.repo.model.dbo.file.FileHandleDao;
 import org.sagebionetworks.repo.model.download.ActionRequiredCount;
+import org.sagebionetworks.repo.model.download.AvailableFilter;
 import org.sagebionetworks.repo.model.download.DownloadListItem;
 import org.sagebionetworks.repo.model.download.DownloadListItemResult;
 import org.sagebionetworks.repo.model.download.FilesStatisticsResponse;
@@ -40,8 +59,12 @@ import org.sagebionetworks.repo.model.download.RequestDownload;
 import org.sagebionetworks.repo.model.download.Sort;
 import org.sagebionetworks.repo.model.download.SortDirection;
 import org.sagebionetworks.repo.model.download.SortField;
+import org.sagebionetworks.repo.model.file.ExternalFileHandle;
+import org.sagebionetworks.repo.model.file.FileConstants;
 import org.sagebionetworks.repo.model.file.FileHandle;
+import org.sagebionetworks.repo.model.file.S3FileHandle;
 import org.sagebionetworks.repo.model.helper.DaoObjectHelper;
+import org.sagebionetworks.repo.model.helper.FileHandleObjectHelper;
 import org.sagebionetworks.repo.model.jdo.KeyFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
@@ -62,18 +85,20 @@ public class DownloadListDaoImplTest {
 	@Autowired
 	private NodeDAO nodeDao;
 	@Autowired
-	private DaoObjectHelper<FileHandle> fileHandleDaoHelper;
+	private FileHandleObjectHelper fileHandleObjectHelper;
 	@Autowired
 	private FileHandleDao fileHandleDao;
 
-	Long userOneIdLong;
-	String userOneId;
+	private Long userOneIdLong;
+	private String userOneId;
 
-	Long userTwoIdLong;
-	String userTwoId;
+	private Long userTwoIdLong;
+	private String userTwoId;
 
-	List<DownloadListItem> idsWithVersions;
-	List<DownloadListItem> idsWithoutVersions;
+	private List<DownloadListItem> idsWithVersions;
+	private List<DownloadListItem> idsWithoutVersions;
+	private long limit;
+	private AvailableFilter filter;
 
 	@BeforeEach
 	public void before() {
@@ -107,6 +132,8 @@ public class DownloadListDaoImplTest {
 			idWithoutVersion.setVersionNumber(null);
 			idsWithoutVersions.add(idWithoutVersion);
 		}
+		limit = 100L;
+		filter = null;
 	}
 
 	@AfterEach
@@ -483,7 +510,7 @@ public class DownloadListDaoImplTest {
 		List<Long> expected = files.stream().map(n -> KeyFactory.stringToKey(n.getId())).collect(Collectors.toList());
 		assertEquals(expected, results);
 	}
-
+	
 	@Test
 	public void testGetAvailableFilesFromDownloadListWithPartialAccess() {
 		int numberOfProject = 1;
@@ -608,6 +635,8 @@ public class DownloadListDaoImplTest {
 		expectedResult.setCreatedBy(file.getCreatedByPrincipalId().toString());
 		expectedResult.setCreatedOn(file.getCreatedOn());
 		expectedResult.setFileSizeBytes(fileHandle.getContentSize());
+		expectedResult.setIsEligibleForPackaging(true);
+		expectedResult.setFileHandleId(fileHandle.getId());
 
 		List<DownloadListItemResult> expected = Arrays.asList(expectedResult);
 
@@ -647,6 +676,8 @@ public class DownloadListDaoImplTest {
 		expectedResult.setCreatedBy(file.getCreatedByPrincipalId().toString());
 		expectedResult.setCreatedOn(file.getCreatedOn());
 		expectedResult.setFileSizeBytes(fileHandle.getContentSize());
+		expectedResult.setIsEligibleForPackaging(true);
+		expectedResult.setFileHandleId(fileHandle.getId());
 
 		List<DownloadListItemResult> expected = Arrays.asList(expectedResult);
 
@@ -668,9 +699,10 @@ public class DownloadListDaoImplTest {
 			n.setNodeType(EntityType.project);
 		});
 
-		FileHandle fh1 = fileHandleDaoHelper.create(h -> {
+		FileHandle fh1 = fileHandleObjectHelper.create(h -> {
 			h.setContentSize(123L);
 			h.setFileName("file.txt");
+			h.setBucketName(null);
 		});
 		Node file = nodeDaoHelper.create(n -> {
 			n.setName("f1");
@@ -698,6 +730,8 @@ public class DownloadListDaoImplTest {
 		expectedResult.setCreatedBy(file.getCreatedByPrincipalId().toString());
 		expectedResult.setCreatedOn(file.getCreatedOn());
 		expectedResult.setFileSizeBytes(fh1.getContentSize());
+		expectedResult.setIsEligibleForPackaging(true);
+		expectedResult.setFileHandleId(fh1.getId());
 
 		List<DownloadListItemResult> expected = Arrays.asList(expectedResult);
 
@@ -734,6 +768,26 @@ public class DownloadListDaoImplTest {
 		List<DownloadListItemResult> twoResults = downloadListDao.getDownloadListItems(userTwoIdLong,
 				userTwoItems.toArray(new DownloadListItem[userTwoItems.size()]));
 		validateMatches(userTwoItems, twoResults);
+	}
+	
+	@Test
+	public void testGetColumnName() {
+		assertEquals(ENTITY_NAME, DownloadListDAOImpl.getColumnName(SortField.fileName));
+		assertEquals(PROJECT_NAME, DownloadListDAOImpl.getColumnName(SortField.projectName));
+		assertEquals(COL_DOWNLOAD_LIST_ITEM_V2_ENTITY_ID, DownloadListDAOImpl.getColumnName(SortField.synId));
+		assertEquals(ACTUAL_VERSION, DownloadListDAOImpl.getColumnName(SortField.versionNumber));
+		assertEquals(COL_DOWNLOAD_LIST_ITEM_V2_ADDED_ON, DownloadListDAOImpl.getColumnName(SortField.addedOn));
+		assertEquals(CREATED_BY, DownloadListDAOImpl.getColumnName(SortField.createdBy));
+		assertEquals(CREATED_ON, DownloadListDAOImpl.getColumnName(SortField.createdOn));
+		assertEquals(CONTENT_SIZE, DownloadListDAOImpl.getColumnName(SortField.fileSize));
+		assertEquals(IS_ELIGIBLE_FOR_PACKAGING, DownloadListDAOImpl.getColumnName(SortField.isEligibleForPackaging));
+	}
+	
+	@Test
+	public void testGetColumnNameEachType() {
+		for(SortField field: SortField.values()) {
+			assertNotNull(DownloadListDAOImpl.getColumnName(field));
+		}
 	}
 	
 	@Test
@@ -810,6 +864,37 @@ public class DownloadListDaoImplTest {
 	}
 	
 	@Test
+	public void testBuildAvailableFilterWithNull() {
+		AvailableFilter filter = null;
+		// call under test
+		assertEquals("", DownloadListDAOImpl.buildAvailableFilter(filter));
+	}
+	
+	@Test
+	public void testBuildAvailableFilterWithEligible() {
+		AvailableFilter filter = AvailableFilter.eligibleForPackaging;
+		// call under test
+		assertEquals(" WHERE F.METADATA_TYPE = 'S3' AND F.CONTENT_SIZE <= :maxEligibleSize", DownloadListDAOImpl.buildAvailableFilter(filter));
+	}
+	
+	@Test
+	public void testBuildAvailableFilterWithIneligible() {
+		AvailableFilter filter = AvailableFilter.ineligibleForPackaging;
+		// call under test
+		assertEquals(" WHERE F.METADATA_TYPE <> 'S3' OR F.CONTENT_SIZE > :maxEligibleSize", DownloadListDAOImpl.buildAvailableFilter(filter));
+	}
+	
+	
+	@Test
+	public void testBuildAvailableFilterWithEachTypel() {
+		for(AvailableFilter filter: AvailableFilter.values()) {
+			// call under test
+			String result = DownloadListDAOImpl.buildAvailableFilter(filter);
+			assertNotNull(result);
+		}
+	}
+	
+	@Test
 	public void testGetFilesAvailableToDownloadFromDownload() {
 		int numberOfProject = 2;
 		int foldersPerProject = 1;
@@ -834,7 +919,205 @@ public class DownloadListDaoImplTest {
 		Long offset = 0L;
 		// call under test
 		List<DownloadListItemResult> result = downloadListDao.getFilesAvailableToDownloadFromDownloadList(l -> l,
-				userOneIdLong, sort, limit, offset);
+				userOneIdLong, filter, sort, limit, offset);
+		assertEquals(expected, result);
+	}
+	
+	@Test
+	public void testGetFilesAvailableToDownloadFromDownloadWithSortIsEligibleForPackaging() {
+		Node project = nodeDaoHelper.create(n -> {
+			n.setName(String.join("-", "project", "" + 0));
+			n.setCreatedByPrincipalId(userOneIdLong);
+			n.setParentId(NodeConstants.BOOTSTRAP_NODES.ROOT.getId().toString());
+			n.setNodeType(EntityType.project);
+		});
+
+		// S3 under max (eligible)
+		String fileName = "s3UnderSize";
+		FileHandle fileHandle = fileHandleObjectHelper.createFileHandle(f->{
+			f.setContentSize(FileConstants.MAX_FILE_SIZE_ELIGIBLE_FOR_PACKAGING);
+		}, S3FileHandle.class);
+		Node fileS3UnderSize = createFile(project.getId(), fileName, fileHandle);
+
+		// S3 over max (ineligible)
+		fileName = "s3OverSize";
+		fileHandle = fileHandleObjectHelper.createFileHandle(f->{
+			f.setContentSize(FileConstants.MAX_FILE_SIZE_ELIGIBLE_FOR_PACKAGING+1);
+		}, S3FileHandle.class);
+		Node fileS3OverSize = createFile(project.getId(), fileName, fileHandle);
+
+		// External (ineligible)
+		fileName = "external";
+		fileHandle = fileHandleObjectHelper.createFileHandle(f->{
+			f.setContentSize( 101L);
+		}, ExternalFileHandle.class);
+		Node fileExternal = createFile(project.getId(), fileName, fileHandle);
+
+		List<DownloadListItem> toAdd = Arrays.asList(
+				new DownloadListItem().setFileEntityId(fileS3UnderSize.getId()).setVersionNumber(1L),
+				new DownloadListItem().setFileEntityId(fileS3OverSize.getId()).setVersionNumber(1L),
+				new DownloadListItem().setFileEntityId(fileExternal.getId()).setVersionNumber(1L));
+		downloadListDao.addBatchOfFilesToDownloadList(userOneIdLong, toAdd);
+
+		List<DownloadListItemResult> expected = downloadListDao.getDownloadListItems(userOneIdLong, toAdd.get(0), toAdd.get(2), toAdd.get(1));
+		assertTrue(expected.get(0).getIsEligibleForPackaging());
+		assertFalse(expected.get(1).getIsEligibleForPackaging());
+		assertFalse(expected.get(2).getIsEligibleForPackaging());
+
+		filter = null;
+		List<Sort> sort = Arrays.asList(
+				new Sort().setField(SortField.isEligibleForPackaging).setDirection(SortDirection.DESC),
+				new Sort().setField(SortField.synId).setDirection(SortDirection.DESC)
+		);
+		Long limit = 100L;
+		Long offset = 0L;
+		// call under test
+		List<DownloadListItemResult> result = downloadListDao.getFilesAvailableToDownloadFromDownloadList(l -> l,
+				userOneIdLong, filter, sort, limit, offset);
+		assertEquals(expected, result);
+	}
+	
+	@Test
+	public void testGetFilesAvailableToDownloadFromDownloadWithFilterEligile() {
+		Node project = nodeDaoHelper.create(n -> {
+			n.setName(String.join("-", "project", "" + 0));
+			n.setCreatedByPrincipalId(userOneIdLong);
+			n.setParentId(NodeConstants.BOOTSTRAP_NODES.ROOT.getId().toString());
+			n.setNodeType(EntityType.project);
+		});
+
+		// S3 under max (eligible)
+		String fileName = "s3UnderSize";
+		FileHandle fileHandle = fileHandleObjectHelper.createFileHandle(f->{
+			f.setContentSize(FileConstants.MAX_FILE_SIZE_ELIGIBLE_FOR_PACKAGING);
+		}, S3FileHandle.class);
+		Node fileS3UnderSize = createFile(project.getId(), fileName, fileHandle);
+
+		// S3 over max (ineligible)
+		fileName = "s3OverSize";
+		fileHandle = fileHandleObjectHelper.createFileHandle(f->{
+			f.setContentSize(FileConstants.MAX_FILE_SIZE_ELIGIBLE_FOR_PACKAGING+1);
+		}, S3FileHandle.class);
+		Node fileS3OverSize = createFile(project.getId(), fileName, fileHandle);
+
+		// External (ineligible)
+		fileName = "external";
+		fileHandle = fileHandleObjectHelper.createFileHandle(f->{
+			f.setContentSize( 101L);
+		}, ExternalFileHandle.class);
+		Node fileExternal = createFile(project.getId(), fileName, fileHandle);
+
+		List<DownloadListItem> toAdd = Arrays.asList(
+				new DownloadListItem().setFileEntityId(fileS3UnderSize.getId()).setVersionNumber(1L),
+				new DownloadListItem().setFileEntityId(fileS3OverSize.getId()).setVersionNumber(1L),
+				new DownloadListItem().setFileEntityId(fileExternal.getId()).setVersionNumber(1L));
+		downloadListDao.addBatchOfFilesToDownloadList(userOneIdLong, toAdd);
+
+		List<DownloadListItemResult> expected = downloadListDao.getDownloadListItems(userOneIdLong, toAdd.get(0));
+
+		filter = AvailableFilter.eligibleForPackaging;
+		List<Sort> sort = Arrays.asList(new Sort().setField(SortField.synId).setDirection(SortDirection.DESC));
+		Long limit = 100L;
+		Long offset = 0L;
+		// call under test
+		List<DownloadListItemResult> result = downloadListDao.getFilesAvailableToDownloadFromDownloadList(l -> l,
+				userOneIdLong, filter, sort, limit, offset);
+		assertEquals(expected, result);
+	}
+	
+	@Test
+	public void testGetFilesAvailableToDownloadFromDownloadWithFilterIneligile() {
+		Node project = nodeDaoHelper.create(n -> {
+			n.setName(String.join("-", "project", "" + 0));
+			n.setCreatedByPrincipalId(userOneIdLong);
+			n.setParentId(NodeConstants.BOOTSTRAP_NODES.ROOT.getId().toString());
+			n.setNodeType(EntityType.project);
+		});
+
+		// S3 under max (eligible)
+		String fileName = "s3UnderSize";
+		FileHandle fileHandle = fileHandleObjectHelper.createFileHandle(f->{
+			f.setContentSize(FileConstants.MAX_FILE_SIZE_ELIGIBLE_FOR_PACKAGING);
+		}, S3FileHandle.class);
+		Node fileS3UnderSize = createFile(project.getId(), fileName, fileHandle);
+
+		// S3 over max (ineligible)
+		fileName = "s3OverSize";
+		fileHandle = fileHandleObjectHelper.createFileHandle(f->{
+			f.setContentSize(FileConstants.MAX_FILE_SIZE_ELIGIBLE_FOR_PACKAGING+1);
+		}, S3FileHandle.class);
+		Node fileS3OverSize = createFile(project.getId(), fileName, fileHandle);
+
+		// External (ineligible)
+		fileName = "external";
+		fileHandle = fileHandleObjectHelper.createFileHandle(f->{
+			f.setContentSize( 101L);
+		}, ExternalFileHandle.class);
+		Node fileExternal = createFile(project.getId(), fileName, fileHandle);
+
+		List<DownloadListItem> toAdd = Arrays.asList(
+				new DownloadListItem().setFileEntityId(fileS3UnderSize.getId()).setVersionNumber(1L),
+				new DownloadListItem().setFileEntityId(fileS3OverSize.getId()).setVersionNumber(1L),
+				new DownloadListItem().setFileEntityId(fileExternal.getId()).setVersionNumber(1L));
+		downloadListDao.addBatchOfFilesToDownloadList(userOneIdLong, toAdd);
+
+		List<DownloadListItemResult> expected = downloadListDao.getDownloadListItems(userOneIdLong, toAdd.get(2), toAdd.get(1));
+
+		filter = AvailableFilter.ineligibleForPackaging;
+		List<Sort> sort = Arrays.asList(new Sort().setField(SortField.synId).setDirection(SortDirection.DESC));
+		Long limit = 100L;
+		Long offset = 0L;
+		// call under test
+		List<DownloadListItemResult> result = downloadListDao.getFilesAvailableToDownloadFromDownloadList(l -> l,
+				userOneIdLong, filter, sort, limit, offset);
+		assertEquals(expected, result);
+	}
+
+	@Test
+	public void testGetFilesAvailableToDownloadFromDownloadWithNullFilter() {
+		Node project = nodeDaoHelper.create(n -> {
+			n.setName(String.join("-", "project", "" + 0));
+			n.setCreatedByPrincipalId(userOneIdLong);
+			n.setParentId(NodeConstants.BOOTSTRAP_NODES.ROOT.getId().toString());
+			n.setNodeType(EntityType.project);
+		});
+
+		// S3 under max (eligible)
+		String fileName = "s3UnderSize";
+		FileHandle fileHandle = fileHandleObjectHelper.createFileHandle(f->{
+			f.setContentSize(FileConstants.MAX_FILE_SIZE_ELIGIBLE_FOR_PACKAGING);
+		}, S3FileHandle.class);
+		Node fileS3UnderSize = createFile(project.getId(), fileName, fileHandle);
+
+		// S3 over max (ineligible)
+		fileName = "s3OverSize";
+		fileHandle = fileHandleObjectHelper.createFileHandle(f->{
+			f.setContentSize(FileConstants.MAX_FILE_SIZE_ELIGIBLE_FOR_PACKAGING+1);
+		}, S3FileHandle.class);
+		Node fileS3OverSize = createFile(project.getId(), fileName, fileHandle);
+
+		// External (ineligible)
+		fileName = "external";
+		fileHandle = fileHandleObjectHelper.createFileHandle(f->{
+			f.setContentSize( 101L);
+		}, ExternalFileHandle.class);
+		Node fileExternal = createFile(project.getId(), fileName, fileHandle);
+
+		List<DownloadListItem> toAdd = Arrays.asList(
+				new DownloadListItem().setFileEntityId(fileS3UnderSize.getId()).setVersionNumber(1L),
+				new DownloadListItem().setFileEntityId(fileS3OverSize.getId()).setVersionNumber(1L),
+				new DownloadListItem().setFileEntityId(fileExternal.getId()).setVersionNumber(1L));
+		downloadListDao.addBatchOfFilesToDownloadList(userOneIdLong, toAdd);
+
+		List<DownloadListItemResult> expected = downloadListDao.getDownloadListItems(userOneIdLong, toAdd.get(2), toAdd.get(1), toAdd.get(0));
+
+		filter = null;
+		List<Sort> sort = Arrays.asList(new Sort().setField(SortField.synId).setDirection(SortDirection.DESC));
+		Long limit = 100L;
+		Long offset = 0L;
+		// call under test
+		List<DownloadListItemResult> result = downloadListDao.getFilesAvailableToDownloadFromDownloadList(l -> l,
+				userOneIdLong, filter, sort, limit, offset);
 		assertEquals(expected, result);
 	}
 	
@@ -867,7 +1150,7 @@ public class DownloadListDaoImplTest {
 		Long offset = 0L;
 		// call under test
 		List<DownloadListItemResult> result = downloadListDao.getFilesAvailableToDownloadFromDownloadList(l -> subSet,
-				userOneIdLong, sort, limit, offset);
+				userOneIdLong, filter, sort, limit, offset);
 		assertEquals(expected, result);
 	}
 	
@@ -896,7 +1179,7 @@ public class DownloadListDaoImplTest {
 		Long offset = 3L;
 		// call under test
 		List<DownloadListItemResult> result = downloadListDao.getFilesAvailableToDownloadFromDownloadList(l -> l,
-				userOneIdLong, sort, limit, offset);
+				userOneIdLong, filter, sort, limit, offset);
 		assertEquals(expected, result);
 	}
 	
@@ -931,7 +1214,7 @@ public class DownloadListDaoImplTest {
 		Long offset = 0L;
 		// call under test
 		List<DownloadListItemResult> result = downloadListDao.getFilesAvailableToDownloadFromDownloadList(l -> l,
-				userOneIdLong, sort, limit, offset);
+				userOneIdLong, filter, sort, limit, offset);
 		assertEquals(expected, result);
 	}
 	
@@ -973,7 +1256,7 @@ public class DownloadListDaoImplTest {
 		Long offset = 0L;
 		// call under test
 		List<DownloadListItemResult> result = downloadListDao.getFilesAvailableToDownloadFromDownloadList(l -> l,
-				userOneIdLong, sort, limit, offset);
+				userOneIdLong, filter, sort, limit, offset);
 		assertEquals(expected, result);
 	}
 	
@@ -1004,7 +1287,7 @@ public class DownloadListDaoImplTest {
 		Long offset = 0L;
 		// call under test
 		List<DownloadListItemResult> result = downloadListDao.getFilesAvailableToDownloadFromDownloadList(l -> l,
-				userOneIdLong, sort, limit, offset);
+				userOneIdLong, filter, sort, limit, offset);
 		assertEquals(expected.size(), result.size());
 		assertTrue(expected.containsAll(result));
 	}
@@ -1033,7 +1316,7 @@ public class DownloadListDaoImplTest {
 			Long offset = 0L;
 			// call under test
 			List<DownloadListItemResult> result = downloadListDao.getFilesAvailableToDownloadFromDownloadList(l -> l,
-					userOneIdLong, sort, limit, offset);
+					userOneIdLong, filter, sort, limit, offset);
 			assertEquals(expected.size(), result.size());
 			assertTrue(expected.containsAll(result));
 		}
@@ -1288,24 +1571,16 @@ public class DownloadListDaoImplTest {
 					final int fileNumber = f;
 					final String fileName = String.join("-", "file", "" + projectNumber, "" + dirNumber,
 							"" + fileNumber);
-					FileHandle fh1 = fileHandleDaoHelper.create(h -> {
-						h.setContentSize(1L + (2L * fileNumber));
+					Long contentSize = 1L + (2L * fileNumber);
+					FileHandle fh1 = fileHandleObjectHelper.create(h -> {
+						h.setContentSize(contentSize);
 						h.setFileName(fileName);
 					});
-					Node file = nodeDaoHelper.create(n -> {
-						n.setName(fileName);
-						n.setCreatedByPrincipalId(userOneIdLong);
-						n.setParentId(dir.getId());
-						n.setNodeType(EntityType.file);
-						n.setFileHandleId(fh1.getId());
-						n.setVersionNumber(1L);
-						n.setVersionComment("v1");
-						n.setVersionLabel("v1");
-					});
+					
+					Node file = createFile(dir.getId(), fileName, fh1);
 					// Create a second version for this file.
-					final String fileName2 = String.join("-", "file", "" + projectNumber, "" + dirNumber,
-							"" + fileNumber, "v2");
-					FileHandle fh2 = fileHandleDaoHelper.create(h -> {
+					final String fileName2 = String.join("-", fileName, "v2");
+					FileHandle fh2 = fileHandleObjectHelper.create(h -> {
 						h.setContentSize(1L + (2L * fileNumber + 1));
 						h.setFileName(fileName2);
 					});
@@ -1320,6 +1595,25 @@ public class DownloadListDaoImplTest {
 		}
 		return results;
 	}
+
+	/**
+	 * Create a single file in the given folder.
+
+	 */
+	Node createFile(String parentId, String fileName, FileHandle fileHandle) {
+		Node file = nodeDaoHelper.create(n -> {
+			n.setName(fileName);
+			n.setCreatedByPrincipalId(userOneIdLong);
+			n.setParentId(parentId);
+			n.setNodeType(EntityType.file);
+			n.setFileHandleId(fileHandle.getId());
+			n.setVersionNumber(1L);
+			n.setVersionComment("v1");
+			n.setVersionLabel("v1");
+		});
+		return file;
+	}
+
 
 	/**
 	 * Validate that the passed items match the order, ids, and version of the
@@ -1581,13 +1875,35 @@ public class DownloadListDaoImplTest {
 		long parentId = KeyFactory.stringToKey(files.get(0).getParentId());
 		boolean useVersion = true;
 		// call under test
-		Long count = downloadListDao.addChildrenToDownloadList(userOneIdLong, parentId, useVersion);
+		Long count = downloadListDao.addChildrenToDownloadList(userOneIdLong, parentId, useVersion, limit);
 		assertEquals(3L, count);
 		
 		List<DownloadListItem> expected = Arrays.asList(
 				new DownloadListItem().setFileEntityId(files.get(0).getId()).setVersionNumber(2L),
 				new DownloadListItem().setFileEntityId(files.get(1).getId()).setVersionNumber(2l),
 				new DownloadListItem().setFileEntityId(files.get(2).getId()).setVersionNumber(2L)
+		);
+		compareIdAndVersionToListItem(userOneIdLong, expected,
+				downloadListDao.getDBODownloadListItems(userOneIdLong));
+	}
+	
+	@Test
+	public void testAddChildrenToDownloadListWithLimit() {
+		int numberOfProject = 1;
+		int foldersPerProject = 1;
+		int filesPerFolder = 3;
+		List<Node> files = createFileHierarchy(numberOfProject, foldersPerProject, filesPerFolder);
+		assertEquals(3, files.size());
+		limit = 2;
+		long parentId = KeyFactory.stringToKey(files.get(0).getParentId());
+		boolean useVersion = true;
+		// call under test
+		Long count = downloadListDao.addChildrenToDownloadList(userOneIdLong, parentId, useVersion, limit);
+		assertEquals(2L, count);
+		
+		List<DownloadListItem> expected = Arrays.asList(
+				new DownloadListItem().setFileEntityId(files.get(0).getId()).setVersionNumber(2L),
+				new DownloadListItem().setFileEntityId(files.get(1).getId()).setVersionNumber(2l)
 		);
 		compareIdAndVersionToListItem(userOneIdLong, expected,
 				downloadListDao.getDBODownloadListItems(userOneIdLong));
@@ -1609,7 +1925,7 @@ public class DownloadListDaoImplTest {
 		long parentId = KeyFactory.stringToKey(files.get(0).getParentId());
 		boolean useVersion = true;
 		// call under test
-		Long count = downloadListDao.addChildrenToDownloadList(userOneIdLong, parentId, useVersion);
+		Long count = downloadListDao.addChildrenToDownloadList(userOneIdLong, parentId, useVersion, limit);
 		assertEquals(3L, count);
 		
 		List<DownloadListItem> expected = Arrays.asList(
@@ -1638,7 +1954,7 @@ public class DownloadListDaoImplTest {
 		long parentId = KeyFactory.stringToKey(files.get(0).getParentId());
 		boolean useVersion = true;
 		// call under test
-		Long count = downloadListDao.addChildrenToDownloadList(userOneIdLong, parentId, useVersion);
+		Long count = downloadListDao.addChildrenToDownloadList(userOneIdLong, parentId, useVersion, limit);
 		assertEquals(2L, count);
 		
 		List<DownloadListItem> expected = Arrays.asList(
@@ -1660,7 +1976,7 @@ public class DownloadListDaoImplTest {
 		long parentId = KeyFactory.stringToKey(files.get(0).getParentId());
 		boolean useVersion = false;
 		// call under test
-		Long count = downloadListDao.addChildrenToDownloadList(userOneIdLong, parentId, useVersion);
+		Long count = downloadListDao.addChildrenToDownloadList(userOneIdLong, parentId, useVersion, limit);
 		assertEquals(3L, count);
 		
 		List<DownloadListItem> expected = Arrays.asList(
@@ -1689,7 +2005,7 @@ public class DownloadListDaoImplTest {
 		});
 		boolean useVersion = true;
 		// call under test
-		Long count = downloadListDao.addChildrenToDownloadList(userOneIdLong, parentId, useVersion);
+		Long count = downloadListDao.addChildrenToDownloadList(userOneIdLong, parentId, useVersion, limit);
 		assertEquals(1L, count);
 		
 		List<DownloadListItem> expected = Arrays.asList(
@@ -1699,4 +2015,259 @@ public class DownloadListDaoImplTest {
 				downloadListDao.getDBODownloadListItems(userOneIdLong));
 	}
 	
+	@Test
+	public void testGetItemManifestDetailsWithVersionNumber() {
+		Node project = nodeDaoHelper.create(n -> {
+			n.setName(String.join("-", "project", "" + 1));
+			n.setCreatedByPrincipalId(userOneIdLong);
+			n.setParentId(NodeConstants.BOOTSTRAP_NODES.ROOT.getId().toString());
+			n.setNodeType(EntityType.project);
+		});
+		// v1
+		FileHandle fh1 = fileHandleObjectHelper.create(h -> {
+			h.setContentSize(101L);
+			h.setFileName("one.txt");
+		});
+		Node file = nodeDaoHelper.create(n -> {
+			n.setName("one.txt");
+			n.setCreatedByPrincipalId(userOneIdLong);
+			n.setParentId(project.getId());
+			n.setNodeType(EntityType.file);
+			n.setFileHandleId(fh1.getId());
+			n.setVersionNumber(1L);
+			n.setVersionComment("v1");
+			n.setVersionLabel("v1");
+		});
+		Annotations annotations = new Annotations().setAnnotations(new LinkedHashMap<>());
+		annotations.getAnnotations().put("one", new AnnotationsValue().setType(STRING).setValue(Arrays.asList("v1")));
+		nodeDao.updateUserAnnotations(file.getId(), annotations);
+		// v2
+		FileHandle fh2 = fileHandleObjectHelper.create(h -> {
+			h.setContentSize(202L);
+			h.setFileName("two.txt");
+		});
+		file.setFileHandleId(fh2.getId());
+		file.setName("two.txt");
+		file.setVersionComment("v2");
+		file.setVersionLabel("v2");
+		file.setVersionNumber(2L);
+		nodeDao.createNewVersion(file);
+		annotations = new Annotations().setAnnotations(new LinkedHashMap<>());
+		annotations.getAnnotations().put("one", new AnnotationsValue().setType(STRING).setValue(Arrays.asList("v2")));
+		nodeDao.updateUserAnnotations(file.getId(), annotations);
+		
+		// call under test
+		JSONObject object = downloadListDao.getItemManifestDetails(new DownloadListItem().setFileEntityId(file.getId()).setVersionNumber(1L));
+		
+		JSONObject expected = new JSONObject();
+		expected.put(ManifestKeys.ID.name(), file.getId());
+		expected.put(ManifestKeys.name.name(), file.getName());
+		expected.put(ManifestKeys.versionNumber.name(), 1L);
+		expected.put(ManifestKeys.contentType.name(), "text/plain; charset=UTF-8");
+		expected.put(ManifestKeys.dataFileSizeBytes.name(), "101");
+		expected.put(ManifestKeys.createdBy.name(), userOneIdLong.toString());
+		expected.put(ManifestKeys.createdOn.name(), ""+file.getCreatedOn().getTime());
+		expected.put(ManifestKeys.modifiedBy.name(), userOneIdLong.toString());
+		expected.put(ManifestKeys.modifiedOn.name(), ""+file.getModifiedOn().getTime());
+		expected.put(ManifestKeys.parentId.name(), file.getParentId());
+		expected.put(ManifestKeys.synapseURL.name(), "https://www.synapse.org/#!Synapse:"+file.getId()+".1");
+		expected.put(ManifestKeys.dataFileMD5Hex.name(), "md5");
+		expected.put("one", "v1");
+		assertJSONEquals(expected, object);
+	}
+	
+	@Test
+	public void testGetItemManifestDetailsWithNullVersionNumber() {
+		Node project = nodeDaoHelper.create(n -> {
+			n.setName(String.join("-", "project", "" + 1));
+			n.setCreatedByPrincipalId(userOneIdLong);
+			n.setParentId(NodeConstants.BOOTSTRAP_NODES.ROOT.getId().toString());
+			n.setNodeType(EntityType.project);
+		});
+		// v1
+		FileHandle fh1 = fileHandleObjectHelper.create(h -> {
+			h.setContentSize(101L);
+			h.setFileName("one.txt");
+		});
+		Node file = nodeDaoHelper.create(n -> {
+			n.setName("one.txt");
+			n.setCreatedByPrincipalId(userOneIdLong);
+			n.setParentId(project.getId());
+			n.setNodeType(EntityType.file);
+			n.setFileHandleId(fh1.getId());
+			n.setVersionNumber(1L);
+			n.setVersionComment("v1");
+			n.setVersionLabel("v1");
+		});
+		Annotations annotations = new Annotations().setAnnotations(new LinkedHashMap<>());
+		annotations.getAnnotations().put("one", new AnnotationsValue().setType(STRING).setValue(Arrays.asList("v1")));
+		nodeDao.updateUserAnnotations(file.getId(), annotations);
+		// v2
+		FileHandle fh2 = fileHandleObjectHelper.create(h -> {
+			h.setContentSize(202L);
+			h.setFileName("two.txt");
+		});
+		file.setFileHandleId(fh2.getId());
+		file.setName("two.txt");
+		file.setVersionComment("v2");
+		file.setVersionLabel("v2");
+		file.setVersionNumber(2L);
+		nodeDao.createNewVersion(file);
+		annotations = new Annotations().setAnnotations(new LinkedHashMap<>());
+		annotations.getAnnotations().put("one", new AnnotationsValue().setType(STRING).setValue(Arrays.asList("v2")));
+		nodeDao.updateUserAnnotations(file.getId(), annotations);
+		
+		// call under test
+		JSONObject object = downloadListDao.getItemManifestDetails(new DownloadListItem().setFileEntityId(file.getId()).setVersionNumber(null));
+		
+		JSONObject expected = new JSONObject();
+		expected.put(ManifestKeys.ID.name(), file.getId());
+		expected.put(ManifestKeys.name.name(), file.getName());
+		expected.put(ManifestKeys.versionNumber.name(), 2L);
+		expected.put(ManifestKeys.contentType.name(), "text/plain; charset=UTF-8");
+		expected.put(ManifestKeys.dataFileSizeBytes.name(), "202");
+		expected.put(ManifestKeys.createdBy.name(), userOneIdLong.toString());
+		expected.put(ManifestKeys.createdOn.name(), ""+file.getCreatedOn().getTime());
+		expected.put(ManifestKeys.modifiedBy.name(), userOneIdLong.toString());
+		expected.put(ManifestKeys.modifiedOn.name(), ""+file.getModifiedOn().getTime());
+		expected.put(ManifestKeys.parentId.name(), file.getParentId());
+		expected.put(ManifestKeys.synapseURL.name(), "https://www.synapse.org/#!Synapse:"+file.getId()+".2");
+		expected.put(ManifestKeys.dataFileMD5Hex.name(), "md5");
+		expected.put("one", "v2");
+		assertJSONEquals(expected, object);
+	}
+	
+	
+	@Test
+	public void testGetItemManifestDetailsWithEachAnnotationType() {
+		Node project = nodeDaoHelper.create(n -> {
+			n.setName(String.join("-", "project", "" + 1));
+			n.setCreatedByPrincipalId(userOneIdLong);
+			n.setParentId(NodeConstants.BOOTSTRAP_NODES.ROOT.getId().toString());
+			n.setNodeType(EntityType.project);
+		});
+		// v1
+		FileHandle fh1 = fileHandleObjectHelper.create(h -> {
+			h.setContentSize(101L);
+			h.setFileName("one.txt");
+		});
+		Node file = nodeDaoHelper.create(n -> {
+			n.setName("one.txt");
+			n.setCreatedByPrincipalId(userOneIdLong);
+			n.setParentId(project.getId());
+			n.setNodeType(EntityType.file);
+			n.setFileHandleId(fh1.getId());
+			n.setVersionNumber(1L);
+			n.setVersionComment("v1");
+			n.setVersionLabel("v1");
+		});
+		Annotations annotations = new Annotations().setAnnotations(new LinkedHashMap<>());
+		annotations.getAnnotations().put("string", new AnnotationsValue().setType(STRING).setValue(Arrays.asList("v1")));
+		annotations.getAnnotations().put("boolean", new AnnotationsValue().setType(BOOLEAN).setValue(Arrays.asList("false")));
+		annotations.getAnnotations().put("double", new AnnotationsValue().setType(DOUBLE).setValue(Arrays.asList("1.3")));
+		annotations.getAnnotations().put("long", new AnnotationsValue().setType(LONG).setValue(Arrays.asList("987654")));
+		annotations.getAnnotations().put("timestamp", new AnnotationsValue().setType(TIMESTAMP_MS).setValue(Arrays.asList("2222")));
+		annotations.getAnnotations().put("strings", new AnnotationsValue().setType(STRING).setValue(Arrays.asList("a","b","c")));
+		annotations.getAnnotations().put("booleans", new AnnotationsValue().setType(BOOLEAN).setValue(Arrays.asList("true","false")));
+		annotations.getAnnotations().put("doubles", new AnnotationsValue().setType(BOOLEAN).setValue(Arrays.asList("1.1","1.2")));
+		annotations.getAnnotations().put("longs", new AnnotationsValue().setType(BOOLEAN).setValue(Arrays.asList("111","222")));
+		annotations.getAnnotations().put("timestamps", new AnnotationsValue().setType(BOOLEAN).setValue(Arrays.asList("44","55")));
+		nodeDao.updateUserAnnotations(file.getId(), annotations);
+		
+		// call under test
+		JSONObject object = downloadListDao.getItemManifestDetails(new DownloadListItem().setFileEntityId(file.getId()).setVersionNumber(1L));
+		
+		JSONObject expected = new JSONObject();
+		expected.put(ManifestKeys.ID.name(), file.getId());
+		expected.put(ManifestKeys.name.name(), file.getName());
+		expected.put(ManifestKeys.versionNumber.name(), 1L);
+		expected.put(ManifestKeys.contentType.name(), "text/plain; charset=UTF-8");
+		expected.put(ManifestKeys.dataFileSizeBytes.name(), "101");
+		expected.put(ManifestKeys.createdBy.name(), userOneIdLong.toString());
+		expected.put(ManifestKeys.createdOn.name(), ""+file.getCreatedOn().getTime());
+		expected.put(ManifestKeys.modifiedBy.name(), userOneIdLong.toString());
+		expected.put(ManifestKeys.modifiedOn.name(), ""+file.getModifiedOn().getTime());
+		expected.put(ManifestKeys.parentId.name(), file.getParentId());
+		expected.put(ManifestKeys.synapseURL.name(), "https://www.synapse.org/#!Synapse:"+file.getId()+".1");
+		expected.put(ManifestKeys.dataFileMD5Hex.name(), "md5");
+		expected.put("string", "v1");
+		expected.put("boolean", "false");
+		expected.put("double", "1.3");
+		expected.put("long", "987654");
+		expected.put("timestamp", "2222");
+		expected.put("strings", "[a, b, c]");
+		expected.put("booleans", "[true, false]");
+		expected.put("doubles", "[1.1, 1.2]");
+		expected.put("longs", "[111, 222]");
+		expected.put("timestamps", "[44, 55]");
+		assertJSONEquals(expected, object);
+	}
+	
+	@Test
+	public void testGetItemManifestDetailsWithIgnoreDefaultNamedAnnotations() {
+		Node project = nodeDaoHelper.create(n -> {
+			n.setName(String.join("-", "project", "" + 1));
+			n.setCreatedByPrincipalId(userOneIdLong);
+			n.setParentId(NodeConstants.BOOTSTRAP_NODES.ROOT.getId().toString());
+			n.setNodeType(EntityType.project);
+		});
+		// v1
+		FileHandle fh1 = fileHandleObjectHelper.create(h -> {
+			h.setContentSize(101L);
+			h.setFileName("one.txt");
+		});
+		Node file = nodeDaoHelper.create(n -> {
+			n.setName("one.txt");
+			n.setCreatedByPrincipalId(userOneIdLong);
+			n.setParentId(project.getId());
+			n.setNodeType(EntityType.file);
+			n.setFileHandleId(fh1.getId());
+			n.setVersionNumber(1L);
+			n.setVersionComment("v1");
+			n.setVersionLabel("v1");
+		});
+		Annotations annotations = new Annotations().setAnnotations(new LinkedHashMap<>());
+		annotations.getAnnotations().put(ManifestKeys.name.name(), new AnnotationsValue().setType(STRING).setValue(Arrays.asList("ignore me")));
+		annotations.getAnnotations().put("boolean", new AnnotationsValue().setType(BOOLEAN).setValue(Arrays.asList("false")));
+		annotations.getAnnotations().put("nullValue", null);
+		annotations.getAnnotations().put("nullType", new AnnotationsValue().setType(null).setValue(Arrays.asList("not")));
+		annotations.getAnnotations().put("emptyValue", new AnnotationsValue().setType(STRING).setValue(Collections.emptyList()));
+		nodeDao.updateUserAnnotations(file.getId(), annotations);
+		
+		// call under test
+		JSONObject object = downloadListDao.getItemManifestDetails(new DownloadListItem().setFileEntityId(file.getId()).setVersionNumber(1L));
+		
+		JSONObject expected = new JSONObject();
+		expected.put(ManifestKeys.ID.name(), file.getId());
+		expected.put(ManifestKeys.name.name(), file.getName());
+		expected.put(ManifestKeys.versionNumber.name(), 1L);
+		expected.put(ManifestKeys.contentType.name(), "text/plain; charset=UTF-8");
+		expected.put(ManifestKeys.dataFileSizeBytes.name(), "101");
+		expected.put(ManifestKeys.createdBy.name(), userOneIdLong.toString());
+		expected.put(ManifestKeys.createdOn.name(), ""+file.getCreatedOn().getTime());
+		expected.put(ManifestKeys.modifiedBy.name(), userOneIdLong.toString());
+		expected.put(ManifestKeys.modifiedOn.name(), ""+file.getModifiedOn().getTime());
+		expected.put(ManifestKeys.parentId.name(), file.getParentId());
+		expected.put(ManifestKeys.synapseURL.name(), "https://www.synapse.org/#!Synapse:"+file.getId()+".1");
+		expected.put(ManifestKeys.dataFileMD5Hex.name(), "md5");
+		expected.put("boolean", "false");
+		expected.put("nullType", "not");
+		assertJSONEquals(expected, object);
+	}
+
+
+	
+	/**
+	 * Helper to compare two JSON objects.
+	 * @param one
+	 * @param two
+	 */
+	public static void assertJSONEquals(JSONObject one, JSONObject two) {
+		assertNotNull(one);
+		assertNotNull(two);
+		assertEquals(one.keySet(), two.keySet());
+		for(String key: one.keySet()) {
+			assertEquals(one.getString(key), two.getString(key), "key: "+key);
+		}
+	}
 }

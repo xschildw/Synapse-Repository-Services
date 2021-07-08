@@ -126,6 +126,10 @@ import org.sagebionetworks.repo.model.download.AddBatchOfFilesToDownloadListRequ
 import org.sagebionetworks.repo.model.download.AddBatchOfFilesToDownloadListResponse;
 import org.sagebionetworks.repo.model.download.AddToDownloadListRequest;
 import org.sagebionetworks.repo.model.download.AddToDownloadListResponse;
+import org.sagebionetworks.repo.model.download.DownloadListManifestRequest;
+import org.sagebionetworks.repo.model.download.DownloadListManifestResponse;
+import org.sagebionetworks.repo.model.download.DownloadListPackageRequest;
+import org.sagebionetworks.repo.model.download.DownloadListPackageResponse;
 import org.sagebionetworks.repo.model.download.DownloadListQueryRequest;
 import org.sagebionetworks.repo.model.download.DownloadListQueryResponse;
 import org.sagebionetworks.repo.model.download.RemoveBatchOfFilesFromDownloadListRequest;
@@ -156,6 +160,8 @@ import org.sagebionetworks.repo.model.file.ExternalFileHandle;
 import org.sagebionetworks.repo.model.file.ExternalObjectStoreFileHandle;
 import org.sagebionetworks.repo.model.file.FileHandle;
 import org.sagebionetworks.repo.model.file.FileHandleAssociation;
+import org.sagebionetworks.repo.model.file.FileHandleRestoreRequest;
+import org.sagebionetworks.repo.model.file.FileHandleRestoreResponse;
 import org.sagebionetworks.repo.model.file.FileHandleResults;
 import org.sagebionetworks.repo.model.file.GoogleCloudFileHandle;
 import org.sagebionetworks.repo.model.file.MultipartUploadRequest;
@@ -3350,6 +3356,7 @@ public interface SynapseClient extends BaseClient {
 	 * @return
 	 * @throws SynapseException
 	 */
+	@Deprecated
 	String startAddFilesToDownloadList(AddFileToDownloadListRequest request)
 			throws SynapseException;
 
@@ -3362,6 +3369,7 @@ public interface SynapseClient extends BaseClient {
 	 * @throws SynapseException
 	 * @throws SynapseResultNotReadyException
 	 */
+	@Deprecated
 	AddFileToDownloadListResponse getAddFilesToDownloadListResponse(String asyncJobToken)
 			throws SynapseException, SynapseResultNotReadyException;
 	
@@ -3372,6 +3380,7 @@ public interface SynapseClient extends BaseClient {
 	 * @return
 	 * @throws SynapseException 
 	 */
+	@Deprecated
 	DownloadList addFilesToDownloadList(List<FileHandleAssociation> toAdd) throws SynapseException;
 	
 	/**
@@ -3381,6 +3390,7 @@ public interface SynapseClient extends BaseClient {
 	 * @return
 	 * @throws SynapseException 
 	 */
+	@Deprecated
 	DownloadList removeFilesFromDownloadList(List<FileHandleAssociation> toRemove) throws SynapseException;
 	
 	/**
@@ -3389,6 +3399,7 @@ public interface SynapseClient extends BaseClient {
 	 * @return
 	 * @throws SynapseException 
 	 */
+	@Deprecated
 	void clearDownloadList() throws SynapseException;
 	
 	/**
@@ -3397,6 +3408,7 @@ public interface SynapseClient extends BaseClient {
 	 * @return
 	 * @throws SynapseException 
 	 */
+	@Deprecated
 	DownloadList getDownloadList() throws SynapseException;
 	
 	/**
@@ -3418,6 +3430,7 @@ public interface SynapseClient extends BaseClient {
 	 * @return
 	 * @throws SynapseException 
 	 */
+	@Deprecated
 	DownloadOrder createDownloadOrderFromUsersDownloadList(String zipFileName) throws SynapseException;
 	
 	/**
@@ -3426,6 +3439,7 @@ public interface SynapseClient extends BaseClient {
 	 * @return
 	 * @throws SynapseException 
 	 */
+	@Deprecated
 	DownloadOrder getDownloadOrder(String orderId) throws SynapseException;
 	
 	/**
@@ -3435,6 +3449,7 @@ public interface SynapseClient extends BaseClient {
 	 * @return
 	 * @throws SynapseException 
 	 */
+	@Deprecated
 	DownloadOrderSummaryResponse getDownloadOrderHistory(DownloadOrderSummaryRequest request) throws SynapseException;
 	
 	
@@ -3444,6 +3459,7 @@ public interface SynapseClient extends BaseClient {
 	 * @return
 	 * @throws SynapseException
 	 */
+	@Deprecated
 	String startAddToDownloadList(AddToDownloadListRequest request)
 			throws SynapseException;
 
@@ -3456,6 +3472,7 @@ public interface SynapseClient extends BaseClient {
 	 * @throws SynapseException
 	 * @throws SynapseResultNotReadyException
 	 */
+	@Deprecated
 	AddToDownloadListResponse getAddToDownloadListResponse(String asyncJobToken)
 			throws SynapseException, SynapseResultNotReadyException;
 	
@@ -3926,6 +3943,66 @@ public interface SynapseClient extends BaseClient {
 	 * @throws SynapseResultNotReadyException
 	 */
 	DownloadListQueryResponse getDownloadListQueryResult(String asyncJobToken)
+			throws SynapseException, SynapseResultNotReadyException;
+
+	/**
+	 * Start an asynchronous job to package files from the user's download list a zip.
+	 * @param request
+	 * @return
+	 * @throws SynapseException
+	 */
+	String startDownloadListPackage(DownloadListPackageRequest request) throws SynapseException;
+
+	/**
+	 * Get the results of an asynchronous job to package files from the user's download list a zip. 
+	 * @param asyncJobToken
+	 * @return
+	 * @throws SynapseException
+	 * @throws SynapseResultNotReadyException
+	 */
+	DownloadListPackageResponse getDownloadListPackageResponse(String asyncJobToken)
+			throws SynapseException, SynapseResultNotReadyException;
+
+	/**
+	 * Start an asynchronous job to generate a metadata manifest CSV of the
+	 * available files on the use’s download list.
+	 * 
+	 * @param asyncJobToken
+	 * @return
+	 * @throws SynapseException
+	 * @throws SynapseResultNotReadyException
+	 */
+	DownloadListManifestResponse getDownloadListManifestResponse(String asyncJobToken)
+			throws SynapseException, SynapseResultNotReadyException;
+
+	/**
+	 * Get the results of an asynchronous job to generate a metadata manifest CSV of
+	 * the available files from the user's download list download list
+	 * 
+	 * @param request
+	 * @return
+	 * @throws SynapseException
+	 */
+	String startDownloadListManifest(DownloadListManifestRequest request) throws SynapseException;
+	
+	/**
+	 * Starts a restore operation for a batch of file handles that have been ARCHIVED or UNLINKED.
+	 * 
+	 * @param request
+	 * @return
+	 * @throws SynapseException
+	 */
+	String startFileHandleRestoreRequest(FileHandleRestoreRequest request) throws SynapseException;
+	
+	/**
+	 * Get the results of an asynchronous job to restore a batch of file handles
+	 * 
+	 * @param asynchJobToken
+	 * @return
+	 * @throws SynapseException
+	 * @throws SynapseResultNotReadyException
+	 */
+	FileHandleRestoreResponse getFileHandleRestoreResponse(String asyncJobToken)
 			throws SynapseException, SynapseResultNotReadyException;
 
 }

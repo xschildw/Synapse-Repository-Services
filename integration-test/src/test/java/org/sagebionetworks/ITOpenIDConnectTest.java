@@ -238,7 +238,7 @@ public class ITOpenIDConnectTest {
 				synapseAnonymous.getUserInfoAsJSON();
 			});
 			
-			assertEquals("The OAuth client (" + client.getClient_id() + ") is not verified.", uex.getMessage());
+			assertEquals("Invalid access token", uex.getMessage());
 			
 			// Verify the client once again
 			client = adminSynapse.updateOAuthClientVerifiedStatus(client.getClient_id(), client.getEtag(), true);
@@ -343,6 +343,8 @@ public class ITOpenIDConnectTest {
 			SimpleHttpResponse response = simpleClient.post(request, requestBody);
 			assertEquals(HttpStatus.SC_OK, response.getStatusCode());
 			assertNotNull(response.getContent());
+			assertEquals("no-store", response.getFirstHeader("Cache-Control").getValue(), response.toString());
+			assertEquals("no-cache", response.getFirstHeader("Pragma").getValue(), response.toString());
 		}
 
 		Jwt<JwsHeader, Claims> parsedIdToken = JSONWebTokenHelper.parseJWT(tokenResponse.getId_token(), jsonWebKeySet);
