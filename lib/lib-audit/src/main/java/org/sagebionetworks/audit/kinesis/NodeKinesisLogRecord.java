@@ -10,21 +10,21 @@ public class NodeKinesisLogRecord implements AwsKinesisLogRecord {
 
 	public static final String KINESIS_STREAM_NAME = "nodeSnapshots";
 
-	private long timestamp;
+	private Long timestamp;
 	private String stack;
 	private String instance;
-	private long benefactorId;
-	private long createdBy;
-	private long createdOn;
-	private long fileHandleId;
-	private long modifiedBy;
-	private long modifiedOn;
+	private Long benefactorId;
+	private Long createdBy;
+	private Long createdOn;
+	private Long fileHandleId;
+	private Long modifiedBy;
+	private Long modifiedOn;
 	private String name;
-	private long nodeId;
-	private long parentId;
-	private long projectId;
+	private Long nodeId;
+	private Long parentId;
+	private Long projectId;
 	private String type;
-	private long versionNumber;
+	private Long versionNumber;
 	private Boolean isPublic;
 	private Boolean isControlled;
 	private Boolean isRestricted;
@@ -58,17 +58,17 @@ public class NodeKinesisLogRecord implements AwsKinesisLogRecord {
 	}
 
 	public NodeKinesisLogRecord withNodeRecord(NodeRecord nodeRecord) {
-		this.benefactorId = ObjectRecordUtils.synapseIdToLong(nodeRecord.getBenefactorId());
+		this.benefactorId = (nodeRecord.getBenefactorId() != null ? ObjectRecordUtils.synapseIdToLong(nodeRecord.getBenefactorId()) : null);
 		this.createdBy = nodeRecord.getCreatedByPrincipalId();
-		this.createdOn = nodeRecord.getCreatedOn().getTime();
-		this.fileHandleId = Long.parseLong(nodeRecord.getFileHandleId());
+		this.createdOn = (nodeRecord.getCreatedOn() != null ? nodeRecord.getCreatedOn().getTime() : null);
+		this.fileHandleId = (nodeRecord.getFileHandleId() != null ? Long.parseLong(nodeRecord.getFileHandleId()) : null);
 		this.modifiedBy = nodeRecord.getModifiedByPrincipalId();
-		this.modifiedOn = nodeRecord.getModifiedOn().getTime();
+		this.modifiedOn = (nodeRecord.getModifiedOn() != null ? nodeRecord.getModifiedOn().getTime(): null);
 		this.name = nodeRecord.getName();
-		this.nodeId = ObjectRecordUtils.synapseIdToLong(nodeRecord.getId());
-		this.parentId = ObjectRecordUtils.synapseIdToLong(nodeRecord.getParentId());
-		this.projectId = ObjectRecordUtils.synapseIdToLong(nodeRecord.getProjectId());
-		this.type = nodeRecord.getNodeType().toString();
+		this.nodeId = (nodeRecord.getId() != null ? ObjectRecordUtils.synapseIdToLong(nodeRecord.getId()) : null);
+		this.parentId = (nodeRecord.getParentId() != null ? ObjectRecordUtils.synapseIdToLong(nodeRecord.getParentId()) : null);
+		this.projectId = (nodeRecord.getProjectId() != null ? ObjectRecordUtils.synapseIdToLong(nodeRecord.getProjectId()) : null);
+		this.type = (nodeRecord.getNodeType() != null ? nodeRecord.getNodeType().toString() : null);
 		this.versionNumber = nodeRecord.getVersionNumber();
 		this.isPublic = nodeRecord.getIsPublic();
 		this.isControlled = nodeRecord.getIsControlled();
@@ -163,7 +163,7 @@ public class NodeKinesisLogRecord implements AwsKinesisLogRecord {
 		if (this == o) return true;
 		if (o == null || getClass() != o.getClass()) return false;
 		NodeKinesisLogRecord that = (NodeKinesisLogRecord) o;
-		return timestamp == that.timestamp &&
+		return Objects.equals(timestamp, that.timestamp) &&
 				Objects.equals(stack, that.stack) &&
 				Objects.equals(instance, that.instance) &&
 				Objects.equals(benefactorId, that.benefactorId) &&

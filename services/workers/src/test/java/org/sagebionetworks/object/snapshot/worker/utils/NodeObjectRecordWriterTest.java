@@ -128,6 +128,7 @@ public class NodeObjectRecordWriterTest {
 		Message message = MessageUtils.buildMessage(ChangeType.UPDATE, "123", ObjectType.ENTITY, "etag", timestamp);
 		ChangeMessage changeMessage = MessageUtils.extractMessageBody(message);
 
+		node.setNodeType(EntityType.folder);
 		node.setIsPublic(canPublicRead);
 		node.setIsControlled(stats.getHasACT());
 		node.setIsRestricted(stats.getHasToU());
