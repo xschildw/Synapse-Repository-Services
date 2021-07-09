@@ -1,5 +1,6 @@
 package org.sagebionetworks.audit.kinesis;
 
+import org.sagebionetworks.audit.utils.ObjectRecordUtils;
 import org.sagebionetworks.kinesis.AwsKinesisLogRecord;
 import org.sagebionetworks.repo.model.audit.DeletedNode;
 
@@ -11,7 +12,7 @@ public class DeletedNodeKinesisLogRecord implements AwsKinesisLogRecord {
 	private long timestamp;
 	private String stack;
 	private String instance;
-	private DeletedNode deletedNodeRecord;
+	private Long id;
 
 	public long getTimestamp() {
 		return timestamp;
@@ -42,9 +43,13 @@ public class DeletedNodeKinesisLogRecord implements AwsKinesisLogRecord {
 		return this;
 	}
 
-	public DeletedNode getDeletedNodeRecord() { return this.deletedNodeRecord; }
+	public Long getId() { return this.id; }
+	public void setId(Long id) {
+		this.id = id;
+	}
+
 	public DeletedNodeKinesisLogRecord withDeletedNodeRecord(DeletedNode deletedNodeRecord) {
-		this.deletedNodeRecord = deletedNodeRecord;
+		this.id = (deletedNodeRecord.getId() != null ? ObjectRecordUtils.synapseIdToLong(deletedNodeRecord.getId()) : null);
 		return this;
 	}
 
@@ -56,12 +61,12 @@ public class DeletedNodeKinesisLogRecord implements AwsKinesisLogRecord {
 		return timestamp == that.timestamp &&
 				Objects.equals(stack, that.stack) &&
 				Objects.equals(instance, that.instance) &&
-				deletedNodeRecord.equals(that.deletedNodeRecord);
+				Objects.equals(id, that.id);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(timestamp, stack, instance, deletedNodeRecord);
+		return Objects.hash(timestamp, stack, instance, id);
 	}
 
 	@Override
@@ -70,7 +75,7 @@ public class DeletedNodeKinesisLogRecord implements AwsKinesisLogRecord {
 				"timestamp=" + timestamp +
 				", stack='" + stack + '\'' +
 				", instance='" + instance + '\'' +
-				", deletedNodeRecord=" + deletedNodeRecord +
+				", id=" + id +
 				'}';
 	}
 }

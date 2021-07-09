@@ -10,7 +10,7 @@ public class NodeKinesisLogRecord implements AwsKinesisLogRecord {
 
 	public static final String KINESIS_STREAM_NAME = "nodeSnapshots";
 
-	private Long timestamp;
+	private long timestamp;
 	private String stack;
 	private String instance;
 	private Long benefactorId;
@@ -163,7 +163,7 @@ public class NodeKinesisLogRecord implements AwsKinesisLogRecord {
 		if (this == o) return true;
 		if (o == null || getClass() != o.getClass()) return false;
 		NodeKinesisLogRecord that = (NodeKinesisLogRecord) o;
-		return Objects.equals(timestamp, that.timestamp) &&
+		return timestamp == that.timestamp &&
 				Objects.equals(stack, that.stack) &&
 				Objects.equals(instance, that.instance) &&
 				Objects.equals(benefactorId, that.benefactorId) &&

@@ -48,6 +48,7 @@ public class NodeObjectRecordWriter implements ObjectRecordWriter {
 	private ObjectRecordDAO objectRecordDAO;
 	@Autowired
 	private ObjectRecordLogger objectRecordLogger;
+
 	/**
 	 * set record's isPublic, isRestricted, and isControlled fields
 	 * 
@@ -128,6 +129,7 @@ public class NodeObjectRecordWriter implements ObjectRecordWriter {
 					kinesisNonDeleteToWrite.add(nodeKinesisLogRecord);
 				} catch (EntityInTrashCanException e) {
 					deleteRecords.add(buildDeletedNodeRecord(message));
+					kinesisDeleteToWrite.add(buildDeletedNodeKinesisLogRecord(message));
 				} catch (NotFoundException e) {
 					log.error("Cannot find node for a " + message.getChangeType() + " message: " + message) ;
 				}
