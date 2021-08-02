@@ -2,6 +2,8 @@ package org.sagebionetworks.repo.model.dbo.dao.table;
 
 import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.COL_ID_SEQUENCE;
 import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.COL_ID_SEQUENCE_TABLE_ID;
+import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.COL_TABLE_ROW_HAS_FILE_REFS;
+import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.COL_TABLE_ROW_ID;
 import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.COL_TABLE_ROW_KEY_NEW;
 import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.COL_TABLE_ROW_TABLE_ETAG;
 import static org.sagebionetworks.repo.model.query.jdo.SqlConstants.COL_TABLE_ROW_TABLE_ID;
@@ -20,11 +22,15 @@ import java.io.OutputStream;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.sagebionetworks.StackConfiguration;
 import org.sagebionetworks.aws.SynapseS3Client;
-import org.sagebionetworks.repo.model.dao.table.TableRowTruthDAO;
+import org.sagebionetworks.ids.IdGenerator;
+import org.sagebionetworks.ids.IdType;
+import org.sagebionetworks.repo.model.IdRangeMapper;
 import org.sagebionetworks.repo.model.dbo.DBOBasicDao;
 import org.sagebionetworks.repo.model.dbo.persistence.table.ColumnModelUtils;
 import org.sagebionetworks.repo.model.dbo.persistence.table.DBOTableIdSequence;
@@ -45,8 +51,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.stereotype.Repository;
 
 import com.amazonaws.services.s3.model.S3Object;
+import com.google.common.collect.ImmutableMap;
 
 /**
  * Basic S3 & RDS implementation of the TableRowTruthDAO.
@@ -54,6 +63,7 @@ import com.amazonaws.services.s3.model.S3Object;
  * @author John
  * 
  */
+@Repository
 public class TableRowTruthDAOImpl implements TableRowTruthDAO {
 
 	private static final String SELECT_FIRST_ROW_VERSION_FOR_TABLE = "SELECT " + COL_TABLE_ROW_VERSION + " FROM "
@@ -114,20 +124,46 @@ public class TableRowTruthDAOImpl implements TableRowTruthDAO {
 			+ COL_ID_SEQUENCE_TABLE_ID + " > 0";
 	private static final String SQL_SELECT_SEQUENCE_FOR_UPDATE = "SELECT * FROM " + TABLE_TABLE_ID_SEQUENCE + " WHERE "
 			+ COL_ID_SEQUENCE_TABLE_ID + " = ? FOR UPDATE";
-	@Autowired
+	
+	private static final String SQL_SELECT_MIN_MAX = "SELECT MIN(" + COL_TABLE_ROW_ID + "), MAX(" + COL_TABLE_ROW_ID+") FROM " + TABLE_ROW_CHANGE;
+	
+	private static final String SQL_SELECT_WITH_FILE_REFS_PAGE = "SELECT * FROM " + TABLE_ROW_CHANGE 
+			+ " WHERE " + COL_TABLE_ROW_ID + " BETWEEN ? AND ?"
+			+ " AND " + COL_TABLE_ROW_TYPE + "='" + TableChangeType.ROW.name() + "' AND (" + COL_TABLE_ROW_HAS_FILE_REFS + " IS TRUE OR " + COL_TABLE_ROW_HAS_FILE_REFS + " IS NULL)"
+			+ " ORDER BY " + COL_TABLE_ROW_ID 
+			+ " LIMIT ? OFFSET ?";
+	
+	private static final String SQL_SELECT_WITH_NULL_FILE_REFS_PAGE = "SELECT * FROM " + TABLE_ROW_CHANGE 
+			+ " WHERE " + COL_TABLE_ROW_TYPE + "='" + TableChangeType.ROW.name() + "' AND " + COL_TABLE_ROW_HAS_FILE_REFS + " IS NULL"
+			+ " ORDER BY " + COL_TABLE_ROW_ID 
+			+ " LIMIT ? OFFSET ?";
+	
+	private static final String SQL_UPDATE_HAS_FILE_REFS_BATCH = "UPDATE " + TABLE_ROW_CHANGE + " SET " + COL_TABLE_ROW_HAS_FILE_REFS + "=:" + COL_TABLE_ROW_HAS_FILE_REFS + ", "  + COL_TABLE_ROW_TABLE_ETAG+ "=UUID() WHERE " + COL_TABLE_ROW_ID + " IN (:" + COL_TABLE_ROW_ID+  ")";
+	
 	private DBOBasicDao basicDao;
-	@Autowired
 	private JdbcTemplate jdbcTemplate;
-	@Autowired
 	private SynapseS3Client s3Client;
-	@Autowired
 	private FileProvider fileProvider;
-
+	private IdGenerator idGenerator;
 	private String s3Bucket;
 
 	RowMapper<DBOTableIdSequence> sequenceRowMapper = new DBOTableIdSequence().getTableMapping();
 	RowMapper<DBOTableRowChange> rowChangeMapper = new DBOTableRowChange().getTableMapping();
-
+	
+	@Autowired
+	public TableRowTruthDAOImpl(DBOBasicDao basicDao, JdbcTemplate jdbcTemplate, SynapseS3Client s3Client, FileProvider fileProvider, IdGenerator idGenerator) {
+		this.basicDao = basicDao;
+		this.jdbcTemplate = jdbcTemplate;
+		this.s3Client = s3Client;
+		this.fileProvider = fileProvider;
+		this.idGenerator = idGenerator;
+	}
+	
+	@Autowired
+	public void configure(StackConfiguration config) {
+		this.s3Bucket = config.getTableRowChangeBucketName();
+	}
+	
 	@WriteTransaction
 	@Override
 	public IdRange reserveIdsInRange(String tableIdString, long countToReserver) {
@@ -182,11 +218,12 @@ public class TableRowTruthDAOImpl implements TableRowTruthDAO {
 	@WriteTransaction
 	@Override
 	public String appendRowSetToTable(String userId, String tableId, String etag, long versionNumber,
-			List<ColumnModel> columns, final SparseChangeSetDto delta, long transactionId) {
+			List<ColumnModel> columns, final SparseChangeSetDto delta, long transactionId, Boolean hasFileRefs) {
 		// Write the delta to S3
 		String key = saveToS3((OutputStream out) -> TableModelUtils.writeSparesChangeSetToGz(delta, out));
 		// record the change
 		DBOTableRowChange changeDBO = new DBOTableRowChange();
+		changeDBO.setId(idGenerator.generateNewId(IdType.TABLE_CHANGE_ID));
 		changeDBO.setTableId(KeyFactory.stringToKey(tableId));
 		changeDBO.setRowVersion(versionNumber);
 		changeDBO.setEtag(etag);
@@ -197,6 +234,8 @@ public class TableRowTruthDAOImpl implements TableRowTruthDAO {
 		changeDBO.setRowCount(new Long(delta.getRows().size()));
 		changeDBO.setChangeType(TableChangeType.ROW.name());
 		changeDBO.setTransactionId(transactionId);
+		changeDBO.setHasFileRefs(hasFileRefs);
+		
 		basicDao.createNew(changeDBO);
 		return key;
 	}
@@ -211,6 +250,7 @@ public class TableRowTruthDAOImpl implements TableRowTruthDAO {
 		String key = saveToS3((OutputStream out) -> ColumnModelUtils.writeSchemaChangeToGz(changes, out));
 		// record the change
 		DBOTableRowChange changeDBO = new DBOTableRowChange();
+		changeDBO.setId(idGenerator.generateNewId(IdType.TABLE_CHANGE_ID));
 		changeDBO.setTableId(KeyFactory.stringToKey(tableId));
 		changeDBO.setRowVersion(range.getVersionNumber());
 		changeDBO.setEtag(range.getEtag());
@@ -222,6 +262,7 @@ public class TableRowTruthDAOImpl implements TableRowTruthDAO {
 		changeDBO.setRowCount(0L);
 		changeDBO.setChangeType(TableChangeType.COLUMN.name());
 		changeDBO.setTransactionId(transactionId);
+		changeDBO.setHasFileRefs(false);
 		basicDao.createNew(changeDBO);
 		return range.getVersionNumber();
 	}
@@ -519,6 +560,34 @@ public class TableRowTruthDAOImpl implements TableRowTruthDAO {
 		} catch (EmptyResultDataAccessException e) {
 			return false;
 		}
+	}
+	
+	@Override
+	public org.sagebionetworks.repo.model.IdRange getTableRowChangeIdRange() {
+		return jdbcTemplate.queryForObject(SQL_SELECT_MIN_MAX, new IdRangeMapper());
+	}
+	
+	@Override
+	public List<TableRowChange> getTableRowChangeWithFileRefsPage(org.sagebionetworks.repo.model.IdRange idRange, long limit, long offset) {
+		List<DBOTableRowChange> dbos = jdbcTemplate.query(SQL_SELECT_WITH_FILE_REFS_PAGE, rowChangeMapper, idRange.getMinId(), idRange.getMaxId(), limit, offset);
+		return TableRowChangeUtils.ceateDTOFromDBO(dbos);
+	}
+
+	@Override
+	public List<TableRowChange> getTableRowChangeWithNullFileRefsPage(long limit, long offset) {
+		List<DBOTableRowChange> dbos = jdbcTemplate.query(SQL_SELECT_WITH_NULL_FILE_REFS_PAGE, rowChangeMapper, limit, offset);
+		return TableRowChangeUtils.ceateDTOFromDBO(dbos);
+	}
+
+	@Override
+	@WriteTransaction
+	public void updateRowChangeHasFileRefsBatch(List<Long> ids, boolean hasFileRefs) {
+		Map<String, ?> params = ImmutableMap.of(
+				COL_TABLE_ROW_HAS_FILE_REFS, hasFileRefs,
+				COL_TABLE_ROW_ID, ids
+		);
+		
+		new NamedParameterJdbcTemplate(jdbcTemplate).update(SQL_UPDATE_HAS_FILE_REFS_BATCH, params);
 	}
 
 }

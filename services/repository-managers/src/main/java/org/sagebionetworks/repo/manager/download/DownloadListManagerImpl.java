@@ -101,6 +101,7 @@ import au.com.bytecode.opencsv.CSVWriter;
 public class DownloadListManagerImpl implements DownloadListManager {
 
 
+	public static final String ZERO_FILE_ID = "0";
 	public static final String NO_FILES_AVAILABLE_FOR_DOWNLOAD = "No files available for download.";
 	public static final String NO_FILES_ARE_ELIGIBLE_FOR_PACKAGING = "No files are eligible for packaging.";
 	public static final String YOUR_DOWNLOAD_LIST_ALREADY_HAS_THE_MAXIMUM_NUMBER_OF_FILES = "Your download list already has the maximum number of '%s' files.";
@@ -502,7 +503,7 @@ public class DownloadListManagerImpl implements DownloadListManager {
 		List<DownloadListItemResult> page = downloadListDao.getFilesAvailableToDownloadFromDownloadList(
 				createAccessCallback(userInfo), userInfo.getId(), filter, sort, limit, offset);
 
-		List<DownloadListItem> toDelete = new ArrayList<>(page.size());
+		List<DownloadListItemResult> packagedFiles = new ArrayList<>(page.size());
 		List<FileHandleAssociation> associations = new ArrayList<>(page.size());
 		Set<String> addedFileHandleIds = new HashSet<>(page.size());
 		long size = 0L;
@@ -514,7 +515,13 @@ public class DownloadListManagerImpl implements DownloadListManager {
 				size += item.getFileSizeBytes();
 				associations.add(createAssociationForItem(item));
 			}
-			toDelete.add(item);
+			packagedFiles.add(item);
+		}
+		if (Boolean.TRUE.equals(requestBody.getIncludeManifest())) {
+			String manifestFileHandleId = buildManifest(userInfo, requestBody.getCsvTableDescriptor(),
+					packagedFiles.iterator());
+			associations.add(new FileHandleAssociation().setFileHandleId(manifestFileHandleId)
+					.setAssociateObjectType(FileHandleAssociateType.FileEntity).setAssociateObjectId(ZERO_FILE_ID));
 		}
 
 		if (associations.isEmpty()) {
@@ -523,16 +530,17 @@ public class DownloadListManagerImpl implements DownloadListManager {
 
 		// build the package zip file.
 		// @formatter:off
+		boolean skipFileSizeCheck = true;
 		String zipFileHandleId = fileHandlePackageManager.buildZip(userInfo,
 						new BulkFileDownloadRequest()
 						.setRequestedFiles(associations)
 						.setZipFileName(requestBody.getZipFileName())
-						.setZipFileFormat(ZipFileFormat.Flat))
+						.setZipFileFormat(ZipFileFormat.Flat), skipFileSizeCheck)
 				.getResultZipFileHandleId();
 		// @formatter:on
 
 		// remove these files from the download list
-		downloadListDao.removeBatchOfFilesFromDownloadList(userInfo.getId(), toDelete);
+		downloadListDao.removeBatchOfFilesFromDownloadList(userInfo.getId(), packagedFiles);
 		return new DownloadListPackageResponse().setResultFileHandleId(zipFileHandleId);
 	}
 

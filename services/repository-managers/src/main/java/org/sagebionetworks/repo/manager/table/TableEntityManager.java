@@ -9,8 +9,10 @@ import java.util.Set;
 import org.sagebionetworks.common.util.progress.ProgressCallback;
 import org.sagebionetworks.repo.manager.table.change.TableChangeMetaData;
 import org.sagebionetworks.repo.model.DatastoreException;
+import org.sagebionetworks.repo.model.IdRange;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.entity.IdAndVersion;
+import org.sagebionetworks.repo.model.migration.TableRowChangeBackfillResponse;
 import org.sagebionetworks.repo.model.table.ColumnModel;
 import org.sagebionetworks.repo.model.table.PartialRowSet;
 import org.sagebionetworks.repo.model.table.Row;
@@ -21,6 +23,7 @@ import org.sagebionetworks.repo.model.table.RowSet;
 import org.sagebionetworks.repo.model.table.SnapshotRequest;
 import org.sagebionetworks.repo.model.table.SnapshotResponse;
 import org.sagebionetworks.repo.model.table.SparseRowDto;
+import org.sagebionetworks.repo.model.table.TableChangeType;
 import org.sagebionetworks.repo.model.table.TableRowChange;
 import org.sagebionetworks.repo.model.table.TableUpdateRequest;
 import org.sagebionetworks.repo.model.table.TableUpdateResponse;
@@ -28,6 +31,7 @@ import org.sagebionetworks.repo.web.NotFoundException;
 import org.sagebionetworks.repo.web.TemporarilyUnavailableException;
 import org.sagebionetworks.table.cluster.ColumnChangeDetails;
 import org.sagebionetworks.table.model.SparseChangeSet;
+import org.sagebionetworks.util.TemporaryCode;
 
 /**
  * Abstraction for Table Row management.
@@ -307,4 +311,19 @@ public interface TableEntityManager {
 	 * @return
 	 */
 	SnapshotResponse createTableSnapshot(UserInfo userInfo, String tableId, SnapshotRequest request);
+	
+	/**
+	 * @return The range of ids for the table row changes
+	 */
+	IdRange getTableRowChangeIdRange();
+	
+	/**
+	 * @param minId
+	 * @param maxId
+	 * @return An iterator over the table row changes within the given range of ids that have file references (includes the changes for which the file references are unknown)
+	 */
+	Iterator<TableRowChange> newTableRowChangeWithFileRefsIterator(IdRange idRange);
+
+	@TemporaryCode(author = "marco.marasca@sagebase.org", comment = "Used for backfilling the table row change")
+	TableRowChangeBackfillResponse backFillTableRowChanges();
 }

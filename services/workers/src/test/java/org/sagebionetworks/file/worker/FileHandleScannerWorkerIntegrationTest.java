@@ -19,10 +19,12 @@ import org.sagebionetworks.repo.manager.UserManager;
 import org.sagebionetworks.repo.model.AccessRequirementDAO;
 import org.sagebionetworks.repo.model.AuthorizationConstants.BOOTSTRAP_PRINCIPAL;
 import org.sagebionetworks.repo.model.ManagedACTAccessRequirement;
+import org.sagebionetworks.repo.model.NodeDAO;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.dbo.dao.TestUtils;
 import org.sagebionetworks.repo.model.dbo.dao.files.DBOFilesScannerStatus;
 import org.sagebionetworks.repo.model.dbo.dao.files.FilesScannerStatusDao;
+import org.sagebionetworks.repo.model.dbo.dao.table.TableRowTruthDAO;
 import org.sagebionetworks.repo.model.dbo.file.FileHandleDao;
 import org.sagebionetworks.repo.model.file.FileHandle;
 import org.sagebionetworks.repo.model.helper.DaoObjectHelper;
@@ -59,6 +61,12 @@ public class FileHandleScannerWorkerIntegrationTest {
 	@Autowired
 	private Scheduler scheduler;
 	
+	@Autowired
+	private TableRowTruthDAO tableChangeDao;
+	
+	@Autowired
+	private NodeDAO nodeDao;
+	
 	private UserInfo user;
 	
 	private Trigger dispatcherTrigger;
@@ -70,6 +78,8 @@ public class FileHandleScannerWorkerIntegrationTest {
 		arDao.clear();
 		fileHandleDao.truncateTable();
 		dao.truncateAll();
+		tableChangeDao.truncateAllRowData();
+		nodeDao.truncateAll();
 		
 		FileHandle handle = TestUtils.createS3FileHandle(user.getId().toString(), idGenerator.generateNewId(IdType.FILE_IDS).toString());
 		

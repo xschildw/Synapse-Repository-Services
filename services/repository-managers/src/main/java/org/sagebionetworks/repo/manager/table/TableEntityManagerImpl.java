@@ -1,7 +1,12 @@
 package org.sagebionetworks.repo.manager.table;
 
+import com.amazonaws.AmazonServiceException;
+import com.amazonaws.AmazonServiceException.ErrorType;
+import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+
+import org.apache.http.HttpStatus;
 import org.sagebionetworks.common.util.progress.ProgressCallback;
 import org.sagebionetworks.common.util.progress.SynchronizedProgressCallback;
 import org.sagebionetworks.manager.util.CollectionUtils;
@@ -19,13 +24,14 @@ import org.sagebionetworks.repo.model.StackStatusDao;
 import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.dao.table.RowHandler;
-import org.sagebionetworks.repo.model.dao.table.TableRowTruthDAO;
+import org.sagebionetworks.repo.model.dbo.dao.table.TableRowTruthDAO;
 import org.sagebionetworks.repo.model.dbo.dao.table.TableTransactionDao;
 import org.sagebionetworks.repo.model.dbo.file.FileHandleDao;
 import org.sagebionetworks.repo.model.entity.IdAndVersion;
 import org.sagebionetworks.repo.model.exception.ReadOnlyException;
 import org.sagebionetworks.repo.model.file.FileHandleAssociateType;
 import org.sagebionetworks.repo.model.jdo.KeyFactory;
+import org.sagebionetworks.repo.model.migration.TableRowChangeBackfillResponse;
 import org.sagebionetworks.repo.model.status.StatusEnum;
 import org.sagebionetworks.repo.model.table.AppendableRowSetRequest;
 import org.sagebionetworks.repo.model.table.ColumnChange;
@@ -68,6 +74,7 @@ import org.sagebionetworks.table.model.TableChange;
 import org.sagebionetworks.table.query.ParseException;
 import org.sagebionetworks.util.PaginationIterator;
 import org.sagebionetworks.util.ValidateArgument;
+import org.sagebionetworks.workers.util.aws.message.RecoverableMessageException;
 import org.sagebionetworks.workers.util.semaphore.LockUnavilableException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -327,12 +334,15 @@ public class TableEntityManagerImpl implements TableEntityManager {
 			SparseChangeSet delta, long transactionId) throws IOException {
 		// See PLFM-3041
 		checkStackWiteStatus();
-		validateFileHandles(user, delta.getTableId(), delta);
+
+		final String tableId = delta.getTableId();
+		
+		validateFileHandles(user, tableId, delta);
 				
 		// Now set the row version numbers and ID.
 		int coutToReserver = TableModelUtils.countEmptyOrInvalidRowIds(delta);
 		// Reserver IDs for the missing
-		IdRange range = tableRowTruthDao.reserveIdsInRange(delta.getTableId(), coutToReserver);
+		IdRange range = tableRowTruthDao.reserveIdsInRange(tableId, coutToReserver);
 		
 		// validate the table would be within the size limit.
 		if(range.getVersionNumber() > MAXIMUM_VERSIONS_PER_TABLE) {
@@ -342,20 +352,33 @@ public class TableEntityManagerImpl implements TableEntityManager {
 		// Are any rows being updated?
 		if (coutToReserver < delta.getRowCount()) {
 			// Validate that this update does not contain any row level conflicts.
-			checkForRowLevelConflict(delta.getTableId(), delta);
+			checkForRowLevelConflict(tableId, delta);
 		}
 		// Now assign the rowIds and set the version number
 		TableModelUtils.assignRowIdsAndVersionNumbers(delta, range);
 		
-		// Send the file uploads events (after commit)
-		sendFileUploadEvents(user.getId(), delta);
+		final Set<Long> fileIdsInSet = delta.getFileHandleIdsInSparseChangeSet();
 		
-		tableRowTruthDao.appendRowSetToTable(user.getId().toString(), delta.getTableId(), range.getEtag(), range.getVersionNumber(), columns, delta.writeToDto(), transactionId);
+ 		final Set<Long> newFileIds = getFileHandleIdsNotAssociatedWithTable(tableId, fileIdsInSet);
+ 		
+ 		final Long userId = user.getId();
+ 		
+ 		List<StatisticsFileEvent> uploadEvents = getFileHandleIdsNotAssociatedWithTable(tableId, newFileIds).stream().map(fileHandleId -> 
+			StatisticsFileEventUtils.buildFileUploadEvent(userId, fileHandleId.toString(), tableId, FileHandleAssociateType.TableEntity)
+		).collect(Collectors.toList());
+		
+		if (!uploadEvents.isEmpty()) {
+			statisticsCollector.collectEvents(uploadEvents);
+		}
+		
+		final boolean hasFileRefs = !newFileIds.isEmpty();
+		
+		tableRowTruthDao.appendRowSetToTable(userId.toString(), tableId, range.getEtag(), range.getVersionNumber(), columns, delta.writeToDto(), transactionId, hasFileRefs);
 		
 		// Prepare the results
 		RowReferenceSet results = new RowReferenceSet();
 		results.setHeaders(TableModelUtils.getSelectColumns(columns));
-		results.setTableId(delta.getTableId());
+		results.setTableId(tableId);
 		results.setEtag(range.getEtag());
 		List<RowReference> refs = new LinkedList<RowReference>();
 		// Build up the row references
@@ -369,22 +392,7 @@ public class TableEntityManagerImpl implements TableEntityManager {
 		
 		return results;
 	}
-	
-	private void sendFileUploadEvents(Long userId, SparseChangeSet delta) {
-		String tableId = delta.getTableId();
 		
-		Set<Long> fileHandleIds = delta.getFileHandleIdsInSparseChangeSet();
-
-		List<StatisticsFileEvent> downloadEvents = getFileHandleIdsNotAssociatedWithTable(tableId, fileHandleIds).stream().map(fileHandleId -> 
-			StatisticsFileEventUtils.buildFileUploadEvent(userId, fileHandleId.toString(), tableId, FileHandleAssociateType.TableEntity)
-		).collect(Collectors.toList());
-		
-		if (!downloadEvents.isEmpty()) {
-			statisticsCollector.collectEvents(downloadEvents);
-		}
-		
-	}
-	
 	/**
 	 * From the given set of file handle ids computes the subset of ids that are NOT associated with the given table
 	 * 
@@ -1017,6 +1025,89 @@ public class TableEntityManagerImpl implements TableEntityManager {
 		SnapshotResponse response = new SnapshotResponse();
 		response.setSnapshotVersionNumber(snapshotVersion);
 		return response;
+	}
+	
+	@Override
+	public org.sagebionetworks.repo.model.IdRange getTableRowChangeIdRange() {
+		return tableRowTruthDao.getTableRowChangeIdRange();
+	}
+
+	@Override
+	public Iterator<TableRowChange> newTableRowChangeWithFileRefsIterator(org.sagebionetworks.repo.model.IdRange idRange) {
+		ValidateArgument.required(idRange, "The idRange");
+		ValidateArgument.requirement(idRange.getMinId() <= idRange.getMaxId(), "Invalid idRange, the minId must be lesser or equal than the maxId");
+		return new PaginationIterator<TableRowChange>((long limit, long offset) -> tableRowTruthDao.getTableRowChangeWithFileRefsPage(idRange, limit, offset), PAGE_SIZE_LIMIT);
+	}
+	
+	@Override
+	public TableRowChangeBackfillResponse backFillTableRowChanges() {
+		// Iterator over all the changes that have the null hasFileRefs
+		PaginationIterator<TableRowChange> it = new PaginationIterator<>((limit, offset) -> tableRowTruthDao.getTableRowChangeWithNullFileRefsPage(limit, offset), PAGE_SIZE_LIMIT);
+		
+		Long count = 0L;
+		
+		int batchSize = 10_000;
+		
+		List<Long> trueBatch = new ArrayList<>(batchSize);
+		List<Long> falseBatch = new ArrayList<>(batchSize);
+		
+		while (it.hasNext()) {
+			TableRowChange changeMetadata = it.next();
+			
+			boolean hasFileRefs = false;
+			
+			try {
+				SparseChangeSet changeSet = getSparseChangeSet(changeMetadata);
+				
+				final Set<Long> fileIdsInSet = changeSet.getFileHandleIdsInSparseChangeSet();
+				
+		 		final Set<Long> newFileIds = getFileHandleIdsNotAssociatedWithTable(changeSet.getTableId(), fileIdsInSet);
+		 		
+		 		hasFileRefs = !newFileIds.isEmpty();
+			 
+			} catch (IOException e) {
+				throw new IllegalStateException(e);
+			} catch (NotFoundException e) {
+				hasFileRefs = false;
+			} catch (AmazonServiceException e) {
+				if (e instanceof AmazonS3Exception && e.getStatusCode() == HttpStatus.SC_NOT_FOUND) {
+					hasFileRefs = false;
+				}
+				if (ErrorType.Service.equals(e.getErrorType())) {
+					throw new RecoverableMessageException(e);
+				}
+				throw e;
+			}
+			
+			if (hasFileRefs) {
+				trueBatch.add(changeMetadata.getId());
+			} else {
+				falseBatch.add(changeMetadata.getId());
+			}
+			
+			if (trueBatch.size() + falseBatch.size() >= batchSize) {
+				if (!trueBatch.isEmpty()) {
+					tableRowTruthDao.updateRowChangeHasFileRefsBatch(trueBatch, true);
+					trueBatch.clear();
+				}
+				if (!falseBatch.isEmpty()) {
+					tableRowTruthDao.updateRowChangeHasFileRefsBatch(falseBatch, false);
+					falseBatch.clear();
+				}
+			}
+			
+			count++;
+		}
+		
+		if (!trueBatch.isEmpty()) {
+			tableRowTruthDao.updateRowChangeHasFileRefsBatch(trueBatch, true);
+		}
+		
+		if (!falseBatch.isEmpty()) {
+			tableRowTruthDao.updateRowChangeHasFileRefsBatch(falseBatch, false);
+		}
+
+		return new TableRowChangeBackfillResponse().setUpdatedCount(count);
 	}
 
 }

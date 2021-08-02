@@ -1,23 +1,23 @@
 package org.sagebionetworks.repo.model.dbo.dao.table;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.sagebionetworks.repo.model.AuthorizationConstants.BOOTSTRAP_PRINCIPAL;
-import org.sagebionetworks.repo.model.dao.table.TableRowTruthDAO;
 import org.sagebionetworks.repo.model.dbo.file.FileHandleDao;
 import org.sagebionetworks.repo.model.jdo.KeyFactory;
 import org.sagebionetworks.repo.model.table.ColumnChange;
@@ -35,13 +35,13 @@ import org.sagebionetworks.table.model.SparseChangeSet;
 import org.sagebionetworks.table.model.SparseRow;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.google.common.collect.Lists;
 
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(locations = { "classpath:jdomodels-test-context.xml" })
 public class TableRowTruthDAOImplTest {
 
@@ -63,15 +63,16 @@ public class TableRowTruthDAOImplTest {
 	List<String> fileHandleIds;
 	String tableId;
 
-	@Before
+	@BeforeEach
 	public void before() throws Exception {
+		tableRowTruthDao.truncateAllRowData();
 		creatorUserGroupId = BOOTSTRAP_PRINCIPAL.THE_ADMIN_USER.getPrincipalId().toString();
 		assertNotNull(creatorUserGroupId);
 		fileHandleIds = new LinkedList<String>();	
 		tableId = "syn123";
 	}
 	
-	@After
+	@AfterEach
 	public void after() throws Exception {
 		if(tableRowTruthDao != null) tableRowTruthDao.truncateAllRowData();
 
@@ -156,6 +157,10 @@ public class TableRowTruthDAOImplTest {
 		return appendRowSetToTable(userId, tableId, columns, delta, linkToVersion);
 	}
 	
+	private long appendRowSetToTable(String userId, String tableId, List<ColumnModel> columns, SparseChangeSet delta, Long linkToVersion) throws IOException{
+		return appendRowSetToTable(userId, tableId, columns, delta, linkToVersion, !delta.getFileHandleIdsInSparseChangeSet().isEmpty());
+	}
+	
 	/**
 	 * Helper to append SparseChangeSetDto to a table.
 	 * @param userId
@@ -166,7 +171,7 @@ public class TableRowTruthDAOImplTest {
 	 * @throws IOException
 	 */
 	private long appendRowSetToTable(String userId, String tableId, List<ColumnModel> columns, SparseChangeSet delta,
-			Long linkToVersion) throws IOException {
+			Long linkToVersion, Boolean hasFileRefs) throws IOException {
 		return readCommitedTransactionTemplate.execute((TransactionStatus status) -> {
 			// Now set the row version numbers and ID.
 			int coutToReserver = TableModelUtils.countEmptyOrInvalidRowIds(delta);
@@ -176,7 +181,7 @@ public class TableRowTruthDAOImplTest {
 			TableModelUtils.assignRowIdsAndVersionNumbers(delta, range);
 			Long transactionId = tableTransactionDao.startTransaction(tableId, Long.parseLong(userId));
 			tableRowTruthDao.appendRowSetToTable(userId, delta.getTableId(), range.getEtag(), range.getVersionNumber(),
-					columns, delta.writeToDto(), transactionId);
+					columns, delta.writeToDto(), transactionId, hasFileRefs);
 			TableRowChange change = tableRowTruthDao.getLastTableRowChange(tableId, TableChangeType.ROW);
 			if (linkToVersion != null) {
 				tableTransactionDao.linkTransactionToVersion(transactionId, linkToVersion);
@@ -242,7 +247,7 @@ public class TableRowTruthDAOImplTest {
 		TableRowChange one = results.get(1);
 		assertEquals(new Long(1), one.getRowVersion());
 		assertNotNull(one.getEtag());
-		assertFalse("Two changes cannot have the same Etag",zero.getEtag().equals(one.getEtag()));
+		assertFalse(zero.getEtag().equals(one.getEtag()), "Two changes cannot have the same Etag");
 		
 		// Listing all versions greater than zero should be the same as all
 		List<TableRowChange> greater = tableRowTruthDao.listRowSetsKeysForTableGreaterThanVersion(tableId, -1l);
@@ -361,19 +366,24 @@ public class TableRowTruthDAOImplTest {
 	}
 	
 	
-	@Test (expected=IllegalArgumentException.class)
+	@Test
 	public void testGetLastTableRowChangeNullType() throws IOException{
 		TableChangeType changeType = null;
-		// call under test
-		tableRowTruthDao.getLastTableRowChange(tableId, changeType);
+		
+		assertThrows(IllegalArgumentException.class, () -> {			
+			// call under test
+			tableRowTruthDao.getLastTableRowChange(tableId, changeType);
+		});
 	}
 	
-	@Test (expected=IllegalArgumentException.class)
+	@Test
 	public void testGetLastTableRowChangeNullId() throws IOException{
 		TableChangeType changeType = TableChangeType.COLUMN;
 		String tableId = null;
-		// call under test
-		tableRowTruthDao.getLastTableRowChange(tableId, changeType);
+		assertThrows(IllegalArgumentException.class, () -> {
+			// call under test
+			tableRowTruthDao.getLastTableRowChange(tableId, changeType);
+		});
 	}
 
 	@Test
@@ -461,18 +471,24 @@ public class TableRowTruthDAOImplTest {
 		assertTrue(tableRowTruthDao.hasAtLeastOneChangeOfType(tableId, TableChangeType.ROW));
 	}
 	
-	@Test (expected=IllegalArgumentException.class)
+	@Test
 	public void testHasAtLeastOneChangeOfTypeNullTableId() {
 		String tableId = null;
-		// call under test
-		tableRowTruthDao.hasAtLeastOneChangeOfType(tableId, TableChangeType.COLUMN);
+		
+		assertThrows(IllegalArgumentException.class, () -> {
+			// call under test
+			tableRowTruthDao.hasAtLeastOneChangeOfType(tableId, TableChangeType.COLUMN);
+		});
 	}
 	
-	@Test (expected=IllegalArgumentException.class)
+	@Test
 	public void testHasAtLeastOneChangeOfTypeNullType() {
 		TableChangeType type = null;
-		// call under test
-		tableRowTruthDao.hasAtLeastOneChangeOfType(tableId, type);
+		
+		assertThrows(IllegalArgumentException.class, () -> {
+			// call under test
+			tableRowTruthDao.hasAtLeastOneChangeOfType(tableId, type);
+		});
 	}
 	
 	@Test
@@ -592,5 +608,150 @@ public class TableRowTruthDAOImplTest {
 			// call under test
 			tableRowTruthDao.isEtagInTablesChangeHistory(tableId, etag);
 		});
+	}
+	
+	@Test
+	public void testGetTableChangeIdRange() throws IOException {
+		
+		// Create some test column models
+		List<ColumnModel> columns = TableModelTestUtils.createOneOfEachType();
+		// create some test rows.
+		List<Row> rows = TableModelTestUtils.createRows(columns, 5);
+		RawRowSet set = new RawRowSet(TableModelUtils.getIds(columns), null, tableId, rows);
+		// Append two change sets
+		appendRowSetToTable(creatorUserGroupId, tableId, columns, set);
+		appendRowSetToTable(creatorUserGroupId, tableId, columns, set);
+		
+		// Call under test
+		org.sagebionetworks.repo.model.IdRange result = tableRowTruthDao.getTableRowChangeIdRange();
+		
+		assertEquals(new org.sagebionetworks.repo.model.IdRange(result.getMinId(), result.getMinId() + 1), result);
+	}
+	
+	@Test
+	public void testGetTableChangeIdRangeWithEmpty() throws IOException{
+		
+		// Call under test
+		org.sagebionetworks.repo.model.IdRange result = tableRowTruthDao.getTableRowChangeIdRange();
+		
+		assertEquals(new org.sagebionetworks.repo.model.IdRange(-1, -1), result);
+	}
+	
+	@Test
+	public void testGetTableRowChangeWithFileRefsPage() throws IOException {
+		long limit = 10L;
+		long offset = 0L;
+		// Before we start there should be no changes
+		List<TableRowChange> results = tableRowTruthDao.getTableRowChangeWithFileRefsPage(tableRowTruthDao.getTableRowChangeIdRange(), limit, offset);
+		assertTrue(results.isEmpty());
+		
+		List<ColumnModel> columns = TableModelTestUtils.createOneOfEachType();
+		// create some test rows.
+		List<Row> rows = TableModelTestUtils.createRows(columns, 5);
+		
+		RawRowSet set = new RawRowSet(TableModelUtils.getIds(columns), null, tableId, rows);
+		
+		// Append this change set
+		appendRowSetToTable(creatorUserGroupId, tableId, columns, set);
+		// Add some more rows
+		set = new RawRowSet(set.getIds(), set.getEtag(), set.getTableId(), TableModelTestUtils.createRows(columns, 2));
+		
+		appendRowSetToTable(creatorUserGroupId, tableId, columns, set);
+		
+		results = tableRowTruthDao.getTableRowChangeWithFileRefsPage(tableRowTruthDao.getTableRowChangeIdRange(), limit, offset);
+		
+		assertEquals(2, results.size());
+		
+		// Add a row without file handles
+		List<Row> rowWithoutFiles = TableModelTestUtils.createRows(columns, 1);
+		
+		rowWithoutFiles.get(0).getValues().set(ColumnType.FILEHANDLEID.ordinal(), null);
+		
+		set = new RawRowSet(set.getIds(), set.getEtag(), set.getTableId(), rowWithoutFiles);
+		
+		appendRowSetToTable(creatorUserGroupId, tableId, columns, set);
+
+		results = tableRowTruthDao.getTableRowChangeWithFileRefsPage(tableRowTruthDao.getTableRowChangeIdRange(), limit, offset);
+		
+		assertEquals(2, results.size());
+		
+	}
+	
+	@Test
+	public void testGetTableRowChangeWithNullFileRefsPage() throws IOException {
+		long limit = 10L;
+		long offset = 0L;
+		// Before we start there should be no changes
+		List<TableRowChange> results = tableRowTruthDao.getTableRowChangeWithNullFileRefsPage(limit, offset);
+		assertTrue(results.isEmpty());
+		
+		List<ColumnModel> columns = TableModelTestUtils.createOneOfEachType();
+		// create some test rows.
+		List<Row> rows = TableModelTestUtils.createRows(columns, 5);
+		
+		RawRowSet set = new RawRowSet(TableModelUtils.getIds(columns), null, tableId, rows);
+		
+		// Append this change set
+		appendRowSetToTable(creatorUserGroupId, tableId, columns, set);
+		
+		// Result still empty as all of them has the file ref boolean
+		results = tableRowTruthDao.getTableRowChangeWithNullFileRefsPage(limit, offset);
+		
+		assertTrue(results.isEmpty());
+		
+		// Now add some rows with the null hasFileRefs
+		set = new RawRowSet(set.getIds(), set.getEtag(), set.getTableId(), TableModelTestUtils.createRows(columns, 2));
+		
+		SparseChangeSet spars = TableModelUtils.createSparseChangeSet(set, columns);
+		
+		// Append this change set
+		appendRowSetToTable(creatorUserGroupId, tableId, columns, spars, null, null);
+		
+		results = tableRowTruthDao.getTableRowChangeWithNullFileRefsPage(limit, offset);
+		
+		assertEquals(1, results.size());
+	}
+	
+	@Test
+	public void testUpdateRowChangeHasFileRefsBatch() throws IOException {
+		long limit = 10L;
+		long offset = 0L;
+		
+		List<ColumnModel> columns = TableModelTestUtils.createOneOfEachType();
+		
+		// create some test rows.
+		List<Row> rows = TableModelTestUtils.createRows(columns, 5);
+		
+		RawRowSet set = new RawRowSet(TableModelUtils.getIds(columns), null, tableId, rows);
+		
+		// Append this change set
+		appendRowSetToTable(creatorUserGroupId, tableId, columns, set);
+		
+		// Now add some rows with the null hasFileRefs
+		set = new RawRowSet(set.getIds(), set.getEtag(), set.getTableId(), TableModelTestUtils.createRows(columns, 2));
+		
+		SparseChangeSet spars = TableModelUtils.createSparseChangeSet(set, columns);
+		
+		// Append this change set
+		appendRowSetToTable(creatorUserGroupId, tableId, columns, spars, null, null);
+		
+		List<TableRowChange> results = tableRowTruthDao.getTableRowChangeWithNullFileRefsPage(limit, offset);
+		
+		assertEquals(1, results.size());
+		
+		List<Long> ids = results.stream().map(TableRowChange::getId).collect(Collectors.toList());
+
+		String etag = results.get(0).getEtag();
+		
+		// Call under test
+		tableRowTruthDao.updateRowChangeHasFileRefsBatch(ids, false);
+		
+		// Now no row should have the null flag
+		assertTrue(tableRowTruthDao.getTableRowChangeWithNullFileRefsPage(limit, offset).isEmpty());
+		
+		// And the first changeset should still be true
+		assertEquals(1, tableRowTruthDao.getTableRowChangeWithFileRefsPage(tableRowTruthDao.getTableRowChangeIdRange(), limit, offset).size());
+		
+		assertNotEquals(etag, tableRowTruthDao.getTableRowChange(results.get(0).getTableId(), results.get(0).getRowVersion()).getEtag());
 	}
 }

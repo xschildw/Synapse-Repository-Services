@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyListOf;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -23,6 +24,7 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -30,7 +32,12 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 
+import org.apache.commons.collections4.IteratorUtils;
+import org.apache.commons.collections4.ListUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,9 +63,9 @@ import org.sagebionetworks.repo.model.StackStatusDao;
 import org.sagebionetworks.repo.model.UnauthorizedException;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.dao.table.RowHandler;
-import org.sagebionetworks.repo.model.dao.table.TableRowTruthDAO;
 import org.sagebionetworks.repo.model.dbo.dao.table.CSVToRowIterator;
 import org.sagebionetworks.repo.model.dbo.dao.table.TableModelTestUtils;
+import org.sagebionetworks.repo.model.dbo.dao.table.TableRowTruthDAO;
 import org.sagebionetworks.repo.model.dbo.dao.table.TableTransactionDao;
 import org.sagebionetworks.repo.model.dbo.file.FileHandleDao;
 import org.sagebionetworks.repo.model.entity.IdAndVersion;
@@ -399,7 +406,7 @@ public class TableEntityManagerTest {
 		// row level conflict test
 		verify(mockTruthDao).listRowSetsKeysForTableGreaterThanVersion(tableId, 0L);
 		// save the row set
-		verify(mockTruthDao).appendRowSetToTable(""+user.getId(), tableId, range.getEtag(), range.getVersionNumber(), models, sparseChangeSet.writeToDto(), transactionId);
+		verify(mockTruthDao).appendRowSetToTable(""+user.getId(), tableId, range.getEtag(), range.getVersionNumber(), models, sparseChangeSet.writeToDto(), transactionId, /* hasFileRefs */ true);
 		verify(mockStatisticsCollector, times(1)).collectEvents(any(List.class));
 	}
 	
@@ -641,7 +648,7 @@ public class TableEntityManagerTest {
 		assertNotNull(deleteRows);
 
 		// verify the correct row set was generated
-		verify(mockTruthDao).appendRowSetToTable(eq(user.getId().toString()), eq(tableId), eq(range.getEtag()), eq(range.getVersionNumber()), anyListOf(ColumnModel.class), any(SparseChangeSetDto.class), anyLong());
+		verify(mockTruthDao).appendRowSetToTable(eq(user.getId().toString()), eq(tableId), eq(range.getEtag()), eq(range.getVersionNumber()), anyListOf(ColumnModel.class), any(SparseChangeSetDto.class), anyLong(), eq(false));
 		// verify the table status was set
 		verify(mockTableManagerSupport, times(1)).setTableToProcessingAndTriggerUpdate(idAndVersion);
 		verify(mockTableManagerSupport).validateTableWriteAccess(user, idAndVersion);
@@ -763,11 +770,41 @@ public class TableEntityManagerTest {
 		// call under test
 		manager.appendRows(user, tableId, replace, mockProgressCallback, transactionId);
 
-		verify(mockTruthDao).appendRowSetToTable(eq(user.getId().toString()), eq(tableId), eq(range.getEtag()), eq(range.getVersionNumber()), anyListOf(ColumnModel.class), any(SparseChangeSetDto.class), anyLong());
+		verify(mockTruthDao).appendRowSetToTable(eq(user.getId().toString()), eq(tableId), eq(range.getEtag()), eq(range.getVersionNumber()), anyListOf(ColumnModel.class), any(SparseChangeSetDto.class), anyLong(), eq(true));
 
 		verify(mockFileDao).getFileHandleIdsCreatedByUser(anyLong(), any(List.class));
 		verify(mockTableManagerSupport).validateTableWriteAccess(user, idAndVersion);
 		verify(mockStatisticsCollector, times(1)).collectEvents(any(List.class));
+	}
+	
+	@Test
+	public void testAppendRowsWithoutFileHandles() throws DatastoreException, NotFoundException, IOException {
+		when(mockTableConnectionFactory.getConnection(idAndVersion)).thenReturn(mockTableIndexDAO);
+		when(mockStackStatusDao.getCurrentStatus()).thenReturn(StatusEnum.READ_WRITE);
+		when(mockColumModelManager.getColumnModelsForTable(user, tableId)).thenReturn(models);
+		when(mockTruthDao.reserveIdsInRange(eq(tableId), anyLong())).thenReturn(range, range2, range3);
+		when(mockTruthDao.hasAtLeastOneChangeOfType(anyString(), any(TableChangeType.class))).thenReturn(true);
+		
+		RowSet replace = new RowSet();
+		replace.setTableId(tableId);
+		replace.setHeaders(TableModelUtils.getSelectColumns(models));
+		replace.setEtag("etag");
+
+		List<Row> replaceRows = TableModelTestUtils.createRows(models, 1);
+		
+		replaceRows.get(0).setRowId(0L);
+		replaceRows.get(0).setVersionNumber(0L);
+		replaceRows.get(0).getValues().set(ColumnType.FILEHANDLEID.ordinal(), null);
+		replace.setRows(replaceRows);
+		
+		// call under test
+		manager.appendRows(user, tableId, replace, mockProgressCallback, transactionId);
+		
+
+		verify(mockTruthDao).appendRowSetToTable(eq(user.getId().toString()), eq(tableId), eq(range.getEtag()), eq(range.getVersionNumber()), anyListOf(ColumnModel.class), any(SparseChangeSetDto.class), anyLong(), eq(false));
+
+		verify(mockTableManagerSupport).validateTableWriteAccess(user, idAndVersion);
+		verify(mockStatisticsCollector, never()).collectEvents(any(List.class));
 	}
 
 	@Test
@@ -795,7 +832,7 @@ public class TableEntityManagerTest {
 
 		manager.appendRows(user, tableId, replace, mockProgressCallback, transactionId);
 
-		verify(mockTruthDao).appendRowSetToTable(eq(user.getId().toString()), eq(tableId), eq(range.getEtag()), eq(range.getVersionNumber()), anyListOf(ColumnModel.class), any(SparseChangeSetDto.class), anyLong());
+		verify(mockTruthDao).appendRowSetToTable(eq(user.getId().toString()), eq(tableId), eq(range.getEtag()), eq(range.getVersionNumber()), anyListOf(ColumnModel.class), any(SparseChangeSetDto.class), anyLong(), eq(true));
 		verify(mockFileDao).getFileHandleIdsCreatedByUser(anyLong(), any(List.class));
 		verify(mockTableManagerSupport).validateTableWriteAccess(user, idAndVersion);
 	}
@@ -1415,7 +1452,7 @@ public class TableEntityManagerTest {
 		Long etagVersion = 25L;
 		when(mockTruthDao.getVersionForEtag(tableId, etag)).thenReturn(25L);
 		TableRowChange change = new TableRowChange();
-		change.setKey("someKey");
+		change.setKeyNew("someKey");
 		change.setChangeType(TableChangeType.ROW);
 		when(mockTruthDao.listRowSetsKeysForTableGreaterThanVersion(tableId, etagVersion)).thenReturn(Lists.newArrayList(change));
 		SparseChangeSetDto conflictUpdate = new SparseChangeSetDto();
@@ -1536,7 +1573,6 @@ public class TableEntityManagerTest {
 		TableRowChange change = new TableRowChange();
 		change.setTableId(tableId);
 		change.setRowVersion(versionNumber);
-		change.setKey("oldKey");
 		// when the new key is null the change set needs to be upgraded.
 		change.setKeyNew(null);
 		assertThrows(IllegalArgumentException.class, ()->{
@@ -1885,6 +1921,174 @@ public class TableEntityManagerTest {
 		});
 	}
 	
+	@Test
+	public void testGetTableChangeIdRange() {
+		
+		org.sagebionetworks.repo.model.IdRange expeceted = new org.sagebionetworks.repo.model.IdRange(0, 10);
+		
+		when(mockTruthDao.getTableRowChangeIdRange()).thenReturn(expeceted);
+		
+		// Call under test
+		org.sagebionetworks.repo.model.IdRange result = manager.getTableRowChangeIdRange();
+		
+		assertEquals(expeceted, result);
+		
+		verify(mockTruthDao).getTableRowChangeIdRange();
+	}
+	
+	@Test
+	public void testNewTableRowChangeWithFileRefsIterator() {
+		org.sagebionetworks.repo.model.IdRange idRange = new org.sagebionetworks.repo.model.IdRange(0, 10);
+		
+		List<TableRowChange> page = createChange(tableId, 10);
+		
+		when(mockTruthDao.getTableRowChangeWithFileRefsPage(any(), anyLong(), anyLong())).thenReturn(page, Collections.emptyList());
+		
+		// Call under test
+		List<TableRowChange> result = IteratorUtils.toList(manager.newTableRowChangeWithFileRefsIterator(idRange));
+		
+		assertEquals(page, result);
+		
+		verify(mockTruthDao).getTableRowChangeWithFileRefsPage(idRange, 1000, 0);
+		verify(mockTruthDao).getTableRowChangeWithFileRefsPage(idRange, 1000, 1000);
+		
+	}
+	
+	@Test
+	public void testNewTableRowChangeWithFileRefsIteratorWithMultiplePages() {
+		org.sagebionetworks.repo.model.IdRange idRange = new org.sagebionetworks.repo.model.IdRange(0, 10);
+		
+		List<TableRowChange> page = createChange(tableId, 1000);
+		
+		when(mockTruthDao.getTableRowChangeWithFileRefsPage(any(), anyLong(), anyLong())).thenReturn(page, page, Collections.emptyList());
+		
+		// Call under test
+		List<TableRowChange> result = IteratorUtils.toList(manager.newTableRowChangeWithFileRefsIterator(idRange));
+		
+		assertEquals(ListUtils.union(page, page), result);
+		
+		verify(mockTruthDao).getTableRowChangeWithFileRefsPage(idRange, 1000, 0);
+		verify(mockTruthDao).getTableRowChangeWithFileRefsPage(idRange, 1000, 1000);
+		verify(mockTruthDao).getTableRowChangeWithFileRefsPage(idRange, 1000, 2000);
+	}
+	
+	@Test
+	public void testNewTableRowChangeWithFileRefsIteratorWithNoIdRange() {
+		org.sagebionetworks.repo.model.IdRange idRange = null;
+
+		String message = assertThrows(IllegalArgumentException.class, () -> {			
+			// Call under test
+			manager.newTableRowChangeWithFileRefsIterator(idRange);
+		}).getMessage();
+		
+		assertEquals("The idRange is required.", message);
+	}
+	
+	@Test
+	public void testNewTableRowChangeWithFileRefsIteratorWithNoInvalidIdRange() {
+		org.sagebionetworks.repo.model.IdRange idRange = new org.sagebionetworks.repo.model.IdRange(10, 0);
+
+		String message = assertThrows(IllegalArgumentException.class, () -> {			
+			// Call under test
+			manager.newTableRowChangeWithFileRefsIterator(idRange);
+		}).getMessage();
+		
+		assertEquals("Invalid idRange, the minId must be lesser or equal than the maxId", message);
+	}
+	
+	@Test
+	public void testBackFillTableRowChanges() throws IOException {
+		
+		int pageSize = 10;
+		
+		List<TableRowChange> changePage = createChange(tableId, pageSize);
+		
+		when(mockTruthDao.getTableRowChangeWithNullFileRefsPage(anyLong(), anyLong())).thenReturn(changePage, Collections.emptyList());
+		when(mockTruthDao.getRowSet(any())).thenReturn(rowDto);
+		when(mockColumModelManager.getAndValidateColumnModels(any())).thenReturn(models);
+		when(mockTableConnectionFactory.getConnection(any())).thenReturn(mockTableIndexDAO);
+		when(mockTableIndexDAO.getFileHandleIdsAssociatedWithTable(any(), any())).thenReturn(Collections.emptySet());
+		
+		// Call under test
+		manager.backFillTableRowChanges();
+		
+		verify(mockTruthDao).getTableRowChangeWithNullFileRefsPage(1000, 0);
+		verify(mockTruthDao).getTableRowChangeWithNullFileRefsPage(1000, 1000);
+		verify(mockTruthDao, times(pageSize)).getRowSet(any());
+		verify(mockColumModelManager, times(pageSize)).getAndValidateColumnModels(rowDto.getColumnIds());
+		verify(mockTableConnectionFactory, times(pageSize)).getConnection(any());
+		verify(mockTableIndexDAO, times(pageSize)).getFileHandleIdsAssociatedWithTable(any(), any());
+		verify(mockTruthDao).updateRowChangeHasFileRefsBatch(LongStream.range(0, pageSize).boxed().collect(Collectors.toList()), false);
+	}
+	
+	@Test
+	public void testBackFillTableRowChangesWithFileRefs() throws IOException {
+		
+		int pageSize = 10;
+		
+		List<TableRowChange> changePage = createChange(tableId, pageSize);
+		
+		SparseRowDto row = new SparseRowDto();
+		row.setValues(Collections.singletonMap(String.valueOf(ColumnType.FILEHANDLEID.ordinal()), "123"));
+		
+		rowDto.setRows(Arrays.asList(row));
+		
+		when(mockTruthDao.getTableRowChangeWithNullFileRefsPage(anyLong(), anyLong())).thenReturn(changePage, Collections.emptyList());
+		when(mockTruthDao.getRowSet(any())).thenReturn(rowDto);
+		when(mockColumModelManager.getAndValidateColumnModels(any())).thenReturn(models);
+		when(mockTableConnectionFactory.getConnection(any())).thenReturn(mockTableIndexDAO);
+		when(mockTableIndexDAO.getFileHandleIdsAssociatedWithTable(any(), any())).thenReturn(Collections.emptySet());
+		
+		// Call under test
+		manager.backFillTableRowChanges();
+		
+		verify(mockTruthDao).getTableRowChangeWithNullFileRefsPage(1000, 0);
+		verify(mockTruthDao).getTableRowChangeWithNullFileRefsPage(1000, 1000);
+		verify(mockTruthDao, times(pageSize)).getRowSet(any());
+		verify(mockColumModelManager, times(pageSize)).getAndValidateColumnModels(rowDto.getColumnIds());
+		verify(mockTableConnectionFactory, times(pageSize)).getConnection(any());
+		verify(mockTableIndexDAO, times(pageSize)).getFileHandleIdsAssociatedWithTable(any(), any());
+		verify(mockTruthDao).updateRowChangeHasFileRefsBatch(LongStream.range(0, pageSize).boxed().collect(Collectors.toList()), true);
+	}
+	
+	@Test
+	public void testBackFillTableRowChangesAndMultiplePages() throws IOException {
+		
+		int totalPages = 11;
+		int pageSize = 1000;
+		
+		List<TableRowChange> changePage = createChange(tableId, pageSize);
+		
+		// Creates another 10 pages (e.g. leads to two batches, one with 10K and one with 1K)
+		List<List<TableRowChange>> otherPages = new ArrayList<>();
+		
+		for (int i=0; i<totalPages - 1; i++) {
+			otherPages.add(createChange(tableId, pageSize));
+		}
+		
+		// Final empty list to avoid infinite loop
+		otherPages.add(Collections.emptyList());
+		
+		when(mockTruthDao.getTableRowChangeWithNullFileRefsPage(anyLong(), anyLong())).thenReturn(changePage, (List<TableRowChange>[]) otherPages.toArray(new List[otherPages.size()]));
+		when(mockTruthDao.getRowSet(any())).thenReturn(rowDto);
+		when(mockColumModelManager.getAndValidateColumnModels(any())).thenReturn(models);
+		when(mockTableConnectionFactory.getConnection(any())).thenReturn(mockTableIndexDAO);
+		when(mockTableIndexDAO.getFileHandleIdsAssociatedWithTable(any(), any())).thenReturn(Collections.emptySet());
+		
+		// Call under test
+		manager.backFillTableRowChanges();
+		
+		for (int i=0; i < totalPages + 1; i++) {
+			verify(mockTruthDao).getTableRowChangeWithNullFileRefsPage(1000, i * 1000);
+			List<Long> ids = IntStream.range(0, pageSize).boxed().map(Long::new).collect(Collectors.toList());
+		}
+		
+		verify(mockTruthDao, times(totalPages * pageSize)).getRowSet(any());
+		verify(mockColumModelManager, times(totalPages * pageSize)).getAndValidateColumnModels(rowDto.getColumnIds());
+		verify(mockTableConnectionFactory, times(totalPages * pageSize)).getConnection(any());
+		verify(mockTableIndexDAO, times(totalPages * pageSize)).getFileHandleIdsAssociatedWithTable(any(), any());
+		verify(mockTruthDao, times((int)Math.ceil((totalPages * pageSize)/10_000D))).updateRowChangeHasFileRefsBatch(anyList(), eq(false));
+	}
 	
 	/**
 	 * Helper to create a list of TableRowChange for the given tableId and count.
@@ -1897,6 +2101,7 @@ public class TableEntityManagerTest {
 		int enumLenght = TableChangeType.values().length;
 		for(int i=0; i<count; i++) {
 			TableRowChange change = new TableRowChange();
+			change.setId(new Long(i));
 			change.setTableId(tableId);
 			change.setRowVersion(new Long(i));
 			change.setChangeType(TableChangeType.values()[i%enumLenght]);
