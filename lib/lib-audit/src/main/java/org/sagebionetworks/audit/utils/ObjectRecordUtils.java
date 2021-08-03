@@ -2,9 +2,9 @@ package org.sagebionetworks.audit.utils;
 
 public class ObjectRecordUtils {
 
-	public static long synapseIdToLong(String synapseId) {
+	public static Long synapseIdToLong(String synapseId) {
 		if (synapseId == null)
-			throw new IllegalArgumentException();
+			return null;
 		synapseId = synapseId.trim().toLowerCase();
 		if (synapseId.startsWith("syn"))
 			synapseId = synapseId.substring(3);

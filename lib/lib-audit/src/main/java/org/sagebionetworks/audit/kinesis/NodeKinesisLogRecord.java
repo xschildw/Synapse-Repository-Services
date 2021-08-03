@@ -58,16 +58,16 @@ public class NodeKinesisLogRecord implements AwsKinesisLogRecord {
 	}
 
 	public NodeKinesisLogRecord withNodeRecord(NodeRecord nodeRecord) {
-		this.benefactorId = (nodeRecord.getBenefactorId() != null ? ObjectRecordUtils.synapseIdToLong(nodeRecord.getBenefactorId()) : null);
+		this.benefactorId = ObjectRecordUtils.synapseIdToLong(nodeRecord.getBenefactorId());
 		this.createdBy = nodeRecord.getCreatedByPrincipalId();
 		this.createdOn = (nodeRecord.getCreatedOn() != null ? nodeRecord.getCreatedOn().getTime() : null);
 		this.fileHandleId = (nodeRecord.getFileHandleId() != null ? Long.parseLong(nodeRecord.getFileHandleId()) : null);
 		this.modifiedBy = nodeRecord.getModifiedByPrincipalId();
 		this.modifiedOn = (nodeRecord.getModifiedOn() != null ? nodeRecord.getModifiedOn().getTime(): null);
 		this.name = nodeRecord.getName();
-		this.nodeId = (nodeRecord.getId() != null ? ObjectRecordUtils.synapseIdToLong(nodeRecord.getId()) : null);
-		this.parentId = (nodeRecord.getParentId() != null ? ObjectRecordUtils.synapseIdToLong(nodeRecord.getParentId()) : null);
-		this.projectId = (nodeRecord.getProjectId() != null ? ObjectRecordUtils.synapseIdToLong(nodeRecord.getProjectId()) : null);
+		this.nodeId = ObjectRecordUtils.synapseIdToLong(nodeRecord.getId());
+		this.parentId = ObjectRecordUtils.synapseIdToLong(nodeRecord.getParentId());
+		this.projectId = ObjectRecordUtils.synapseIdToLong(nodeRecord.getProjectId());
 		this.type = (nodeRecord.getNodeType() != null ? nodeRecord.getNodeType().toString() : null);
 		this.versionNumber = nodeRecord.getVersionNumber();
 		this.isPublic = nodeRecord.getIsPublic();

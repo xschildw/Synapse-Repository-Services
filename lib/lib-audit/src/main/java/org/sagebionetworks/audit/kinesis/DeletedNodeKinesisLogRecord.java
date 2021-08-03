@@ -49,7 +49,7 @@ public class DeletedNodeKinesisLogRecord implements AwsKinesisLogRecord {
 	}
 
 	public DeletedNodeKinesisLogRecord withDeletedNodeRecord(DeletedNode deletedNodeRecord) {
-		this.id = (deletedNodeRecord.getId() != null ? ObjectRecordUtils.synapseIdToLong(deletedNodeRecord.getId()) : null);
+		this.id = ObjectRecordUtils.synapseIdToLong(deletedNodeRecord.getId());
 		return this;
 	}
 
