@@ -12,7 +12,9 @@ import software.amazon.awssdk.services.lambda.LambdaClient;
 @ImportResource("classpath:stack-configuration.spb.xml")
 public class MarkdownConfig {
 
-    private LambdaClient lambdaClient() {
+    @Bean
+    @Scope("singleton")
+    public LambdaClient lambdaClient() {
         LambdaClient lambdaClient = AwsClientFactory.createLambdaClient();
         return lambdaClient;
     }
