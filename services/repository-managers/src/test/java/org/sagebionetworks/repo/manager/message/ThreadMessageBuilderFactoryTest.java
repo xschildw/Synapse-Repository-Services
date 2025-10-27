@@ -13,7 +13,7 @@ import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
-import org.sagebionetworks.markdown.MarkdownDao;
+import org.sagebionetworks.repo.manager.message.markdown.MarkdownDao;
 import org.sagebionetworks.repo.manager.UserManager;
 import org.sagebionetworks.repo.model.NodeDAO;
 import org.sagebionetworks.repo.model.UploadContentToS3DAO;

@@ -3,7 +3,7 @@ package org.sagebionetworks.message.workers;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.sagebionetworks.asynchronous.workers.changes.ChangeMessageDrivenRunner;
-import org.sagebionetworks.markdown.MarkdownClientException;
+import org.sagebionetworks.repo.manager.message.markdown.MarkdownClientException;
 import org.sagebionetworks.repo.manager.UserManager;
 import org.sagebionetworks.repo.manager.message.BroadcastMessageManager;
 import org.sagebionetworks.repo.model.AuthorizationConstants.BOOTSTRAP_PRINCIPAL;

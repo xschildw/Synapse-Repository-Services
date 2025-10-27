@@ -1,4 +1,4 @@
-package org.sagebionetworks.markdown;
+package org.sagebionetworks.repo.manager.message.markdown;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -9,7 +9,7 @@ import software.amazon.awssdk.services.lambda.model.InvokeRequest;
 import software.amazon.awssdk.services.lambda.model.InvokeResponse;
 import software.amazon.awssdk.services.lambda.model.LambdaException;
 
-import java.nio.charset.StandardCharsets;
+import org.sagebionetworks.repo.manager.message.markdown.MarkdownClientException;
 
 @Service
 public class MarkdownDaoImpl implements MarkdownDao{
@@ -54,7 +54,7 @@ public class MarkdownDaoImpl implements MarkdownDao{
 			InvokeResponse response = lambdaClient.invoke(invokeRequest);
 
 			if (response.functionError() != null) {
-				throw new MarkdownClientException(500, "Lambda execution failed: " + response.functionError());
+				throw new org.sagebionetworks.repo.manager.message.markdown.MarkdownClientException(500, "Lambda execution failed: " + response.functionError());
 			}
 
 			String responseData = response.payload().asUtf8String();

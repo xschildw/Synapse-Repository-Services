@@ -4,7 +4,7 @@ import java.io.IOException;
 
 import org.apache.http.client.ClientProtocolException;
 import org.json.JSONException;
-import org.sagebionetworks.markdown.MarkdownClientException;
+import org.sagebionetworks.repo.manager.message.markdown.MarkdownClientException;
 import org.sagebionetworks.repo.model.UserInfo;
 import org.sagebionetworks.repo.model.message.ChangeMessage;
 import org.sagebionetworks.util.progress.ProgressCallback;

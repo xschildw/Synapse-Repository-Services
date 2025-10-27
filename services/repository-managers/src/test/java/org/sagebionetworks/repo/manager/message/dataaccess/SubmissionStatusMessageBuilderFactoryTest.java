@@ -9,7 +9,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.sagebionetworks.markdown.MarkdownDao;
+import org.sagebionetworks.repo.manager.message.markdown.MarkdownDao;
 import org.sagebionetworks.repo.manager.message.BroadcastMessageBuilder;
 import org.sagebionetworks.repo.model.RestrictableObjectType;
 import org.sagebionetworks.repo.model.dataaccess.Submission;

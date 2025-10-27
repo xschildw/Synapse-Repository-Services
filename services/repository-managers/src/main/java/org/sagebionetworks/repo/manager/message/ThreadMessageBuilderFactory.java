@@ -1,6 +1,6 @@
 package org.sagebionetworks.repo.manager.message;
 
-import org.sagebionetworks.markdown.MarkdownDao;
+import org.sagebionetworks.repo.manager.message.markdown.MarkdownDao;
 import org.sagebionetworks.repo.manager.UserManager;
 import org.sagebionetworks.repo.model.NodeDAO;
 import org.sagebionetworks.repo.model.UploadContentToS3DAO;

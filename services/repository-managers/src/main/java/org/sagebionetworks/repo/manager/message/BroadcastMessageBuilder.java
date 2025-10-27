@@ -5,7 +5,7 @@ import java.util.Set;
 
 import org.apache.http.client.ClientProtocolException;
 import org.json.JSONException;
-import org.sagebionetworks.markdown.MarkdownClientException;
+import org.sagebionetworks.repo.manager.message.markdown.MarkdownClientException;
 import org.sagebionetworks.repo.model.broadcast.UserNotificationInfo;
 import org.sagebionetworks.repo.model.dao.subscription.Subscriber;
 import org.sagebionetworks.repo.model.subscription.Topic;

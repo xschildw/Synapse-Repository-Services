@@ -6,8 +6,8 @@ import java.util.StringJoiner;
 
 import org.apache.http.client.ClientProtocolException;
 import org.json.JSONException;
-import org.sagebionetworks.markdown.MarkdownClientException;
-import org.sagebionetworks.markdown.MarkdownDao;
+import org.sagebionetworks.repo.manager.message.markdown.MarkdownClientException;
+import org.sagebionetworks.repo.manager.message.markdown.MarkdownDao;
 import org.sagebionetworks.repo.manager.EmailUtils;
 import org.sagebionetworks.repo.manager.SendRawEmailRequestBuilder;
 import org.sagebionetworks.repo.manager.SendRawEmailRequestBuilder.BodyType;

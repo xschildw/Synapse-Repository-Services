@@ -1,4 +1,4 @@
-package org.sagebionetworks.markdown;
+package org.sagebionetworks.repo.manager.message.markdown;
 
 public class MarkdownClientException extends Exception {
 

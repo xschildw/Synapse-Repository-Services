@@ -1,6 +1,6 @@
 package org.sagebionetworks.repo.manager.message.dataaccess;
 
-import org.sagebionetworks.markdown.MarkdownDao;
+import org.sagebionetworks.repo.manager.message.markdown.MarkdownDao;
 import org.sagebionetworks.repo.manager.message.BroadcastMessageBuilder;
 import org.sagebionetworks.repo.manager.message.MessageBuilderFactory;
 import org.sagebionetworks.repo.model.dataaccess.Submission;
