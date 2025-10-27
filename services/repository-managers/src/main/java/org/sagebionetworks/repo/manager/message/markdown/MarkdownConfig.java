@@ -21,8 +21,8 @@ public class MarkdownConfig {
 
     @Bean
     @Scope("singleton")
-    public MarkdownDao markdownDao(StackConfiguration stackConfiguration) {
-        MarkdownDaoImpl markdownDao = new MarkdownDaoImpl(lambdaClient(), stackConfiguration.getSynapseBaseUrl(), stackConfiguration.getStack());
+    public MarkdownDao markdownDao(LambdaClient lambdaClient, StackConfiguration stackConfiguration) {
+        MarkdownDaoImpl markdownDao = new MarkdownDaoImpl(lambdaClient, stackConfiguration.getSynapseBaseUrl(), stackConfiguration.getStack());
         return markdownDao;
     }
 
