@@ -85,10 +85,6 @@
 			<groupId>org.sagebionetworks</groupId>
 			<artifactId>lib-upload</artifactId>
 		</dependency>
-		<dependency>
-			<groupId>org.sagebionetworks</groupId>
-			<artifactId>lib-markdown</artifactId>
-		</dependency>
 		<!-- Oauth support -->
 		<dependency>
 			<groupId>org.scribe</groupId>
