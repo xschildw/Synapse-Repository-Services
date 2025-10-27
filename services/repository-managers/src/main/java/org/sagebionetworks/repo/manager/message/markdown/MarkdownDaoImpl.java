@@ -11,7 +11,6 @@ import software.amazon.awssdk.services.lambda.model.LambdaException;
 
 import org.sagebionetworks.repo.manager.message.markdown.MarkdownClientException;
 
-@Service
 public class MarkdownDaoImpl implements MarkdownDao{
 
 	public static final String MARKDOWN = "markdown";
