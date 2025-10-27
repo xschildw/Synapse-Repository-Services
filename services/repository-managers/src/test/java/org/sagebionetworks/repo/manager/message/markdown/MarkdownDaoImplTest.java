@@ -14,9 +14,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
-import static org.sagebionetworks.markdown.MarkdownDaoImpl.BASE_URL;
-import static org.sagebionetworks.markdown.MarkdownDaoImpl.MARKDOWN;
-import static org.sagebionetworks.markdown.MarkdownDaoImpl.OUTPUT;
+import static org.sagebionetworks.repo.manager.message.markdown.MarkdownDaoImpl.BASE_URL;
+import static org.sagebionetworks.repo.manager.message.markdown.MarkdownDaoImpl.MARKDOWN;
+import static org.sagebionetworks.repo.manager.message.markdown.MarkdownDaoImpl.OUTPUT;
 
 import org.json.JSONObject;
 import org.mockito.junit.jupiter.MockitoExtension;

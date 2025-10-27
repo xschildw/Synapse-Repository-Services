@@ -21,7 +21,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
-import org.sagebionetworks.markdown.MarkdownClientException;
+import org.sagebionetworks.repo.manager.message.markdown.MarkdownClientException;
 import org.sagebionetworks.repo.manager.message.markdown.MarkdownDao;
 import org.sagebionetworks.repo.manager.UserManager;
 import org.sagebionetworks.repo.model.broadcast.UserNotificationInfo;
