@@ -39,9 +39,14 @@ public final class SimpleHttpClientImpl implements SimpleHttpClient{
 	private CloseableHttpClient httpClient;
 	private StreamProvider provider;
 	CookieStore cookieStore;
+	private final RequestSigner signer;
 
 	public SimpleHttpClientImpl() {
-		this(null);
+		this(null, null);
+	}
+
+	public SimpleHttpClientImpl(SimpleHttpClientConfig config) {
+		this(config, null);
 	}
 
 	/**
@@ -49,10 +54,21 @@ public final class SimpleHttpClientImpl implements SimpleHttpClient{
 	 * 
 	 * @param config
 	 */
-	public SimpleHttpClientImpl(SimpleHttpClientConfig config) {
+	public SimpleHttpClientImpl(SimpleHttpClientConfig config, RequestSigner signer) {
+		this.signer = signer;
 		this.cookieStore = new BasicCookieStore();
 		HttpClientBuilder builder = HttpClients.custom()
 									.setDefaultCookieStore(cookieStore);
+		if (signer != null) {
+			builder.addInterceptorLast((org.apache.http.HttpRequest req, org.apache.http.protocol.HttpContext ctx) -> {
+				// Avoid double-signing
+				org.apache.http.Header auth = req.getFirstHeader("Authorization");
+				if (auth != null && auth.getValue().startsWith("AWS4-HMAC-SHA256")) {
+					return;
+				}
+				signer.signRequest(req);
+			});
+		}
 		if (config == null) {
 			httpClient = builder.build();
 		} else {
