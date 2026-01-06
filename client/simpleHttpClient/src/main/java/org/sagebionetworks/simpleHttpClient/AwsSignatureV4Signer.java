@@ -32,6 +32,9 @@ public class AwsSignatureV4Signer implements RequestSigner {
         }
         HttpUriRequest req = (HttpUriRequest) apacheRequest;
         URI uri = req.getURI();
+        if (uri == null) {
+            throw new IllegalArgumentException("Request URI cannot be null.");
+        }
 
         String host = uri.getHost();
         if (host == null || host.trim().isEmpty()) {

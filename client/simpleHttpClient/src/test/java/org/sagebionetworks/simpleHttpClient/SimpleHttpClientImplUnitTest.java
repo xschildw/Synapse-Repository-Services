@@ -64,6 +64,8 @@ public class SimpleHttpClientImplUnitTest {
 	private StatusLine mockStatusLine;
 	@Mock
 	private CookieStore mockCookieStore;
+	@Mock
+	private RequestSigner mockSigner;
 
 	@InjectMocks
 	private SimpleHttpClientImpl simpleHttpClient = new SimpleHttpClientImpl();
@@ -568,4 +570,61 @@ public class SimpleHttpClientImplUnitTest {
 		when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_OK);
 		when(mockResponse.getAllHeaders()).thenReturn(new org.apache.http.Header[]{});
 	}
+
+	@Test
+	public void testGet_signerCalled() throws Exception {
+		// Recreate client with signer injected
+		SimpleHttpClientImpl client =
+				new SimpleHttpClientImpl(mockHttpClient, mockProvider, mockCookieStore, mockSigner);
+
+		setupResponseMock();
+
+		assertEquals(response, client.get(request));
+
+		ArgumentCaptor<HttpGet> captor = ArgumentCaptor.forClass(HttpGet.class);
+		verify(mockHttpClient).execute(captor.capture());
+
+		verify(mockSigner).signRequest(captor.getValue());
+		verify(mockResponse).close();
+	}
+
+	@Test
+	public void testGet_signerNotCalledWhenAlreadySigned() throws Exception {
+		SimpleHttpClientImpl client =
+				new SimpleHttpClientImpl(mockHttpClient, mockProvider, mockCookieStore, mockSigner);
+
+		// Ensure the outgoing request already has an AWS4 Authorization header.
+		request.getHeaders().put("Authorization", "AWS4-HMAC-SHA256 something");
+
+		setupResponseMock();
+
+		client.get(request);
+
+		verify(mockHttpClient).execute(any(HttpUriRequest.class));
+		verifyZeroInteractions(mockSigner);
+	}
+
+	@Test
+	public void testGetFile_signerCalled() throws Exception {
+		SimpleHttpClientImpl client =
+				new SimpleHttpClientImpl(mockHttpClient, mockProvider, mockCookieStore, mockSigner);
+
+		setupResponseMock();
+
+		File mockFile = Mockito.mock(File.class);
+		FileOutputStream mockStream = Mockito.mock(FileOutputStream.class);
+		when(mockProvider.getFileOutputStream(mockFile)).thenReturn(mockStream);
+
+		assertEquals(response, client.getFile(request, mockFile));
+
+		ArgumentCaptor<HttpGet> captor = ArgumentCaptor.forClass(HttpGet.class);
+		verify(mockHttpClient).execute(captor.capture());
+
+		verify(mockSigner).signRequest(captor.getValue());
+		verify(mockResponse).close();
+		verify(mockStream).close();
+	}
+
+
+
 }

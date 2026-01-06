@@ -59,16 +59,7 @@ public final class SimpleHttpClientImpl implements SimpleHttpClient{
 		this.cookieStore = new BasicCookieStore();
 		HttpClientBuilder builder = HttpClients.custom()
 									.setDefaultCookieStore(cookieStore);
-		if (signer != null) {
-			builder.addInterceptorLast((org.apache.http.HttpRequest req, org.apache.http.protocol.HttpContext ctx) -> {
-				// Avoid double-signing
-				org.apache.http.Header auth = req.getFirstHeader("Authorization");
-				if (auth != null && auth.getValue().startsWith("AWS4-HMAC-SHA256")) {
-					return;
-				}
-				signer.signRequest(req);
-			});
-		}
+
 		if (config == null) {
 			httpClient = builder.build();
 		} else {
@@ -82,6 +73,14 @@ public final class SimpleHttpClientImpl implements SimpleHttpClient{
 					.build();
 		}
 		provider = new StreamProviderImpl();
+	}
+
+	// package-private is fine (no modifier)
+	SimpleHttpClientImpl(CloseableHttpClient httpClient, StreamProvider provider, CookieStore cookieStore, RequestSigner signer) {
+		this.httpClient = httpClient;
+		this.provider = provider;
+		this.cookieStore = cookieStore;
+		this.signer = signer;
 	}
 
 	@Override
@@ -173,6 +172,7 @@ public final class SimpleHttpClientImpl implements SimpleHttpClient{
 		HttpGet httpGet = new HttpGet(request.getUri());
 		copyHeaders(request, httpGet);
 
+		maybeSign(httpGet);
 		try (FileOutputStream fileOutputStream = provider.getFileOutputStream(result);
 			 CloseableHttpResponse response = httpClient.execute(httpGet);){
 			String content = null;
@@ -283,6 +283,7 @@ public final class SimpleHttpClientImpl implements SimpleHttpClient{
 		if (httpUriRequest == null) {
 			throw new IllegalArgumentException("httpUriRequest cannot be null");
 		}
+		maybeSign(httpUriRequest);
 		try (CloseableHttpResponse response = httpClient.execute(httpUriRequest)){
 			String content = null;
 			if (response.getEntity() != null) {
@@ -295,6 +296,19 @@ public final class SimpleHttpClientImpl implements SimpleHttpClient{
 					convertHeaders(response.getAllHeaders()));
 		}
 	}
+
+	private void maybeSign(org.apache.http.HttpRequest req) throws IOException {
+		if (signer == null || req == null) {
+			return;
+		}
+		// Avoid double-signing
+		org.apache.http.Header auth = req.getFirstHeader("Authorization");
+		if (auth != null && auth.getValue() != null && auth.getValue().startsWith("AWS4-HMAC-SHA256")) {
+			return;
+		}
+		signer.signRequest(req);
+	}
+
 
 	@Override
 	public String getFirstCookieValue(String domain, String name){
