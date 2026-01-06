@@ -75,7 +75,7 @@ public final class SimpleHttpClientImpl implements SimpleHttpClient{
 		provider = new StreamProviderImpl();
 	}
 
-	// package-private is fine (no modifier)
+	// For easier testing
 	SimpleHttpClientImpl(CloseableHttpClient httpClient, StreamProvider provider, CookieStore cookieStore, RequestSigner signer) {
 		this.httpClient = httpClient;
 		this.provider = provider;

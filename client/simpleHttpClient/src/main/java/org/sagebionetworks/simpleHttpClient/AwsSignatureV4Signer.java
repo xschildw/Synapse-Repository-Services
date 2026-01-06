@@ -78,11 +78,13 @@ public class AwsSignatureV4Signer implements RequestSigner {
         req.removeHeaders("Authorization");
         req.removeHeaders("X-Amz-Date");
         req.removeHeaders("X-Amz-Security-Token");
+        req.removeHeaders("Host");
 
         signedRequest.headers().forEach((name, values) -> {
             if (name.equalsIgnoreCase("Authorization") ||
                 name.equalsIgnoreCase("X-Amz-Date") ||
-                name.equalsIgnoreCase("X-Amz-Security-Token")) {
+                name.equalsIgnoreCase("X-Amz-Security-Token") ||
+                name.equalsIgnoreCase("Host")) {
                 for (String value : values) {
                     req.addHeader(name, value);
                 }
