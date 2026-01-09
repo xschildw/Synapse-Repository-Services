@@ -9,6 +9,7 @@
 		class="org.sagebionetworks.markdown.MarkdownClient"
 		init-method="_init"
 		scope="singleton">
+		<constructor-arg ref="awsCredentialsProviderV2" />
 		<property name="markdownServiceEndpoint" ref="stackConfiguration.markdownServiceEndpoint"/>
 	</bean>
 	

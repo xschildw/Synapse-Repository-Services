@@ -14,6 +14,10 @@
 	<bean id="stackEncrypter" class="org.sagebionetworks.StackEncrypterSingleton"
 	factory-method="singleton" scope="singleton" />
 
+	<bean id="awsCredentialsProviderV2"
+		  class="org.sagebionetworks.aws.v2.AwsCredentialsProviderV2"
+		  factory-method="createCredentialProvider" />
+
 	<!-- This the StackConfiguration singleton -->
 	<bean id="stackConfiguration" class="org.sagebionetworks.StackConfigurationSingleton"
 	factory-method="singleton" scope="singleton" />

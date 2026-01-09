@@ -16,18 +16,23 @@ import org.sagebionetworks.simpleHttpClient.SimpleHttpClient;
 import org.sagebionetworks.simpleHttpClient.SimpleHttpRequest;
 import org.sagebionetworks.simpleHttpClient.SimpleHttpResponse;
 import org.springframework.test.util.ReflectionTestUtils;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 public class MarkdownClientTest {
 	@Mock
 	private SimpleHttpClient mockHttpClient;
 	@Mock
 	private SimpleHttpResponse mockResponse;
+	@Mock
+	AwsCredentialsProvider awsCredentialsProvider;
+
 	private MarkdownClient markdownClient;
+
 
 	@BeforeEach
 	public void before() {
 		MockitoAnnotations.initMocks(this);
-		markdownClient = new MarkdownClient();
+		markdownClient = new MarkdownClient(awsCredentialsProvider);
 		ReflectionTestUtils.setField(markdownClient, "simpleHttpClient", mockHttpClient);
 	}
 

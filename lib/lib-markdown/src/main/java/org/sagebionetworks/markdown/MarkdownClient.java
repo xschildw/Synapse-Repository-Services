@@ -10,17 +10,23 @@ import org.sagebionetworks.simpleHttpClient.SimpleHttpClient;
 import org.sagebionetworks.simpleHttpClient.SimpleHttpClientImpl;
 import org.sagebionetworks.simpleHttpClient.SimpleHttpRequest;
 import org.sagebionetworks.simpleHttpClient.SimpleHttpResponse;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 public class MarkdownClient {
 
 	private SimpleHttpClient simpleHttpClient;
 	private String markdownServiceEndpoint;
 	private static final Map<String, String> DEFAULT_REQUEST_HEADERS;
+	private AwsCredentialsProvider awsCredentialsProvider;
 
 	static {
 		Map<String, String> requestHeaders = new HashMap<String, String>();
 		requestHeaders.put("Content-Type", "application/json");
 		DEFAULT_REQUEST_HEADERS = Collections.unmodifiableMap(requestHeaders);
+	}
+
+	public MarkdownClient(AwsCredentialsProvider awsCredentialsProvider) {
+		this.awsCredentialsProvider = awsCredentialsProvider;
 	}
 
 	public void _init() {

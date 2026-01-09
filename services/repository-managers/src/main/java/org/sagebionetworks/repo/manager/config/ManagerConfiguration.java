@@ -344,11 +344,11 @@ public class ManagerConfiguration {
 				.followRedirects(Redirect.NEVER).build();
 	}
 
-	@Bean
-	public AwsCredentialsProvider createAwsCredentialProviderV2() {
-		return AwsCredentialsProviderV2.createCredentialProvider();
-	}
-
+//	@Bean
+//	public AwsCredentialsProvider createAwsCredentialProviderV2() {
+//		return AwsCredentialsProviderV2.createCredentialProvider();
+//	}
+//
 	@Bean
 	public BedrockAgentRuntimeAsyncClientBuilder createBedrockAgentRuntimeAsyncClientBuilder() {
 		return BedrockAgentRuntimeAsyncClient.builder().region(Region.US_EAST_1)
