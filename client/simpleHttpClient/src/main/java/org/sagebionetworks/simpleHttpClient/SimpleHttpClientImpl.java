@@ -33,13 +33,17 @@ import org.apache.http.impl.cookie.BasicClientCookie;
 import org.apache.http.util.EntityUtils;
 
 
-public final class SimpleHttpClientImpl implements SimpleHttpClient{
+public final class SimpleHttpClientImpl implements SimpleHttpClient {
 
 	private static final String CONTENT_TYPE = "Content-Type";
 	private CloseableHttpClient httpClient;
 	private StreamProvider provider;
 	CookieStore cookieStore;
 	private final RequestSigner signer;
+
+	public RequestSigner getSigner() {
+		return this.signer;
+	}
 
 	public SimpleHttpClientImpl() {
 		this(null, null);

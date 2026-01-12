@@ -6,11 +6,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.http.client.ClientProtocolException;
+import org.sagebionetworks.simpleHttpClient.AwsSignatureV4Signer;
 import org.sagebionetworks.simpleHttpClient.SimpleHttpClient;
 import org.sagebionetworks.simpleHttpClient.SimpleHttpClientImpl;
 import org.sagebionetworks.simpleHttpClient.SimpleHttpRequest;
 import org.sagebionetworks.simpleHttpClient.SimpleHttpResponse;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
 
 public class MarkdownClient {
 
@@ -31,7 +34,9 @@ public class MarkdownClient {
 
 	public void _init() {
 		if (simpleHttpClient == null) {
-			simpleHttpClient = new SimpleHttpClientImpl();
+			AwsCredentials credentials = awsCredentialsProvider.resolveCredentials();
+			AwsSignatureV4Signer signer = new AwsSignatureV4Signer(credentials, Region.US_EAST_1, "execute-api");
+			simpleHttpClient = new SimpleHttpClientImpl(null, signer);
 		}
 	}
 
