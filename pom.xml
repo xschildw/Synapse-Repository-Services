@@ -92,6 +92,7 @@
 		</pluginRepository>
 	</pluginRepositories>
 
+
 	<!-- Only list global dependencies in this file -->
 	<dependencyManagement>
 		<dependencies>
