@@ -130,7 +130,7 @@ ${AWS_CREDS} \
 -Dorg.sagebionetworks.sts.iam.arn=${org_sagebionetworks_sts_iam_arn} \
 -Dorg.sagebionetworks.sts.duration.seconds=${org_sagebionetworks_sts_duration_seconds} \
 -Dorg.sagebionetworks.google.cloud.key="${org_sagebionetworks_google_cloud_key}" \
--Dorg.sagebionetworks.cloudfront.keypair="${org_sagebionetworks_cloudfront_keypair}" \
+-Dorg.sagebionetworks.cloudfront.private.key.id="${org_sagebionetworks_cloudfront_private_key_id}" \
 -Dorg.sagebionetworks.cloudfront.domainname="${org_sagebionetworks_cloudfront_domainname}" \
 -Dorg.sagebionetworks.cloudfront.private.key.secret="${org_sagebionetworks_cloudfront_private_key_secret}" \
 -Duser.home=${HOME_DIR_WITHIN_CONTAINER}"
