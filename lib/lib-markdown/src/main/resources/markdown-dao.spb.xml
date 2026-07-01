@@ -7,9 +7,9 @@
 	
 	<bean id="markdownClient"
 		class="org.sagebionetworks.markdown.MarkdownClient"
-		init-method="_init"
 		scope="singleton">
 		<property name="markdownServiceEndpoint" ref="stackConfiguration.markdownServiceEndpoint"/>
+		<property name="simpleHttpClient" ref="httpClientImpl"/>
 	</bean>
 	
 	<!-- The markdown DAO -->

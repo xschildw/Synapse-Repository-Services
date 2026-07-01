@@ -20,7 +20,9 @@
 	<!-- We don't want to send emails during testing, so we stub out Amazon SES -->
 	<bean id="amazonSESClient" class="org.sagebionetworks.repo.manager.StubAmazonSimpleEmailServiceClient" />	
 	
-	<bean id="jiraClient" class="org.sagebionetworks.repo.manager.TestJiraClient" />
+	<bean id="jiraClient" class="org.sagebionetworks.repo.manager.TestJiraClient">
+		<constructor-arg ref="jiraClientImpl" />
+	</bean>
 	
 	<!-- We don't want to contact prod during the worker testing -->
 	<bean id="prodDetector" class="org.sagebionetworks.repo.manager.testing.StubProdDetector">

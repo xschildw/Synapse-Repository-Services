@@ -11,8 +11,12 @@ import org.sagebionetworks.repo.util.jrjc.*;
  *
  */
 public class TestJiraClient implements JiraClient {
-	private JiraClient innerJiraClient = new JiraClientImpl();
-	
+	private final JiraClient innerJiraClient;
+
+	public TestJiraClient(JiraClient innerJiraClient) {
+		this.innerJiraClient = innerJiraClient;
+	}
+
 	@Override
 	public ProjectInfo getProjectInfo(String projectKey, String issueTypeName) {
 		return innerJiraClient.getProjectInfo(projectKey, issueTypeName);

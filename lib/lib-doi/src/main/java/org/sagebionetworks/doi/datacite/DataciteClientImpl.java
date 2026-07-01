@@ -14,8 +14,6 @@ import org.sagebionetworks.repo.model.doi.v2.DataciteMetadata;
 import org.sagebionetworks.repo.web.NotFoundException;
 import org.sagebionetworks.repo.web.ServiceUnavailableException;
 import org.sagebionetworks.simpleHttpClient.SimpleHttpClient;
-import org.sagebionetworks.simpleHttpClient.SimpleHttpClientConfig;
-import org.sagebionetworks.simpleHttpClient.SimpleHttpClientImpl;
 import org.sagebionetworks.simpleHttpClient.SimpleHttpRequest;
 import org.sagebionetworks.simpleHttpClient.SimpleHttpResponse;
 import org.springframework.stereotype.Service;
@@ -27,21 +25,17 @@ public class DataciteClientImpl implements DataciteClient {
 
 	private DataciteXmlTranslator xmlTranslator;
 
-	private static final Integer TIME_OUT = 30 * 1000; // 30 seconds
 	private static final String USER_AGENT = "Synapse";
 	private String DATACITE_URL;
 	private String USERNAME;
 	private String PASSWORD;
 	private final SimpleHttpClient client;
 
-	public DataciteClientImpl(DataciteClientConfig config, DataciteMetadataTranslator metadataTranslator, DataciteXmlTranslator xmlTranslator) {
+	public DataciteClientImpl(DataciteClientConfig config, DataciteMetadataTranslator metadataTranslator, DataciteXmlTranslator xmlTranslator,
+			SimpleHttpClient client) {
 		this.metadataTranslator = metadataTranslator;
 		this.xmlTranslator = xmlTranslator;
-		
-		// Configure HTTP client for use
-		SimpleHttpClientConfig httpClientConfig = new SimpleHttpClientConfig();
-		httpClientConfig.setSocketTimeoutMs(TIME_OUT);
-		client = new SimpleHttpClientImpl(httpClientConfig);
+		this.client = client;
 		USERNAME = config.getUsername();
 		PASSWORD = config.getPassword();
 		DATACITE_URL = "https://" + config.getDataciteDomain() + "/";

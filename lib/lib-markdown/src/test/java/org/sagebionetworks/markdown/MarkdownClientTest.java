@@ -15,7 +15,6 @@ import org.mockito.MockitoAnnotations;
 import org.sagebionetworks.simpleHttpClient.SimpleHttpClient;
 import org.sagebionetworks.simpleHttpClient.SimpleHttpRequest;
 import org.sagebionetworks.simpleHttpClient.SimpleHttpResponse;
-import org.springframework.test.util.ReflectionTestUtils;
 
 public class MarkdownClientTest {
 	@Mock
@@ -28,7 +27,7 @@ public class MarkdownClientTest {
 	public void before() {
 		MockitoAnnotations.initMocks(this);
 		markdownClient = new MarkdownClient();
-		ReflectionTestUtils.setField(markdownClient, "simpleHttpClient", mockHttpClient);
+		markdownClient.setSimpleHttpClient(mockHttpClient);
 	}
 
 	@Test

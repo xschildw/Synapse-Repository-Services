@@ -17,4 +17,8 @@
 	<import resource="markdown-dao.spb.xml" />
 	<context:annotation-config />
 	<aop:aspectj-autoproxy />
+
+	<!-- Standalone stand-in for the shared org.sagebionetworks.repo.manager.http.HttpClientImpl bean,
+		which lives in the repository-managers module and is not available in this module's test context. -->
+	<bean id="httpClientImpl" class="org.sagebionetworks.simpleHttpClient.SimpleHttpClientImpl" />
 </beans>

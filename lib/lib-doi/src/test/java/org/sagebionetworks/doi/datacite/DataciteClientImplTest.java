@@ -29,7 +29,6 @@ import org.sagebionetworks.repo.web.ServiceUnavailableException;
 import org.sagebionetworks.simpleHttpClient.SimpleHttpClient;
 import org.sagebionetworks.simpleHttpClient.SimpleHttpRequest;
 import org.sagebionetworks.simpleHttpClient.SimpleHttpResponse;
-import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 public class DataciteClientImplTest {
@@ -67,11 +66,8 @@ public class DataciteClientImplTest {
 		when(config.getPassword()).thenReturn(CONFIG_PWD);
 		when(config.getDataciteDomain()).thenReturn(CONFIG_URL);
 		
-		dataciteClient = new DataciteClientImpl(config, mockMetadataTranslator, mockXmlTranslator);
-		
-		// This is needed since the client is built in the constructor
-		ReflectionTestUtils.setField(dataciteClient, "client", mockHttpClient);
-		
+		dataciteClient = new DataciteClientImpl(config, mockMetadataTranslator, mockXmlTranslator, mockHttpClient);
+
 		doi = new Doi();
 		metadata = new Doi();
 	}

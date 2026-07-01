@@ -25,7 +25,9 @@
 	<bean id="amazonSESClient"
 		class="org.sagebionetworks.repo.manager.StubAmazonSimpleEmailServiceClient" />
 
-	<bean id="jiraClient" class="org.sagebionetworks.repo.manager.TestJiraClient" />
+	<bean id="jiraClient" class="org.sagebionetworks.repo.manager.TestJiraClient">
+		<constructor-arg ref="jiraClientImpl" />
+	</bean>
 	
 	<!-- A transaction template that can be used for test. -->
 	<bean id="testTransactionTemplate"

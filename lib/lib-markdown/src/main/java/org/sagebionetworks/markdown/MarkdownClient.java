@@ -7,7 +7,6 @@ import java.util.Map;
 
 import org.apache.http.client.ClientProtocolException;
 import org.sagebionetworks.simpleHttpClient.SimpleHttpClient;
-import org.sagebionetworks.simpleHttpClient.SimpleHttpClientImpl;
 import org.sagebionetworks.simpleHttpClient.SimpleHttpRequest;
 import org.sagebionetworks.simpleHttpClient.SimpleHttpResponse;
 
@@ -23,10 +22,8 @@ public class MarkdownClient {
 		DEFAULT_REQUEST_HEADERS = Collections.unmodifiableMap(requestHeaders);
 	}
 
-	public void _init() {
-		if (simpleHttpClient == null) {
-			simpleHttpClient = new SimpleHttpClientImpl();
-		}
+	public void setSimpleHttpClient(SimpleHttpClient simpleHttpClient) {
+		this.simpleHttpClient = simpleHttpClient;
 	}
 
 	/**

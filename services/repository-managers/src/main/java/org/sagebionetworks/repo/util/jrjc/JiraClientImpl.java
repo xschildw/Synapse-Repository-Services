@@ -9,9 +9,10 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
-import org.sagebionetworks.simpleHttpClient.*;
+import org.sagebionetworks.simpleHttpClient.SimpleHttpClient;
+import org.sagebionetworks.simpleHttpClient.SimpleHttpRequest;
+import org.sagebionetworks.simpleHttpClient.SimpleHttpResponse;
 import org.sagebionetworks.util.url.HttpMethod;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -31,8 +32,7 @@ public class JiraClientImpl implements JiraClient {
 	public static final String NAME_KEY = "name";
 	public static final String ID_KEY = "id";
 
-	private SimpleHttpClient httpClient;
-	private static final Integer TIME_OUT = 30 * 1000; // 30 seconds
+	private final SimpleHttpClient httpClient;
 	private static final String JIRA_API_PROJECT_URL = "/rest/api/3/project/";
 	private static final String JIRA_API_FIELDS_URL = "/rest/api/3/field/";
 	private static final String JIRA_API_ISSUE_URL = "/rest/api/3/issue/";
@@ -40,13 +40,11 @@ public class JiraClientImpl implements JiraClient {
 	private static final String JIRA_PROJECT_ISSUE_TYPES_KEY = "issueTypes";
 	private static final String JIRA_PROJECT_ID_KEY = "id";
 
-	@Autowired
-	private StackConfiguration config;
+	private final StackConfiguration config;
 
-	public JiraClientImpl() {
-		SimpleHttpClientConfig httpClientConfig = new SimpleHttpClientConfig();
-		httpClientConfig.setSocketTimeoutMs(TIME_OUT);
-		httpClient = new SimpleHttpClientImpl(httpClientConfig);
+	public JiraClientImpl(StackConfiguration config, SimpleHttpClient httpClient) {
+		this.config = config;
+		this.httpClient = httpClient;
 	}
 
 	@Override
