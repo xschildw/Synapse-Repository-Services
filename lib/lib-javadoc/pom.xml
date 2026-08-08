@@ -25,7 +25,15 @@
 		</dependency>
 		<dependency>
 			<groupId>org.apache.velocity</groupId>
-			<artifactId>velocity</artifactId>
+			<artifactId>velocity-engine-core</artifactId>
+			<!-- Velocity builds against slf4j-api 1.7.x; excluding it keeps this module on the
+			     newer slf4j-api that avro already provides, rather than silently downgrading. -->
+			<exclusions>
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-api</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.sagebionetworks</groupId>

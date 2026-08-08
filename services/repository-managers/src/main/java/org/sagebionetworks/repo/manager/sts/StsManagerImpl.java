@@ -71,9 +71,9 @@ public class StsManagerImpl implements StsManager {
 	/** Initializes the STS Manager. */
 	public StsManagerImpl() {
 		velocityEngine = new VelocityEngine();
-		velocityEngine.setProperty(RuntimeConstants.RESOURCE_LOADER, "classpath");
-		velocityEngine.setProperty("classpath.resource.loader.class", ClasspathResourceLoader.class.getName());
-		velocityEngine.setProperty("runtime.references.strict", true);
+		velocityEngine.setProperty(RuntimeConstants.RESOURCE_LOADERS, "classpath");
+		velocityEngine.setProperty("resource.loader.classpath.class", ClasspathResourceLoader.class.getName());
+		velocityEngine.setProperty(RuntimeConstants.RUNTIME_REFERENCES_STRICT, true);
 	}
 
 	@Override

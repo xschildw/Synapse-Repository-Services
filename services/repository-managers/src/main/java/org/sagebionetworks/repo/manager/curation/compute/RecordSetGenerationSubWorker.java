@@ -83,8 +83,8 @@ public class RecordSetGenerationSubWorker implements ComputeTaskSubWorker<Record
 		this.curationTaskManager = curationTaskManager;
 		this.entityManager = entityManager;
 		this.velocityEngine = new VelocityEngine();
-		this.velocityEngine.setProperty(RuntimeConstants.RESOURCE_LOADER, "classpath");
-		this.velocityEngine.setProperty("classpath.resource.loader.class", ClasspathResourceLoader.class.getName());
+		this.velocityEngine.setProperty(RuntimeConstants.RESOURCE_LOADERS, "classpath");
+		this.velocityEngine.setProperty("resource.loader.classpath.class", ClasspathResourceLoader.class.getName());
 	}
 
 	@Override

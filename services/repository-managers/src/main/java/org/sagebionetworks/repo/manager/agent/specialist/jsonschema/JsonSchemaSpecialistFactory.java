@@ -45,8 +45,8 @@ public class JsonSchemaSpecialistFactory {
 		// keywords such as $id, $ref, and $schema, which Velocity would otherwise treat as undefined
 		// variable references. In non-strict mode these render literally, which is what we want.
 		VelocityEngine engine = new VelocityEngine();
-		engine.setProperty(RuntimeConstants.RESOURCE_LOADER, "classpath");
-		engine.setProperty("classpath.resource.loader.class", ClasspathResourceLoader.class.getName());
+		engine.setProperty(RuntimeConstants.RESOURCE_LOADERS, "classpath");
+		engine.setProperty("resource.loader.classpath.class", ClasspathResourceLoader.class.getName());
 
 		VelocityContext context = new VelocityContext();
 

@@ -42,9 +42,9 @@ public class GridUpdateSpecialistFactory {
 
 	String renderSystemPrompt() {
 		VelocityEngine engine = new VelocityEngine();
-		engine.setProperty(RuntimeConstants.RESOURCE_LOADER, "classpath");
-		engine.setProperty("classpath.resource.loader.class", ClasspathResourceLoader.class.getName());
-		engine.setProperty("runtime.references.strict", true);
+		engine.setProperty(RuntimeConstants.RESOURCE_LOADERS, "classpath");
+		engine.setProperty("resource.loader.classpath.class", ClasspathResourceLoader.class.getName());
+		engine.setProperty(RuntimeConstants.RUNTIME_REFERENCES_STRICT, true);
 
 		VelocityContext context = new VelocityContext();
 		context.put("updateExamples", GridExamples.getUpdateExamples());

@@ -43,8 +43,8 @@ public class EntityMetadataSpecialistFactory {
 
 	String renderSystemPrompt() {
 		VelocityEngine engine = new VelocityEngine();
-		engine.setProperty(RuntimeConstants.RESOURCE_LOADER, "classpath");
-		engine.setProperty("classpath.resource.loader.class", ClasspathResourceLoader.class.getName());
+		engine.setProperty(RuntimeConstants.RESOURCE_LOADERS, "classpath");
+		engine.setProperty("resource.loader.classpath.class", ClasspathResourceLoader.class.getName());
 
 		VelocityContext context = new VelocityContext();
 

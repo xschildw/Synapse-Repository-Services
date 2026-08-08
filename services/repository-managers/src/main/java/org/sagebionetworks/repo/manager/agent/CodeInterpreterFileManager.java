@@ -94,9 +94,9 @@ public class CodeInterpreterFileManager {
 		this.stagingBucket = stackConfig.getStack() + ".code-interpreter.staging.sagebase.org";
 		this.synapseBucket = stackConfig.getS3Bucket();
 		this.velocityEngine = new VelocityEngine();
-		this.velocityEngine.setProperty(RuntimeConstants.RESOURCE_LOADER, "classpath");
-		this.velocityEngine.setProperty("classpath.resource.loader.class", ClasspathResourceLoader.class.getName());
-		this.velocityEngine.setProperty("runtime.references.strict", true);
+		this.velocityEngine.setProperty(RuntimeConstants.RESOURCE_LOADERS, "classpath");
+		this.velocityEngine.setProperty("resource.loader.classpath.class", ClasspathResourceLoader.class.getName());
+		this.velocityEngine.setProperty(RuntimeConstants.RUNTIME_REFERENCES_STRICT, true);
 	}
 
 	/**
