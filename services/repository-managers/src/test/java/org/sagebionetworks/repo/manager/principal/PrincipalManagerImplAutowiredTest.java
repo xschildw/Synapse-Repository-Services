@@ -33,10 +33,10 @@ import org.sagebionetworks.repo.model.dbo.file.FileHandleDao;
 import org.sagebionetworks.repo.model.file.S3FileHandle;
 import org.sagebionetworks.repo.model.oauth.OAuthProvider;
 import org.sagebionetworks.repo.model.principal.AliasType;
+import org.sagebionetworks.repo.model.principal.NotificationEmail;
 import org.sagebionetworks.repo.model.principal.PrincipalAlias;
 import org.sagebionetworks.repo.model.principal.PrincipalAliasDAO;
 import org.sagebionetworks.repo.web.NotFoundException;
-import org.sagebionetworks.repo.model.principal.NotificationEmail;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
@@ -192,6 +192,7 @@ public class PrincipalManagerImplAutowiredTest {
 		// Verify that the password has been changed
 		assertThrows(UnauthenticatedException.class, () -> authenticationManager.login(loginRequest, null));
 	}
+
 	@Test
 	public void testUpdateNotificationEmailForUserWithNewAddress() {
 		String newEmail = UUID.randomUUID().toString() + "@test.com";

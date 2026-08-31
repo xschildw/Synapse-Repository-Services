@@ -487,8 +487,9 @@ public class AdministrationController {
 	 * The address is bound without the usual email validation flow, so the administrator must verify the user's
 	 * identity out-of-band before invoking. Idempotent.
 	 * <p>
-	 * Setting removePreviousNotificationEmail also unbinds the previous address from the account, which cascades
-	 * to any OAuth provider binding attached to it and therefore disables the user's federated sign-in.
+	 * Setting removePreviousNotificationEmail also unbinds the previous address from the account, which removes the
+	 * OAuth provider bindings attached to that specific address and therefore disables federated sign-in through
+	 * those providers. Bindings held against an ORCID or OpenID alias are unaffected.
 	 *
 	 * @param userId Must be an administrator.
 	 * @param id The id of the user whose notification email should be changed.

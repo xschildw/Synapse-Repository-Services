@@ -29,8 +29,8 @@ import org.sagebionetworks.repo.model.auth.TotpSecretActivationRequest;
 import org.sagebionetworks.repo.model.auth.TwoFactorAuthStatus;
 import org.sagebionetworks.repo.model.auth.TwoFactorState;
 import org.sagebionetworks.repo.model.message.ChangeMessages;
-import org.sagebionetworks.repo.model.principal.NotificationEmail;
 import org.sagebionetworks.repo.model.migration.IdGeneratorExport;
+import org.sagebionetworks.repo.model.principal.NotificationEmail;
 import org.sagebionetworks.repo.model.status.StackStatus;
 import org.sagebionetworks.repo.model.status.StatusEnum;
 import org.sagebionetworks.repo.model.versionInfo.SynapseVersionInfo;
@@ -233,7 +233,7 @@ public class IT101Administration {
 	}
 
 	@Test
-	public void testUpdateUserNotificationEmail() throws SynapseException, JSONObjectAdapterException {
+	public void testUpdateUserNotificationEmailWithNewAddress() throws SynapseException, JSONObjectAdapterException {
 		SynapseClient userClient = new SynapseClientImpl();
 		Long userId = SynapseClientHelper.createUser(adminSynapse, userClient);
 

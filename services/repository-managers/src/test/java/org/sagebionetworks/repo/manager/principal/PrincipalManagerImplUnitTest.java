@@ -810,6 +810,7 @@ public class PrincipalManagerImplUnitTest {
 		}).getMessage();
 		assertEquals("principalId is required.", message);
 	}
+
 	@Test
 	public void testUpdateNotificationEmailForUserWithNonAdmin() {
 		UserInfo nonAdmin = new UserInfo(false, 1L, DEFAULT_REALM_ID);

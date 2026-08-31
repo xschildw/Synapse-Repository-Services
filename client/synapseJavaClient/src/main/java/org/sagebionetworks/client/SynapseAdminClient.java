@@ -149,6 +149,10 @@ public interface SynapseAdminClient extends SynapseClient {
 	 * longer has access to the mailbox the password reset link would be sent to. The address is bound
 	 * without the usual email validation flow, so the administrator must verify the user's identity
 	 * out-of-band before invoking. Idempotent.
+	 * <p>
+	 * Setting removePreviousNotificationEmail also unbinds the previous address, which removes the OAuth
+	 * provider bindings attached to that specific address and therefore disables federated sign-in through
+	 * those providers. Bindings held against an ORCID or OpenID alias are unaffected.
 	 */
 	NotificationEmail updateUserNotificationEmail(Long principalId, UpdateNotificationEmailRequest request) throws SynapseException;
 

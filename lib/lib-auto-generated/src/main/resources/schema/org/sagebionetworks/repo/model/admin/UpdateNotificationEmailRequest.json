@@ -7,7 +7,7 @@
 		},
 		"removePreviousNotificationEmail": {
 			"type": "boolean",
-			"description": "When true the previous notification email address is unbound from the account. Defaults to false. Note that unbinding an address also removes any OAuth provider binding attached to it, which will disable the user's federated sign-in."
+			"description": "When true the previous notification email address is unbound from the account. Defaults to false. Unbinding an address also removes the OAuth provider bindings attached to that specific address, disabling federated sign-in through those providers; bindings held against an ORCID or OpenID alias are unaffected. Note also that address uniqueness ignores case and punctuation, so an address that differs from the previous one only in those respects replaces it regardless of this flag."
 		}
 	}
 }

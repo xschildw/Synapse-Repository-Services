@@ -107,8 +107,8 @@ public interface PrincipalManager {
 	 * @param userInfo    the caller, which must be an administrator
 	 * @param principalId the user whose notification email is being changed
 	 * @param request     the new address, plus an opt-in flag to unbind the previous notification address. Unbinding
-	 *                    also removes any OAuth provider binding attached to that address, disabling the user's
-	 *                    federated sign-in.
+	 *                    also removes the OAuth provider bindings attached to that specific address, disabling
+	 *                    federated sign-in through those providers; ORCID and OpenID aliases are unaffected.
 	 * @return the resulting notification email, including its quarantine status if present
 	 */
 	NotificationEmail updateNotificationEmailForUser(UserInfo userInfo, Long principalId, UpdateNotificationEmailRequest request);

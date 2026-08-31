@@ -271,7 +271,10 @@ public class PrincipalManagerImpl implements PrincipalManager, PrincipalNameProv
 			notificationEmailDao.create(newAlias);
 		}
 
-		// NOTIFICATION_EMAIL.ALIAS_ID cascades on delete, so the old alias can only go after the repoint.
+		// NOTIFICATION_EMAIL.ALIAS_ID cascades on delete, so the old alias can only go after the repoint. Comparing
+		// alias ids rather than addresses is what makes a repeat call safe: alias uniqueness ignores case and
+		// punctuation, so an address that differs from the previous one only in those respects resolves to the same
+		// row, and unbinding it would leave the account with no notification email at all.
 		if (Boolean.TRUE.equals(request.getRemovePreviousNotificationEmail()) && previousAlias.isPresent()
 				&& !previousAlias.get().getAliasId().equals(newAlias.getAliasId())) {
 			principalAliasDAO.removeAliasFromPrincipal(principalId, previousAlias.get().getAliasId());
@@ -385,15 +388,18 @@ public class PrincipalManagerImpl implements PrincipalManager, PrincipalNameProv
 	}
 
 	/**
-	 * The notification email DAO yields the alias display value, which is an exact match for the alias row it points
-	 * at. A principal is not guaranteed to have a notification email row at all.
+	 * The current notification email of a principal, empty when the principal has no notification email row.
 	 */
 	private Optional<PrincipalAlias> findNotificationAlias(Long principalId) {
+		String email;
 		try {
-			return Optional.of(findAliasForEmail(principalId, notificationEmailDao.getNotificationEmailForPrincipal(principalId)));
+			email = notificationEmailDao.getNotificationEmailForPrincipal(principalId);
 		} catch (NotFoundException e) {
 			return Optional.empty();
 		}
+		// Only a missing row is tolerated. The DAO yields the alias display value, so the alias lookup is an exact
+		// match by construction, and a miss means the two tables disagree rather than that there is nothing to find.
+		return Optional.of(findAliasForEmail(principalId, email));
 	}
 
 	private PrincipalAlias findAliasForEmail(Long principalId, String email) throws NotFoundException {
