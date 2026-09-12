@@ -41,7 +41,7 @@ public class S3TestUtils {
 	public static void createBucketIfMissing(String bucket) {
 		// Bucket existence is probed with a raw client rather than through SynapseS3Client so that a
 		// 404 (create the bucket) stays distinguishable from any other failure (fail the test).
-		AmazonS3 rawClient = rawUsStandardClient();
+		AmazonS3 rawClient = RawUsStandardClient.INSTANCE;
 		try {
 			rawClient.headBucket(new HeadBucketRequest(bucket));
 		} catch (AmazonS3Exception e) {
@@ -52,8 +52,14 @@ public class S3TestUtils {
 		}
 	}
 
-	private static AmazonS3 rawUsStandardClient() {
-		return AmazonS3ClientBuilder.standard()
+	/**
+	 * Holds the single raw client shared by all {@link #createBucketIfMissing(String)} calls. The
+	 * client owns a connection pool and an idle-connection reaper thread, so one is built lazily for
+	 * the whole JVM rather than per call. Configured like the clients {@code AwsClientFactory} builds
+	 * for the facade, since this replaces a facade call.
+	 */
+	private static class RawUsStandardClient {
+		private static final AmazonS3 INSTANCE = AmazonS3ClientBuilder.standard()
 				.withCredentials(SynapseAWSCredentialsProviderChain.getInstance())
 				.withRegion(Regions.US_EAST_1)
 				.withPathStyleAccessEnabled(true)

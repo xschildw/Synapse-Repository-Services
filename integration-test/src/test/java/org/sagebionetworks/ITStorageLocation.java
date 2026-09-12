@@ -20,7 +20,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.sagebionetworks.aws.AwsClientFactory;
-import org.sagebionetworks.aws.SynapseAWSCredentialsProviderChain;
 import org.sagebionetworks.aws.SynapseS3Client;
 import org.sagebionetworks.client.SynapseClient;
 import org.sagebionetworks.client.exceptions.SynapseException;
@@ -48,9 +47,7 @@ import org.sagebionetworks.sample.sts.MigrateS3Bucket;
 import org.sagebionetworks.sample.sts.MigrateSynapseProject;
 import org.sagebionetworks.util.ContentDispositionUtils;
 
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
@@ -69,10 +66,12 @@ public class ITStorageLocation {
 	
 	private SynapseClient synapse;
 	private String synapseUserId;
-	
-	public ITStorageLocation(SynapseClient synapse) throws SynapseException {
+	private AmazonS3 s3Client;
+
+	public ITStorageLocation(SynapseClient synapse, AmazonS3 s3Client) throws SynapseException {
 		this.synapse = synapse;
 		this.synapseUserId = synapse.getMyProfile().getOwnerId();
+		this.s3Client = s3Client;
 	}
 
 	@BeforeAll
@@ -236,16 +235,9 @@ public class ITStorageLocation {
 		uploadToExternalS3Bucket(baseKey + "/a/b/c", "f5", "sample content 5");
 		uploadToExternalS3Bucket(baseKey + "/a/b/c", "f6", "sample content 6");
 
-		// Run sample code.
-		// MigrateS3Bucket is v1 sample code that takes a raw AmazonS3, so the client is built here
-		// rather than borrowed from the SynapseS3Client facade.
-		AmazonS3 rawS3Client = AmazonS3ClientBuilder.standard()
-				.withCredentials(SynapseAWSCredentialsProviderChain.getInstance())
-				.withRegion(Regions.US_EAST_1)
-				.withForceGlobalBucketAccessEnabled(true)
-				.build();
-
-		MigrateS3Bucket migration = new MigrateS3Bucket(rawS3Client, synapse,
+		// Run sample code. MigrateS3Bucket is v1 sample code that takes a raw AmazonS3, so it gets the
+		// client injected by ITTestExtension rather than one borrowed from the SynapseS3Client facade.
+		MigrateS3Bucket migration = new MigrateS3Bucket(s3Client, synapse,
 				externalS3Bucket, baseKey, folder.getId(), externalS3StorageLocationSetting.getStorageLocationId());
 		migration.execute();
 
