@@ -212,6 +212,50 @@ public class S3ObjectStoreImplUnitTest {
 	}
 
 	@Test
+	public void testGetObjectInfoWithQuotedEtag() {
+		when(mockS3Client.headObject(any(HeadObjectRequest.class)))
+				.thenReturn(HeadObjectResponse.builder().eTag("\"d41d8cd98f00b204e9800998ecf8427e\"").build());
+
+		// call under test
+		Optional<S3ObjectInfo> result = objectStore.getObjectInfo("some.bucket", "some/key");
+
+		assertEquals(Optional.of(S3ObjectInfo.builder().withEtag("d41d8cd98f00b204e9800998ecf8427e").build()), result);
+	}
+
+	@Test
+	public void testGetObjectInfoWithQuotedMultipartEtag() {
+		when(mockS3Client.headObject(any(HeadObjectRequest.class)))
+				.thenReturn(HeadObjectResponse.builder().eTag("\"abc-3\"").build());
+
+		// call under test
+		Optional<S3ObjectInfo> result = objectStore.getObjectInfo("some.bucket", "some/key");
+
+		assertEquals(Optional.of(S3ObjectInfo.builder().withEtag("abc-3").build()), result);
+	}
+
+	@Test
+	public void testGetObjectInfoWithNullEtag() {
+		when(mockS3Client.headObject(any(HeadObjectRequest.class))).thenReturn(HeadObjectResponse.builder().build());
+
+		// call under test
+		Optional<S3ObjectInfo> result = objectStore.getObjectInfo("some.bucket", "some/key");
+
+		assertEquals(Optional.of(S3ObjectInfo.builder().build()), result);
+	}
+
+	@Test
+	public void testUnquoteEtagWithSingleQuoteCharacter() {
+		// call under test
+		assertEquals("\"", S3ObjectStoreImpl.unquoteEtag("\""));
+	}
+
+	@Test
+	public void testUnquoteEtagWithLeadingQuoteOnly() {
+		// call under test
+		assertEquals("\"abc", S3ObjectStoreImpl.unquoteEtag("\"abc"));
+	}
+
+	@Test
 	public void testGetObjectInfoWithMissingKey() {
 		when(mockS3Client.headObject(any(HeadObjectRequest.class)))
 				.thenThrow(s3Exception(HttpStatusCode.NOT_FOUND, null));

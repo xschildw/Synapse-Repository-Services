@@ -39,7 +39,13 @@ bucket-location questions callers actually ask (`verifyBucketAccess`, `isSameReg
   intended shape, not a smell.
 - **Bucket failures become `org.sagebionetworks.aws.CannotDetermineBucketLocationException`**,
   which several consumers catch for control flow. The translation predicate is
-  `S3ObjectStoreImpl.isBucketAccessFailure`; every other `S3Exception` propagates.
+  `S3Errors.isBucketAccessFailure`; every other `S3Exception` propagates.
+- **Classify v2 failures with `S3Errors`**, not ad hoc status checks: `isServiceFailure` (≥ 500,
+  the v1 `ErrorType.Service` equivalent, for retry), `isNotFound` (404 by status, since HEAD
+  responses carry no error code), `errorCode`, and `isBucketAccessFailure`. Raw-client consumers
+  that reach customer buckets apply `isBucketAccessFailure` themselves to get the same
+  `CannotDetermineBucketLocationException` the facade throws.
+- **`S3ObjectInfo.getEtag()` is unquoted**, matching what v1 `ObjectMetadata.getETag()` returned.
 - **Region resolution lives here, only because pre-signing needs it.** The client is
   `crossRegionAccessEnabled`, so it finds a bucket's region itself; a `S3Presigner` cannot, since
   signing is local computation. The facade resolves bucket regions with a cached `headBucket`

@@ -22,7 +22,6 @@ import java.util.function.Supplier;
 import org.apache.commons.collections4.map.PassiveExpiringMap;
 import org.sagebionetworks.aws.CannotDetermineBucketLocationException;
 
-import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.http.HttpStatusCode;
 import software.amazon.awssdk.regions.Region;
@@ -54,14 +53,11 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
  * <p>
  * Bucket-level failures are translated to {@link CannotDetermineBucketLocationException}, which
  * several consumers catch for control flow. The trigger is an error code of NoSuchBucket or
- * PermanentRedirect, or any 403 — see {@link #isBucketAccessFailure(S3Exception)}.
+ * PermanentRedirect, or any 403 — see {@link S3Errors#isBucketAccessFailure(S3Exception)}.
  */
 public class S3ObjectStoreImpl implements S3ObjectStore {
 
 	private static final long REGION_CACHE_TTL_HOURS = 1;
-
-	private static final String NO_SUCH_BUCKET = "NoSuchBucket";
-	private static final String PERMANENT_REDIRECT = "PermanentRedirect";
 
 	private final S3Client s3Client;
 	private final Function<Region, S3Presigner> presignerBuilder;
@@ -116,7 +112,7 @@ public class S3ObjectStoreImpl implements S3ObjectStore {
 		try {
 			response = s3Client.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build());
 		} catch (S3Exception e) {
-			if (isBucketAccessFailure(e)) {
+			if (S3Errors.isBucketAccessFailure(e)) {
 				throw cannotDetermineBucketLocation(bucket, e);
 			}
 			if (HttpStatusCode.NOT_FOUND == e.statusCode()) {
@@ -128,7 +124,7 @@ public class S3ObjectStoreImpl implements S3ObjectStore {
 		return Optional.of(S3ObjectInfo.builder()
 				.withContentType(response.contentType())
 				.withContentEncoding(response.contentEncoding())
-				.withEtag(response.eTag())
+				.withEtag(unquoteEtag(response.eTag()))
 				.withContentLength(response.contentLength())
 				.withArchiveStatus(response.archiveStatusAsString())
 				.withOngoingRestore(S3ObjectInfo.parseOngoingRestore(response.restore()))
@@ -329,7 +325,7 @@ public class S3ObjectStoreImpl implements S3ObjectStore {
 		try {
 			return operation.get();
 		} catch (S3Exception e) {
-			if (isBucketAccessFailure(e)) {
+			if (S3Errors.isBucketAccessFailure(e)) {
 				throw cannotDetermineBucketLocation(bucket, e);
 			}
 			throw e;
@@ -337,20 +333,14 @@ public class S3ObjectStoreImpl implements S3ObjectStore {
 	}
 
 	/**
-	 * Distinguishes "Synapse cannot reach this bucket" from a failure scoped to the object. A
-	 * cross-region client only learns a bucket's region reactively, so an unreachable bucket has no
-	 * single failure mode: it surfaces as NoSuchBucket, as a PermanentRedirect the SDK could not
-	 * follow, or as a 403 from whichever operation was attempted.
+	 * S3 returns the ETag as a quoted HTTP entity tag. Callers replay it unquoted (for example as
+	 * x-amz-copy-source-if-match), as the v1 SDK always handed it out.
 	 */
-	static boolean isBucketAccessFailure(S3Exception e) {
-		if (HttpStatusCode.FORBIDDEN == e.statusCode()) {
-			return true;
+	static String unquoteEtag(String etag) {
+		if (etag != null && etag.length() >= 2 && etag.startsWith("\"") && etag.endsWith("\"")) {
+			return etag.substring(1, etag.length() - 1);
 		}
-
-		AwsErrorDetails details = e.awsErrorDetails();
-		String errorCode = details == null ? null : details.errorCode();
-
-		return NO_SUCH_BUCKET.equals(errorCode) || PERMANENT_REDIRECT.equals(errorCode);
+		return etag;
 	}
 
 	private static CannotDetermineBucketLocationException cannotDetermineBucketLocation(String bucket, S3Exception e) {

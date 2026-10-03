@@ -22,6 +22,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 import jakarta.servlet.http.HttpServletRequest;
+import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.sql.BatchUpdateException;
@@ -126,6 +128,22 @@ public class BaseControllerExceptionHandlerAdviceTest {
 			private static final long serialVersionUID = 1L;
 		}, request);
 		assertEquals(BaseControllerExceptionHandlerAdvice.SERVICE_TEMPORARILY_UNAVAIABLE_PLEASE_TRY_AGAIN_LATER, response.getReason());
+	}
+
+	@Test
+	public void testHandleAwsServiceExceptionWithoutCause() {
+		// A v2 service exception is built from the HTTP response, so it has no cause to report.
+		S3Exception ex = (S3Exception) S3Exception.builder()
+				.message("Access Denied")
+				.statusCode(403)
+				.awsErrorDetails(AwsErrorDetails.builder().errorCode("AccessDenied").serviceName("S3").build())
+				.build();
+
+		// call under test
+		ErrorResponse response = (ErrorResponse) controller.handleAwsServiceException(ex, request);
+
+		assertEquals(ex.getMessage(), response.getReason());
+		assertNull(response.getErrorCode());
 	}
 
 	@Test

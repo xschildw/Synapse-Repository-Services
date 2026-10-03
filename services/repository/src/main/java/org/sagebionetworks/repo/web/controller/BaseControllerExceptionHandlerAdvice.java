@@ -80,6 +80,8 @@ import org.springframework.web.util.NestedServletException;
 
 import com.amazonaws.AmazonServiceException;
 
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
+
 /**
  * This abstract class attempts to encapsulate exception handling for exceptions
  * common to all controllers.
@@ -1027,6 +1029,20 @@ public class BaseControllerExceptionHandlerAdvice {
 			HttpServletRequest request,
 			HttpServletResponse response) {
 		return handleException(ex.getCause(), request, true);
+	}
+
+	/**
+	 * The AWS SDK v2 counterpart of {@link #handleAmazonServiceException}: maps every v2 service
+	 * failure to 502 (bad gateway), see PLFM-4292.
+	 */
+	@ExceptionHandler(AwsServiceException.class)
+	@ResponseStatus(HttpStatus.BAD_GATEWAY)
+	public @ResponseBody
+	BaseError handleAwsServiceException(AwsServiceException ex,
+			HttpServletRequest request) {
+		// Unlike the v1 handler this reports the exception itself: a v2 service exception is built
+		// from the HTTP response and normally has no cause.
+		return handleException(ex, request, true);
 	}
 
 	@ExceptionHandler(InvalidPasswordException.class)
