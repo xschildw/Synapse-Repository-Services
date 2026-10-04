@@ -185,6 +185,66 @@ public class S3ObjectStoreImplUnitTest {
 	}
 
 	@Test
+	public void testGetObjectContent() throws Exception {
+		when(mockS3Client.getObject(any(GetObjectRequest.class)))
+				.thenReturn(new ResponseInputStream<GetObjectResponse>(GetObjectResponse.builder()
+						.contentType("text/plain; charset=ISO-8859-1")
+						.contentEncoding("gzip")
+						.eTag("\"some-etag\"")
+						.contentLength(11L)
+						.restore("ongoing-request=\"false\"")
+						.build(), new ByteArrayInputStream("the content".getBytes(StandardCharsets.UTF_8))));
+
+		// call under test
+		try (S3ObjectContent result = objectStore.getObjectContent("some.bucket", "some/key")) {
+
+			assertEquals(S3ObjectInfo.builder()
+					.withContentType("text/plain; charset=ISO-8859-1")
+					.withContentEncoding("gzip")
+					.withEtag("some-etag")
+					.withContentLength(11L)
+					.withOngoingRestore(false)
+					.build(), result.getInfo());
+			assertEquals("the content", readAll(result.getContent()));
+		}
+		verify(mockS3Client).getObject(GetObjectRequest.builder().bucket("some.bucket").key("some/key").build());
+	}
+
+	@Test
+	public void testGetObjectContentWithInaccessibleBucket() {
+		when(mockS3Client.getObject(any(GetObjectRequest.class)))
+				.thenThrow(s3Exception(HttpStatusCode.NOT_FOUND, "NoSuchBucket"));
+
+		// call under test
+		CannotDetermineBucketLocationException e = assertThrows(CannotDetermineBucketLocationException.class,
+				() -> objectStore.getObjectContent("some.bucket", "some/key"));
+
+		assertTrue(e.getMessage().contains("some.bucket"));
+	}
+
+	@Test
+	public void testGetObjectContentWithMissingKey() {
+		S3Exception notFound = s3Exception(HttpStatusCode.NOT_FOUND, "NoSuchKey");
+		when(mockS3Client.getObject(any(GetObjectRequest.class))).thenThrow(notFound);
+
+		// call under test
+		S3Exception result = assertThrows(S3Exception.class,
+				() -> objectStore.getObjectContent("some.bucket", "some/key"));
+
+		assertSame(notFound, result);
+	}
+
+	@Test
+	public void testGetObjectContentWithNullKey() {
+		// call under test
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+				() -> objectStore.getObjectContent("some.bucket", null));
+
+		assertEquals("key is required.", e.getMessage());
+		verifyNoInteractions(mockS3Client);
+	}
+
+	@Test
 	public void testGetObjectInfo() {
 		when(mockS3Client.headObject(any(HeadObjectRequest.class))).thenReturn(HeadObjectResponse.builder()
 				.contentType("text/plain")

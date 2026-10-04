@@ -16,7 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.sagebionetworks.AsynchronousJobWorkerHelper;
-import org.sagebionetworks.repo.manager.AmazonS3Utility;
+import org.sagebionetworks.aws.v2.S3ObjectStore;
 import org.sagebionetworks.repo.manager.EntityManager;
 import org.sagebionetworks.repo.manager.SemaphoreManager;
 import org.sagebionetworks.repo.manager.UserManager;
@@ -65,7 +65,7 @@ public class PFBDownloadWorkerIntegrationTest {
 	private AsynchronousJobWorkerHelper asyncHelper;
 
 	@Autowired
-	private AmazonS3Utility amazonS3Utility;
+	private S3ObjectStore objectStore;
 
 	private UserInfo adminUserInfo;
 	private String tableId;
@@ -84,7 +84,7 @@ public class PFBDownloadWorkerIntegrationTest {
 		entityManager.truncateAll();
 		for (S3FileHandle handle : fileHandles) {
 			fileHandleDao.delete(handle.getId());
-			amazonS3Utility.deleteFromS3(handle.getKey());
+			objectStore.deleteObject(handle.getBucketName(), handle.getKey());
 		}
 	}
 
@@ -135,7 +135,7 @@ public class PFBDownloadWorkerIntegrationTest {
 		
 		fileHandles.add(fileHandle);
 		
-		List<PFBRow> results = readPFBFromS3(fileHandle.getKey());
+		List<PFBRow> results = readPFBFromS3(fileHandle);
 
 		List<PFBRow> expected = rows.stream()
 			.map(r -> new PFBRow(RowPFBUtils.createEntityIdFromRowId(r), r.getValues()))
@@ -156,7 +156,7 @@ public class PFBDownloadWorkerIntegrationTest {
 		
 		fileHandles.add(fileHandle);
 		
-		results = readPFBFromS3(fileHandle.getKey());
+		results = readPFBFromS3(fileHandle);
 		
 		expected = rows.stream()
 			.map(r -> new PFBRow(RowPFBUtils.createEntityIdFromColumns(r.getValues(), new int[] {1, 0}), r.getValues()))
@@ -168,13 +168,14 @@ public class PFBDownloadWorkerIntegrationTest {
 	/**
 	 * Helper to download and read PFB avro file from S3.
 	 * 
-	 * @param key
+	 * @param fileHandle
 	 * @return
 	 * @throws IOException
 	 */
-	List<PFBRow> readPFBFromS3(String key) throws IOException {
-		File resultFile = amazonS3Utility.downloadFromS3(key);
+	List<PFBRow> readPFBFromS3(S3FileHandle fileHandle) throws IOException {
+		File resultFile = File.createTempFile("PFBDownloadWorkerIntegrationTest", ".tmp");
 		try {
+			objectStore.getObject(fileHandle.getBucketName(), fileHandle.getKey(), resultFile);
 			// Read
 			List<PFBRow> result = new ArrayList<>();
 			try (RowPFBReader reader = new RowPFBReader(new SeekableFileInput(resultFile))) {

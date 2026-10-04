@@ -31,7 +31,7 @@ access: get/put/delete, object info, object tags, pre-signed downloads, and the 
 bucket-location questions callers actually ask (`verifyBucketAccess`, `isSameRegion`).
 
 - **No SDK type appears in its signatures.** Values cross the seam as `S3ObjectInfo`,
-  `S3WriteOptions`, `S3ObjectTag`, `S3ResponseHeaders`, `S3StorageClass`, `S3CannedAcl` — all in
+  `S3ObjectContent` (stream plus metadata, with `abort()` for partial reads), `S3WriteOptions`, `S3ObjectTag`, `S3ResponseHeaders`, `S3StorageClass`, `S3CannedAcl` — all in
   the same package, all carrying only what Synapse uses. Extend those types rather than exposing
   an SDK enum or model class through the facade.
 - **Everything else uses a raw `S3Client` at its consumer** — multipart, bucket administration,

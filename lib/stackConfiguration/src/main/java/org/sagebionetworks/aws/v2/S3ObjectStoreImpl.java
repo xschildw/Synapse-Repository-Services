@@ -22,12 +22,14 @@ import java.util.function.Supplier;
 import org.apache.commons.collections4.map.PassiveExpiringMap;
 import org.sagebionetworks.aws.CannotDetermineBucketLocationException;
 
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.http.HttpStatusCode;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketResponse;
@@ -83,6 +85,25 @@ public class S3ObjectStoreImpl implements S3ObjectStore {
 
 		return translateBucketFailures(bucket,
 				() -> s3Client.getObject(GetObjectRequest.builder().bucket(bucket).key(key).build()));
+	}
+
+	@Override
+	public S3ObjectContent getObjectContent(String bucket, String key) {
+		requiredNotEmpty(bucket, "bucket");
+		requiredNotEmpty(key, "key");
+
+		ResponseInputStream<GetObjectResponse> content = translateBucketFailures(bucket,
+				() -> s3Client.getObject(GetObjectRequest.builder().bucket(bucket).key(key).build()));
+
+		GetObjectResponse response = content.response();
+
+		return new S3ObjectContent(S3ObjectInfo.builder()
+				.withContentType(response.contentType())
+				.withContentEncoding(response.contentEncoding())
+				.withEtag(unquoteEtag(response.eTag()))
+				.withContentLength(response.contentLength())
+				.withOngoingRestore(S3ObjectInfo.parseOngoingRestore(response.restore()))
+				.build(), content);
 	}
 
 	@Override

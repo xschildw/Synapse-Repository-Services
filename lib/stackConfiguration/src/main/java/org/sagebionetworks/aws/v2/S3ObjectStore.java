@@ -14,8 +14,8 @@ import org.sagebionetworks.aws.CannotDetermineBucketLocationException;
  * administration, multipart upload, CORS configuration, object restore and listing are deliberately
  * absent — a consumer that needs one of those takes a raw SDK client instead.
  * <p>
- * No SDK type appears on this interface: payloads are {@link InputStream} or {@link File}, metadata
- * is an {@link S3ObjectInfo}, and write settings are an {@link S3WriteOptions}. This keeps the SDK
+ * No SDK type appears on this interface: payloads are {@link InputStream}, {@link S3ObjectContent}
+ * or {@link File}, metadata is an {@link S3ObjectInfo}, and write settings are an {@link S3WriteOptions}. This keeps the SDK
  * version an implementation detail of this package rather than something every caller imports.
  * <p>
  * A bucket that cannot be reached at all — it does not exist, it is not shared with Synapse, or the
@@ -32,6 +32,17 @@ public interface S3ObjectStore {
 	 * @throws CannotDetermineBucketLocationException If the bucket cannot be reached
 	 */
 	InputStream getObject(String bucket, String key);
+
+	/**
+	 * Opens the content of an object for reading, along with the metadata S3 returned for it in the
+	 * same request. The caller owns the returned content and must close or abort it.
+	 * <p>
+	 * S3 reports the archive status only on a metadata lookup, so it is always null here; use
+	 * {@link #getObjectInfo(String, String)} when it matters.
+	 *
+	 * @throws CannotDetermineBucketLocationException If the bucket cannot be reached
+	 */
+	S3ObjectContent getObjectContent(String bucket, String key);
 
 	/**
 	 * Downloads the content of an object, replacing the destination file if it already exists.
