@@ -1,7 +1,7 @@
 package org.sagebionetworks.workers.util.aws.message;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -12,14 +12,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.amazonaws.services.sqs.AmazonSQSClient;
-import com.amazonaws.services.sqs.model.GetQueueUrlResult;
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlRequest;
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlResponse;
 
 @ExtendWith(MockitoExtension.class)
 public class MessageQueueImplTest {
 
 	@Mock
-	AmazonSQSClient mockSQSClient;
+	SqsClient mockSQSClient;
 
 	String queueUrl;
 	MessageQueueConfiguration config;
@@ -33,7 +34,7 @@ public class MessageQueueImplTest {
 		config.setQueueName("queueName");
 		config.setEnabled(true);
 
-		when(mockSQSClient.getQueueUrl(anyString())).thenReturn(new GetQueueUrlResult().withQueueUrl(queueUrl));
+		when(mockSQSClient.getQueueUrl(any(GetQueueUrlRequest.class))).thenReturn(GetQueueUrlResponse.builder().queueUrl(queueUrl).build());
 	}
 
 	@Test
@@ -42,9 +43,10 @@ public class MessageQueueImplTest {
 		String queueName = "queueName";
 		config.setQueueName(queueName);
 		config.setEnabled(true);
+		// call under test
 		MessageQueueImpl msgQImpl = new MessageQueueImpl(mockSQSClient, config);
 		assertEquals(queueUrl, msgQImpl.getQueueUrl());
-		verify(mockSQSClient).getQueueUrl(queueName);
+		verify(mockSQSClient).getQueueUrl(GetQueueUrlRequest.builder().queueName(queueName).build());
 		verifyNoMoreInteractions(mockSQSClient);
 	}
 }

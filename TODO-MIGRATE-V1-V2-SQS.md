@@ -53,18 +53,18 @@ Branch from PR 1 (rebase on `develop` after PR 1 merges). Commits in this order:
 - [x] `SqsMessageBridgeTest`: round-trip with real attribute data (including binary and an `ApproximateReceiveCount`)
 
 ### Commit 2: Legacy stack (`lib-worker-common`)
-- [ ] `PollingMessageReceiverImpl`: `SqsClient`; v2 `ReceiveMessageRequest` with
+- [x] `PollingMessageReceiverImpl`: `SqsClient`; v2 `ReceiveMessageRequest` with
       `messageSystemAttributeNames(MessageSystemAttributeName.APPROXIMATE_RECEIVE_COUNT)`, `waitTimeSeconds(0)`
       (keep the existing comment), `ChangeMessageVisibilityRequest`, `DeleteMessageRequest`. Bridge to v1
       only at `runner.run(...)`
-  - [ ] `getRetryVisibilityTimeout` reads the **v2** message with the enum key (not a string key). Add a test
+  - [x] `getRetryVisibilityTimeout` reads the **v2** message with the enum key (not a string key). Add a test
         that asserts the receive-count-based timeout (for example, count 3 → 3s), not the 5s fallback
-- [ ] `MessageQueueImpl`: `SqsClient`; `GetQueueUrlRequest`
-- [ ] `QueueCleaner`: `SqsClient`; batch receive and delete; v2 `QueueDoesNotExistException`
-- [ ] `MessageDrivenWorkerStack`: constructor takes `SqsClient`
-- [ ] Tests: `PollingMessageReceiverImplTest`, `MessageQueueImplTest`, `QueueCleanerTest`,
+- [x] `MessageQueueImpl`: `SqsClient`; `GetQueueUrlRequest`
+- [x] `QueueCleaner`: `SqsClient`; batch receive and delete; v2 `QueueDoesNotExistException`
+- [x] `MessageDrivenWorkerStack`: constructor takes `SqsClient`
+- [x] Tests: `PollingMessageReceiverImplTest`, `MessageQueueImplTest`, `QueueCleanerTest`,
       `MessageDrivenWorkerStackTest` (typed matchers, e.g. `any(ReceiveMessageRequest.class)`; no lenient stubs)
-- [ ] `mvn test -pl lib/lib-worker-common` green
+- [x] `mvn test -pl lib/lib-worker-common` green
 
 ### Commit 3: Concurrent stack (`lib-worker`)
 - [ ] `ConcurrentManager`: `getAmazonSQSClient()` → `getSqsClient()` returning `SqsClient` (or remove it if

@@ -3,8 +3,9 @@ package org.sagebionetworks.workers.util.aws.message;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.amazonaws.services.sqs.AmazonSQSClient;
-import com.amazonaws.services.sqs.model.GetQueueUrlResult;
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlRequest;
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlResponse;
 
 /**
  * Provides information about an AWS SQS queue. The constructor will create a
@@ -32,19 +33,19 @@ public class MessageQueueImpl implements MessageQueue {
 	// The first argument is the ARN of the queue, and the second is the ARN of the topic.
 	public static final String GRAN_SET_MESSAGE_TEMPLATE = "{ \"Id\":\"GrantRepoTopicSendMessage\", \"Statement\": [{ \"Sid\":\"1\",  \"Resource\": \"%1$s\", \"Effect\": \"Allow\", \"Action\": \"SQS:SendMessage\", \"Condition\": {\"ArnEquals\": {\"aws:SourceArn\": %2$s}}, \"Principal\": {\"AWS\": \"*\"}}]}";
 
-	private AmazonSQSClient awsSQSClient;
+	private SqsClient sqsClient;
 
 	private final String queueName;
 	private String queueUrl;
 	private boolean isEnabled;
 
 	/**
-	 * @param awsSQSClient An AmazonSQSClient configured with credentials.
+	 * @param sqsClient An SqsClient configured with credentials.
 	 * @param config Configuration information for this queue.
 	 */
-	public MessageQueueImpl(AmazonSQSClient awsSQSClient,
+	public MessageQueueImpl(SqsClient sqsClient,
 							MessageQueueConfiguration config) {
-		this.awsSQSClient = awsSQSClient;
+		this.sqsClient = sqsClient;
 		this.isEnabled = config.isEnabled();
 		this.queueName = config.getQueueName();
 		if (this.queueName == null) {
@@ -60,8 +61,8 @@ public class MessageQueueImpl implements MessageQueue {
 			return;
 		}
 
-		GetQueueUrlResult result = awsSQSClient.getQueueUrl(queueName);
-		this.queueUrl = result.getQueueUrl();
+		GetQueueUrlResponse result = sqsClient.getQueueUrl(GetQueueUrlRequest.builder().queueName(queueName).build());
+		this.queueUrl = result.queueUrl();
 	}
 
 	@Override

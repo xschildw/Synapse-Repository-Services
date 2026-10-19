@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
@@ -11,7 +12,6 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Optional;
 
@@ -27,18 +27,19 @@ import org.sagebionetworks.database.semaphore.LockKeyNotFoundException;
 import org.sagebionetworks.util.progress.ProgressCallback;
 import org.sagebionetworks.workers.util.Gate;
 
-import com.amazonaws.services.sqs.AmazonSQSClient;
-import com.amazonaws.services.sqs.model.ChangeMessageVisibilityRequest;
-import com.amazonaws.services.sqs.model.GetQueueUrlResult;
-import com.amazonaws.services.sqs.model.Message;
-import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
-import com.amazonaws.services.sqs.model.ReceiveMessageResult;
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.ChangeMessageVisibilityRequest;
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlRequest;
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlResponse;
+import software.amazon.awssdk.services.sqs.model.Message;
+import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest;
+import software.amazon.awssdk.services.sqs.model.ReceiveMessageResponse;
 
 @ExtendWith(MockitoExtension.class)
 public class MessageDrivenWorkerStackTest {
 
 	@Mock
-	private AmazonSQSClient mockSQSClient;
+	private SqsClient mockSQSClient;
 	@Mock
 	private CountingSemaphore mockSemaphore;
 	@Mock
@@ -53,8 +54,8 @@ public class MessageDrivenWorkerStackTest {
 
 	int timeoutMS = 4000;
 
-	private ReceiveMessageResult results;
-	private ReceiveMessageResult emptyResults;
+	private ReceiveMessageResponse results;
+	private ReceiveMessageResponse emptyResults;
 
 	@BeforeEach
 	public void setUp() throws Exception {
@@ -65,12 +66,9 @@ public class MessageDrivenWorkerStackTest {
 		token = "aToken";
 
 		// mock message receiver
-		results = new ReceiveMessageResult();
-		message = new Message();
-		message.setReceiptHandle("handle");
-		results.setMessages(Arrays.asList(message));
-		emptyResults = new ReceiveMessageResult();
-		emptyResults.setMessages(Collections.emptyList());
+		message = Message.builder().receiptHandle("handle").build();
+		results = ReceiveMessageResponse.builder().messages(message).build();
+		emptyResults = ReceiveMessageResponse.builder().messages(Collections.emptyList()).build();
 
 		// default config
 		config = new MessageDrivenWorkerStackConfiguration();
@@ -88,7 +86,7 @@ public class MessageDrivenWorkerStackTest {
 		when(mockSemaphore.attemptToAcquireLock(any(String.class), anyLong(), anyInt(), any())).thenReturn(Optional.of(token));
 		when(mockGate.canRun()).thenReturn(true, true, false);
 		when(mockSQSClient.receiveMessage(any(ReceiveMessageRequest.class))).thenReturn(results, emptyResults);
-		when(mockSQSClient.getQueueUrl(anyString())).thenReturn(new GetQueueUrlResult().withQueueUrl(queueUrl));
+		when(mockSQSClient.getQueueUrl(any(GetQueueUrlRequest.class))).thenReturn(GetQueueUrlResponse.builder().queueUrl(queueUrl).build());
 
 		// enable heartbeat.
 		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(mockSemaphore, mockSQSClient, config);
@@ -104,13 +102,13 @@ public class MessageDrivenWorkerStackTest {
 				Thread.sleep(timeoutMS * 2);
 				return null;
 			}
-		}).when(mockRunner).run(any(ProgressCallback.class), any(Message.class));
+		}).when(mockRunner).run(any(ProgressCallback.class), eq(SqsMessageBridge.toV1(message)));
 
 		// call under test
 		stack.run();
 		// The progress should refresh the lock timeout.
 		verify(mockSQSClient, atLeast(2)).changeMessageVisibility(any(ChangeMessageVisibilityRequest.class));
-		verify(mockRunner).run(any(ProgressCallback.class), any(Message.class));
+		verify(mockRunner).run(any(ProgressCallback.class), eq(SqsMessageBridge.toV1(message)));
 		verify(mockSemaphore, atLeast(3)).refreshLockTimeout("lockKey", "aToken", 4L);
 	}
 
@@ -120,7 +118,7 @@ public class MessageDrivenWorkerStackTest {
 		when(mockSemaphore.attemptToAcquireLock(any(String.class), anyLong(), anyInt(), any())).thenReturn(Optional.of(token));
 		when(mockGate.canRun()).thenReturn(true, true, false);
 		when(mockSQSClient.receiveMessage(any(ReceiveMessageRequest.class))).thenReturn(results, emptyResults);
-		when(mockSQSClient.getQueueUrl(anyString())).thenReturn(new GetQueueUrlResult().withQueueUrl(queueUrl));
+		when(mockSQSClient.getQueueUrl(any(GetQueueUrlRequest.class))).thenReturn(GetQueueUrlResponse.builder().queueUrl(queueUrl).build());
 		doThrow(LockKeyNotFoundException.class).when(mockSemaphore).refreshLockTimeout(anyString(), anyString(),
 				anyLong());
 
@@ -135,12 +133,12 @@ public class MessageDrivenWorkerStackTest {
 				Thread.sleep(timeoutMS * 2);
 				return null;
 			}
-		}).when(mockRunner).run(any(ProgressCallback.class), any(Message.class));
+		}).when(mockRunner).run(any(ProgressCallback.class), eq(SqsMessageBridge.toV1(message)));
 
 		// call under test
 		stack.run();
 		// The progress should refresh the lock timeout.
-		verify(mockRunner).run(any(ProgressCallback.class), any(Message.class));
+		verify(mockRunner).run(any(ProgressCallback.class), eq(SqsMessageBridge.toV1(message)));
 		verify(mockSemaphore).refreshLockTimeout("lockKey", "aToken", 4L);
 	}
 
