@@ -3,8 +3,7 @@ package org.sagebionetworks.asynchronous.workers.changes;
 import org.sagebionetworks.database.semaphore.CountingSemaphore;
 import org.sagebionetworks.workers.util.aws.message.MessageDrivenWorkerStack;
 
-import com.amazonaws.services.sqs.AmazonSQS;
-import com.amazonaws.services.sqs.AmazonSQSClient;
+import software.amazon.awssdk.services.sqs.SqsClient;
 
 /**
  * A worker stack driven by a Synapse change message.
@@ -17,7 +16,7 @@ public class ChangeMessageDrivenWorkerStack implements Runnable {
 	MessageDrivenWorkerStack stack;
 
 	public ChangeMessageDrivenWorkerStack(CountingSemaphore semaphore,
-										  AmazonSQS awsSQSClient,
+										  SqsClient sqsClient,
 										  ChangeMessageDrivenWorkerStackConfig config) {
 		// Get the configured runner.
 		ChangeMessageRunner changeRunner = config.getRunner();
@@ -29,10 +28,10 @@ public class ChangeMessageDrivenWorkerStack implements Runnable {
 		// Wrap the runner in a processor that converts batches of change
 		// messages into single messages.
 		ChangeMessageBatchProcessor batchProcessor = new ChangeMessageBatchProcessor(
-				awsSQSClient, config.getConfig().getMessageQueueConfiguration()
+				sqsClient, config.getConfig().getMessageQueueConfiguration()
 						.getQueueName(), changeRunner);
 		config.getConfig().setRunner(batchProcessor);
-		stack = new MessageDrivenWorkerStack(semaphore, (AmazonSQSClient) awsSQSClient, config.getConfig());
+		stack = new MessageDrivenWorkerStack(semaphore, sqsClient, config.getConfig());
 	}
 
 	@Override

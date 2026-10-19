@@ -27,16 +27,19 @@ import org.sagebionetworks.schema.adapter.org.json.EntityFactory;
 import org.sagebionetworks.util.progress.ProgressCallback;
 import org.sagebionetworks.workers.util.aws.message.RecoverableMessageException;
 
-import com.amazonaws.services.sqs.AmazonSQS;
-import com.amazonaws.services.sqs.model.GetQueueUrlResult;
 import com.amazonaws.services.sqs.model.Message;
+
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlRequest;
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlResponse;
+import software.amazon.awssdk.services.sqs.model.SendMessageRequest;
 
 public class ChangeMessageBatchProcessorTest {
 
 	@Mock
 	ProgressCallback mockProgressCallback;
 	@Mock
-	AmazonSQS mockAwsSQSClient;
+	SqsClient mockSqsClient;
 	@Mock
 	ChangeMessageDrivenRunner mockRunner;
 	@Mock
@@ -59,9 +62,9 @@ public class ChangeMessageBatchProcessorTest {
 		MockitoAnnotations.initMocks(this);
 		queueName = "someQueue";
 		queueUrl = "someQueueUrl";
-		when(mockAwsSQSClient.getQueueUrl(queueName)).thenReturn(
-				new GetQueueUrlResult().withQueueUrl(queueUrl));
-		processor = new ChangeMessageBatchProcessor(mockAwsSQSClient,
+		when(mockSqsClient.getQueueUrl(GetQueueUrlRequest.builder().queueName(queueName).build())).thenReturn(
+				GetQueueUrlResponse.builder().queueUrl(queueUrl).build());
+		processor = new ChangeMessageBatchProcessor(mockSqsClient,
 				queueName, mockRunner);
 
 		// one
@@ -101,10 +104,10 @@ public class ChangeMessageBatchProcessorTest {
 		processor.run(mockProgressCallback, awsMessage);
 		verify(mockRunner, times(2)).run(any(ProgressCallback.class),
 				any(ChangeMessage.class));
-		verify(mockAwsSQSClient).sendMessage(queueUrl,
-				EntityFactory.createJSONStringForEntity(one));
-		verify(mockAwsSQSClient).sendMessage(queueUrl,
-				EntityFactory.createJSONStringForEntity(two));
+		verify(mockSqsClient).sendMessage(SendMessageRequest.builder().queueUrl(queueUrl)
+				.messageBody(EntityFactory.createJSONStringForEntity(one)).build());
+		verify(mockSqsClient).sendMessage(SendMessageRequest.builder().queueUrl(queueUrl)
+				.messageBody(EntityFactory.createJSONStringForEntity(two)).build());
 	}
 	
 	/**
@@ -117,7 +120,7 @@ public class ChangeMessageBatchProcessorTest {
 	@Test
 	public void testRecoverableBatchWithBatchProcessor() throws RecoverableMessageException,
 			Exception {
-		processor = new ChangeMessageBatchProcessor(mockAwsSQSClient,
+		processor = new ChangeMessageBatchProcessor(mockSqsClient,
 				queueName, mockBatchRunner);
 		// setup RecoverableMessageException failures
 		doThrow(new Exception()).when(mockBatchRunner).run(
@@ -126,10 +129,10 @@ public class ChangeMessageBatchProcessorTest {
 		processor.run(mockProgressCallback, awsMessage);
 		verify(mockBatchRunner).run(any(ProgressCallback.class),
 				any());
-		verify(mockAwsSQSClient).sendMessage(queueUrl,
-				EntityFactory.createJSONStringForEntity(one));
-		verify(mockAwsSQSClient).sendMessage(queueUrl,
-				EntityFactory.createJSONStringForEntity(two));
+		verify(mockSqsClient).sendMessage(SendMessageRequest.builder().queueUrl(queueUrl)
+				.messageBody(EntityFactory.createJSONStringForEntity(one)).build());
+		verify(mockSqsClient).sendMessage(SendMessageRequest.builder().queueUrl(queueUrl)
+				.messageBody(EntityFactory.createJSONStringForEntity(two)).build());
 	}
 
 	@Test(expected = RecoverableMessageException.class)
@@ -186,7 +189,7 @@ public class ChangeMessageBatchProcessorTest {
 	
 	@Test
 	public void testBatchRunner() throws RecoverableMessageException, Exception{
-		processor = new ChangeMessageBatchProcessor(mockAwsSQSClient,
+		processor = new ChangeMessageBatchProcessor(mockSqsClient,
 				queueName, mockBatchRunner);
 		// call under test
 		processor.run(mockProgressCallback, awsMessage);
@@ -195,7 +198,7 @@ public class ChangeMessageBatchProcessorTest {
 	
 	@Test (expected=IllegalArgumentException.class)
 	public void testUnkownRunnerType() throws RecoverableMessageException, Exception{
-		processor = new ChangeMessageBatchProcessor(mockAwsSQSClient,
+		processor = new ChangeMessageBatchProcessor(mockSqsClient,
 				queueName, mockUnknownRunner);
 		// call under test
 		processor.run(mockProgressCallback, awsMessage);

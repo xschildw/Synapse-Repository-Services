@@ -75,11 +75,11 @@ Branch from PR 1 (rebase on `develop` after PR 1 merges). Commits in this order:
 - [x] `ConcurrentWorkerStack`: update the javadoc `{@link}` to the v2 `receiveMessage`
 
 ### Commit 4: Change-message path (`lib-worker`)
-- [ ] `ChangeMessageDrivenWorkerStack`: take `SqsClient`; remove the `(AmazonSQSClient)` cast
-- [ ] `ChangeMessageBatchProcessor`: constructor takes `SqsClient`; `getQueueUrl` and both resend
+- [x] `ChangeMessageDrivenWorkerStack`: take `SqsClient`; remove the `(AmazonSQSClient)` cast
+- [x] `ChangeMessageBatchProcessor`: constructor takes `SqsClient`; `getQueueUrl` and both resend
       `sendMessage(url, body)` calls → v2 builders (`run` still receives the bridged v1 `Message`)
-  - [ ] `ChangeMessageBatchProcessorTest`
-- [ ] `mvn test -pl lib/lib-worker` green
+  - [x] `ChangeMessageBatchProcessorTest`
+- [x] `mvn test -pl lib/lib-worker` green
 
 ### Commit 5: Wiring and removal of the v1 client bean
 - [ ] `ManagerConfiguration`: `@Bean(name = {"createSqsClient", "awsSQSClient"})` (or an XML `<alias>`)

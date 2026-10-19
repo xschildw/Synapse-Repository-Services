@@ -13,8 +13,11 @@ import org.sagebionetworks.util.progress.ProgressCallback;
 import org.sagebionetworks.workers.util.aws.message.MessageDrivenRunner;
 import org.sagebionetworks.workers.util.aws.message.RecoverableMessageException;
 
-import com.amazonaws.services.sqs.AmazonSQS;
 import com.amazonaws.services.sqs.model.Message;
+
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlRequest;
+import software.amazon.awssdk.services.sqs.model.SendMessageRequest;
 
 /**
  * A message driven runner that can read a batch of change messages and
@@ -28,17 +31,17 @@ public class ChangeMessageBatchProcessor implements MessageDrivenRunner {
 	static private Logger log = LogManager
 			.getLogger(ChangeMessageBatchProcessor.class);
 
-	private AmazonSQS awsSQSClient;
+	private SqsClient sqsClient;
 	private String queueUrl;
 	private ChangeMessageRunner runner;
 
-	public ChangeMessageBatchProcessor(AmazonSQS awsSQSClient,
+	public ChangeMessageBatchProcessor(SqsClient sqsClient,
 			String queueName, ChangeMessageRunner runner) {
-		ValidateArgument.required(awsSQSClient, "awsSQSClient");
+		ValidateArgument.required(sqsClient, "sqsClient");
 		ValidateArgument.required(queueName, "queueName");
 		ValidateArgument.required(runner, "runner");
-		this.awsSQSClient = awsSQSClient;
-		this.queueUrl = awsSQSClient.getQueueUrl(queueName).getQueueUrl();
+		this.sqsClient = sqsClient;
+		this.queueUrl = sqsClient.getQueueUrl(GetQueueUrlRequest.builder().queueName(queueName).build()).queueUrl();
 		this.runner = runner;
 	}
 
@@ -76,8 +79,7 @@ public class ChangeMessageBatchProcessor implements MessageDrivenRunner {
 				// Push each single message back onto the queue
 				for(ChangeMessage message: batch){
 					// Add the message back to the queue as a single message
-					awsSQSClient.sendMessage(queueUrl,
-							EntityFactory.createJSONStringForEntity(message));
+					resend(message);
 					log.error("{} added the message back to the queue {}", batchRunner.getClass().getName(), message);
 				}
 			}
@@ -112,8 +114,7 @@ public class ChangeMessageBatchProcessor implements MessageDrivenRunner {
 					throw e;
 				} else {
 					// Add the message back to the queue as a single message
-					awsSQSClient.sendMessage(queueUrl,
-							EntityFactory.createJSONStringForEntity(change));
+					resend(change);
 					log.error("{} added the message back to the queue {}", runner.getClass().getName(), change);
 				}
 			} catch (Throwable e) {
@@ -121,5 +122,15 @@ public class ChangeMessageBatchProcessor implements MessageDrivenRunner {
 				log.error("{} will not add the message back to the queue {}", runner.getClass().getName(), change);
 			}
 		}
+	}
+
+	/**
+	 * Add the given change back to the queue as a single message.
+	 */
+	private void resend(ChangeMessage change) throws JSONObjectAdapterException {
+		sqsClient.sendMessage(SendMessageRequest.builder()
+				.queueUrl(queueUrl)
+				.messageBody(EntityFactory.createJSONStringForEntity(change))
+				.build());
 	}
 }
