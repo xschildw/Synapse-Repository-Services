@@ -82,6 +82,10 @@
 			<groupId>software.amazon.awssdk</groupId>
 			<artifactId>cloudwatch</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>sqs</artifactId>
+		</dependency>
 	</dependencies>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

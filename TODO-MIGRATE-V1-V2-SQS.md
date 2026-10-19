@@ -45,12 +45,12 @@ Branch from `develop`. One commit per manager (main + test).
 Branch from PR 1 (rebase on `develop` after PR 1 merges). Commits in this order:
 
 ### Commit 1: Bridge
-- [ ] Add `SqsMessageBridge` in `lib-worker-common` (`org.sagebionetworks.workers.util.aws.message`):
+- [x] Add `SqsMessageBridge` in `lib-worker-common` (`org.sagebionetworks.workers.util.aws.message`):
       v2 `Message` → v1 `Message` (messageId, receiptHandle, body, md5OfBody, `attributesAsStrings()`,
       messageAttributes including string, binary, and list values with dataType, md5OfMessageAttributes).
       Class javadoc: temporary, removed by PLFM-9749 PR 3
-- [ ] Add the v2 `software.amazon.awssdk:sqs` dependency to `lib/lib-worker-common/pom.xml`
-- [ ] `SqsMessageBridgeTest`: round-trip with real attribute data (including binary and an `ApproximateReceiveCount`)
+- [x] Add the v2 `software.amazon.awssdk:sqs` dependency to `lib/lib-worker-common/pom.xml`
+- [x] `SqsMessageBridgeTest`: round-trip with real attribute data (including binary and an `ApproximateReceiveCount`)
 
 ### Commit 2: Legacy stack (`lib-worker-common`)
 - [ ] `PollingMessageReceiverImpl`: `SqsClient`; v2 `ReceiveMessageRequest` with
