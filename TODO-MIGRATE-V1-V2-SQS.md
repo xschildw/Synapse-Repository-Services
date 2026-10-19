@@ -67,12 +67,12 @@ Branch from PR 1 (rebase on `develop` after PR 1 merges). Commits in this order:
 - [x] `mvn test -pl lib/lib-worker-common` green
 
 ### Commit 3: Concurrent stack (`lib-worker`)
-- [ ] `ConcurrentManager`: `getAmazonSQSClient()` → `getSqsClient()` returning `SqsClient` (or remove it if
-      unused; currently there are no callers)
-- [ ] `ConcurrentManagerImpl`: receive, change visibility, and delete use v2; bridge at `worker.run(...)`;
+- [x] `ConcurrentManager`: `getAmazonSQSClient()` → `getSqsClient()` returning `SqsClient` (or remove it if
+      unused; currently there are no callers) — removed (no callers)
+- [x] `ConcurrentManagerImpl`: receive, change visibility, and delete use v2; bridge at `worker.run(...)`;
       keep the FIFO single-message loop and the `isShutdown` delete guard unchanged
-  - [ ] `ConcurrentManagerImplTest`
-- [ ] `ConcurrentWorkerStack`: update the javadoc `{@link}` to the v2 `receiveMessage`
+  - [x] `ConcurrentManagerImplTest`
+- [x] `ConcurrentWorkerStack`: update the javadoc `{@link}` to the v2 `receiveMessage`
 
 ### Commit 4: Change-message path (`lib-worker`)
 - [ ] `ChangeMessageDrivenWorkerStack`: take `SqsClient`; remove the `(AmazonSQSClient)` cast

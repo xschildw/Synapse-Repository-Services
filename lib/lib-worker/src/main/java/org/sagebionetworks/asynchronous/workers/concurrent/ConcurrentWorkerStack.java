@@ -11,7 +11,7 @@ import org.apache.commons.logging.LogFactory;
 import org.sagebionetworks.util.ValidateArgument;
 import org.sagebionetworks.workers.util.aws.message.MessageDrivenRunner;
 
-import com.amazonaws.services.sqs.AmazonSQSClient;
+import software.amazon.awssdk.services.sqs.SqsClient;
 
 /**
  * A new {@link ConcurrentWorkerStack} should be created for each type of
@@ -248,7 +248,7 @@ public class ConcurrentWorkerStack implements Runnable {
 	/**
 	 * Attempt to add new workers while remaining under the maxThreadsPerMachine.
 	 * Note: Since AWS SQS has a limit of of 10 messages per
-	 * {@link AmazonSQSClient#receiveMessage(com.amazonaws.services.sqs.model.ReceiveMessageRequest)},
+	 * {@link SqsClient#receiveMessage(software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest)},
 	 * no more than 10 worker threads will be started per call.
 	 * 
 	 * @return True if we attempted to get messages from the queue and the queue was empty.

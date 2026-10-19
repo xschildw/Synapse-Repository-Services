@@ -17,12 +17,14 @@ import org.sagebionetworks.util.progress.ProgressCallback;
 import org.sagebionetworks.util.progress.ProgressListener;
 import org.sagebionetworks.workers.util.aws.message.MessageDrivenRunner;
 import org.sagebionetworks.workers.util.aws.message.RecoverableMessageException;
+import org.sagebionetworks.workers.util.aws.message.SqsMessageBridge;
 
-import com.amazonaws.services.sqs.AmazonSQSClient;
-import com.amazonaws.services.sqs.model.ChangeMessageVisibilityRequest;
-import com.amazonaws.services.sqs.model.DeleteMessageRequest;
-import com.amazonaws.services.sqs.model.Message;
-import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.ChangeMessageVisibilityRequest;
+import software.amazon.awssdk.services.sqs.model.DeleteMessageRequest;
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlRequest;
+import software.amazon.awssdk.services.sqs.model.Message;
+import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest;
 
 public class ConcurrentManagerImpl implements ConcurrentManager {
 
@@ -31,15 +33,15 @@ public class ConcurrentManagerImpl implements ConcurrentManager {
 
 	private final CountingSemaphore countingSemaphore;
 	private final ExecutorService executorService;
-	private final AmazonSQSClient amazonSQSClient;
+	private final SqsClient sqsClient;
 	private final StackStatusDao stackStatusDao;
 	private volatile boolean isShutdown;
 
-	public ConcurrentManagerImpl(CountingSemaphore countingSemaphore, AmazonSQSClient amazonSQSClient,
+	public ConcurrentManagerImpl(CountingSemaphore countingSemaphore, SqsClient sqsClient,
 			StackStatusDao stackStatusDao) {
 		super();
 		this.countingSemaphore = countingSemaphore;
-		this.amazonSQSClient = amazonSQSClient;
+		this.sqsClient = sqsClient;
 		this.stackStatusDao = stackStatusDao;
 		/*
 		 * Note: We do not use a fix sized thread pool because we do not know how many
@@ -82,7 +84,7 @@ public class ConcurrentManagerImpl implements ConcurrentManager {
 	@Override
 	public String getSqsQueueUrl(String queueName) {
 		ValidateArgument.required(queueName, "queueName");
-		return amazonSQSClient.getQueueUrl(queueName).getQueueUrl();
+		return sqsClient.getQueueUrl(GetQueueUrlRequest.builder().queueName(queueName).build()).queueUrl();
 	}
 
 	@Override
@@ -126,18 +128,18 @@ public class ConcurrentManagerImpl implements ConcurrentManager {
 		List<WorkerJob> jobs = new ArrayList<>(maxNumberOfMessages);
 
 		for (int i = 0; i < requestCount; i++) {
-			ReceiveMessageRequest request = new ReceiveMessageRequest()
-					.withQueueUrl(queueUrl)
-					.withWaitTimeSeconds(0)
-					.withMaxNumberOfMessages(messagesPerRequest)
-					.withVisibilityTimeout(messageVisibilityTimeoutSec);
+			ReceiveMessageRequest.Builder request = ReceiveMessageRequest.builder()
+					.queueUrl(queueUrl)
+					.waitTimeSeconds(0)
+					.maxNumberOfMessages(messagesPerRequest)
+					.visibilityTimeout(messageVisibilityTimeoutSec);
 
 			if (worker.getMessageAttributeNames() != null && !worker.getMessageAttributeNames().isEmpty()) {
-				request.withMessageAttributeNames(worker.getMessageAttributeNames());
+				request.messageAttributeNames(worker.getMessageAttributeNames());
 			}
 
 			// Poll for messages.
-			List<Message> messages = amazonSQSClient.receiveMessage(request).getMessages();
+			List<Message> messages = sqsClient.receiveMessage(request.build()).messages();
 			if (messages.isEmpty()) {
 				break;
 			}
@@ -163,24 +165,24 @@ public class ConcurrentManagerImpl implements ConcurrentManager {
 			Message message) {
 		ConcurrentProgressCallback callback = new ConcurrentProgressCallback(messageVisibilityTimeoutSec);
 		ProgressListener listener = () -> {
-			amazonSQSClient.changeMessageVisibility(new ChangeMessageVisibilityRequest().withQueueUrl(queueUrl)
-					.withReceiptHandle(message.getReceiptHandle()).withVisibilityTimeout(messageVisibilityTimeoutSec));
+			sqsClient.changeMessageVisibility(ChangeMessageVisibilityRequest.builder().queueUrl(queueUrl)
+					.receiptHandle(message.receiptHandle()).visibilityTimeout(messageVisibilityTimeoutSec).build());
 		};
 		callback.addProgressListener(listener);
 		Future<Void> future = executorService.submit(() -> {
 			boolean deleteMessage = true;
 			try {
-				worker.run(callback, message);
+				worker.run(callback, SqsMessageBridge.toV1(message));
 			} catch (RecoverableMessageException e) {
 				deleteMessage = false;
-				amazonSQSClient.changeMessageVisibility(new ChangeMessageVisibilityRequest().withQueueUrl(queueUrl)
-						.withReceiptHandle(message.getReceiptHandle()).withVisibilityTimeout(TWO_SECONDS));
+				sqsClient.changeMessageVisibility(ChangeMessageVisibilityRequest.builder().queueUrl(queueUrl)
+						.receiptHandle(message.receiptHandle()).visibilityTimeout(TWO_SECONDS).build());
 			} finally {
 				try {
 					callback.removeProgressListener(listener);
 					if (deleteMessage && !isShutdown) {
-						amazonSQSClient.deleteMessage(new DeleteMessageRequest().withQueueUrl(queueUrl)
-								.withReceiptHandle(message.getReceiptHandle()));
+						sqsClient.deleteMessage(DeleteMessageRequest.builder().queueUrl(queueUrl)
+								.receiptHandle(message.receiptHandle()).build());
 					}
 				} catch (Exception e) {
 					log.warn("failed to delete message", e);
@@ -189,11 +191,6 @@ public class ConcurrentManagerImpl implements ConcurrentManager {
 			return null;
 		});
 		return new WorkerJob(future, callback);
-	}
-
-	@Override
-	public AmazonSQSClient getAmazonSQSClient() {
-		return amazonSQSClient;
 	}
 
 	public void forceShutdown() {

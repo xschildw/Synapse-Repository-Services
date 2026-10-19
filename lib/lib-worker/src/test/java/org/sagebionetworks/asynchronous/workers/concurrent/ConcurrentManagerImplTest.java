@@ -36,14 +36,16 @@ import org.sagebionetworks.util.progress.ProgressCallback;
 import org.sagebionetworks.util.progress.ProgressListener;
 import org.sagebionetworks.workers.util.aws.message.MessageDrivenRunner;
 import org.sagebionetworks.workers.util.aws.message.RecoverableMessageException;
+import org.sagebionetworks.workers.util.aws.message.SqsMessageBridge;
 
-import com.amazonaws.services.sqs.AmazonSQSClient;
-import com.amazonaws.services.sqs.model.ChangeMessageVisibilityRequest;
-import com.amazonaws.services.sqs.model.DeleteMessageRequest;
-import com.amazonaws.services.sqs.model.GetQueueUrlResult;
-import com.amazonaws.services.sqs.model.Message;
-import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
-import com.amazonaws.services.sqs.model.ReceiveMessageResult;
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.ChangeMessageVisibilityRequest;
+import software.amazon.awssdk.services.sqs.model.DeleteMessageRequest;
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlRequest;
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlResponse;
+import software.amazon.awssdk.services.sqs.model.Message;
+import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest;
+import software.amazon.awssdk.services.sqs.model.ReceiveMessageResponse;
 
 @ExtendWith(MockitoExtension.class)
 public class ConcurrentManagerImplTest {
@@ -51,7 +53,7 @@ public class ConcurrentManagerImplTest {
 	@Mock
 	private CountingSemaphore mockCountingSemaphore;
 	@Mock
-	private AmazonSQSClient mockAmazonSQSClient;
+	private SqsClient mockSqsClient;
 	@Mock
 	private StackStatusDao mockStackStatusDao;
 	@Mock
@@ -60,8 +62,6 @@ public class ConcurrentManagerImplTest {
 	private Runnable mockRunner;
 	@Mock
 	private MessageDrivenRunner mockWorker;
-	@Mock
-	private Message mockMessage;
 	@Mock
 	private ProgressListener mockProgressListener;
 
@@ -75,6 +75,8 @@ public class ConcurrentManagerImplTest {
 	private String queueUrl;
 	private int maxThreadCount;
 	private boolean isFifoQueue;
+	private String receiptHandle;
+	private Message message;
 
 	@BeforeEach
 	public void before() {
@@ -84,6 +86,8 @@ public class ConcurrentManagerImplTest {
 		queueUrl = "https://aws-some-queue";
 		maxThreadCount = 5;
 		isFifoQueue = false;
+		receiptHandle = "receiptHandle";
+		message = Message.builder().messageId("messageId").receiptHandle(receiptHandle).body("body").build();
 	}
 
 	@Test
@@ -122,12 +126,12 @@ public class ConcurrentManagerImplTest {
 	public void testGetSqsQueueUrl() {
 		String queueName = "some-queue";
 		String queueUrl = "https://aws-" + queueName;
-		when(mockAmazonSQSClient.getQueueUrl(any(String.class)))
-				.thenReturn(new GetQueueUrlResult().withQueueUrl(queueUrl));
+		when(mockSqsClient.getQueueUrl(any(GetQueueUrlRequest.class)))
+				.thenReturn(GetQueueUrlResponse.builder().queueUrl(queueUrl).build());
 		// call under test
 		String resultUrl = manager.getSqsQueueUrl(queueName);
 		assertEquals(queueUrl, resultUrl);
-		verify(mockAmazonSQSClient).getQueueUrl(queueName);
+		verify(mockSqsClient).getQueueUrl(GetQueueUrlRequest.builder().queueName(queueName).build());
 	}
 
 	@Test
@@ -222,17 +226,15 @@ public class ConcurrentManagerImplTest {
 
 	@Test
 	public void testStartWorkerJobWithProgressMade() throws RecoverableMessageException, Exception {
-		String receiptHandle = "receiptHandle";
-		when(mockMessage.getReceiptHandle()).thenReturn(receiptHandle);
 		
 		doAnswer((a)->{
 			// We sleep to get a chance to call progressMade() before the job terminates.
 			Thread.sleep(100);
 			return null;
-		}).when(mockWorker).run(any(), any());
+		}).when(mockWorker).run(any(ProgressCallback.class), any(com.amazonaws.services.sqs.model.Message.class));
 
 		// call under test
-		WorkerJob job = manager.startWorkerJob(queueUrl, lockTimeoutSec, mockWorker, mockMessage);
+		WorkerJob job = manager.startWorkerJob(queueUrl, lockTimeoutSec, mockWorker, message);
 		assertNotNull(job);
 		assertNotNull(job.getListener());
 		// progress made should refresh the lock
@@ -243,48 +245,46 @@ public class ConcurrentManagerImplTest {
 		// the listener should be removed after the job is finished so this should be a no-op.
 		job.getListener().progressMade();
 
-		verify(mockAmazonSQSClient, times(1)).changeMessageVisibility(any());
-		verify(mockAmazonSQSClient, times(1)).changeMessageVisibility(new ChangeMessageVisibilityRequest()
-				.withQueueUrl(queueUrl).withReceiptHandle(receiptHandle).withVisibilityTimeout(lockTimeoutSec));
+		verify(mockSqsClient, times(1)).changeMessageVisibility(any(ChangeMessageVisibilityRequest.class));
+		verify(mockSqsClient, times(1)).changeMessageVisibility(ChangeMessageVisibilityRequest.builder()
+				.queueUrl(queueUrl).receiptHandle(receiptHandle).visibilityTimeout(lockTimeoutSec).build());
 
-		verify(mockWorker).run((ProgressCallback) job.getListener(), mockMessage);
-		verify(mockAmazonSQSClient)
-				.deleteMessage(new DeleteMessageRequest().withQueueUrl(queueUrl).withReceiptHandle(receiptHandle));
+		verify(mockWorker).run((ProgressCallback) job.getListener(), SqsMessageBridge.toV1(message));
+		verify(mockSqsClient)
+				.deleteMessage(DeleteMessageRequest.builder().queueUrl(queueUrl).receiptHandle(receiptHandle).build());
 	}
 
 	@Test
 	public void testStartWorkerJobWithRecoverableException() throws RecoverableMessageException, Exception {
-		String receiptHandle = "receiptHandle";
-		when(mockMessage.getReceiptHandle()).thenReturn(receiptHandle);
 
 		doAnswer((a)->{
 			// We sleep to get a chance to call progressMade() before the job terminates.
 			Thread.sleep(100);
 			throw new RecoverableMessageException("Try again later");
-		}).when(mockWorker).run(any(), any());
+		}).when(mockWorker).run(any(ProgressCallback.class), any(com.amazonaws.services.sqs.model.Message.class));
 
 		// call under test
-		WorkerJob job = manager.startWorkerJob(queueUrl, lockTimeoutSec, mockWorker, mockMessage);
+		WorkerJob job = manager.startWorkerJob(queueUrl, lockTimeoutSec, mockWorker, message);
 		assertNotNull(job);
 		assertNotNull(job.getListener());
 		// progress made should refresh the lock
 		job.getListener().progressMade();
 		waitForFuture(job.getFuture());
 
-		verify(mockAmazonSQSClient, times(2)).changeMessageVisibility(any());
-		verify(mockAmazonSQSClient, times(1)).changeMessageVisibility(new ChangeMessageVisibilityRequest()
-				.withQueueUrl(queueUrl).withReceiptHandle(receiptHandle).withVisibilityTimeout(lockTimeoutSec));
+		verify(mockSqsClient, times(2)).changeMessageVisibility(any(ChangeMessageVisibilityRequest.class));
+		verify(mockSqsClient, times(1)).changeMessageVisibility(ChangeMessageVisibilityRequest.builder()
+				.queueUrl(queueUrl).receiptHandle(receiptHandle).visibilityTimeout(lockTimeoutSec).build());
 		// second call to put the message back in the queue in 5 seconds.
-		verify(mockAmazonSQSClient, times(1)).changeMessageVisibility(new ChangeMessageVisibilityRequest()
-				.withQueueUrl(queueUrl).withReceiptHandle(receiptHandle).withVisibilityTimeout(2));
+		verify(mockSqsClient, times(1)).changeMessageVisibility(ChangeMessageVisibilityRequest.builder()
+				.queueUrl(queueUrl).receiptHandle(receiptHandle).visibilityTimeout(2).build());
 
 		assertNotNull(job.getFuture());
 		assertTrue(job.getFuture().isDone());
 		// should not throw anything.
 		job.getFuture().get();
 
-		verify(mockWorker).run((ProgressCallback) job.getListener(), mockMessage);
-		verify(mockAmazonSQSClient, never()).deleteMessage(any());
+		verify(mockWorker).run((ProgressCallback) job.getListener(), SqsMessageBridge.toV1(message));
+		verify(mockSqsClient, never()).deleteMessage(any(DeleteMessageRequest.class));
 	}
 
 	/**
@@ -305,14 +305,12 @@ public class ConcurrentManagerImplTest {
 
 	@Test
 	public void testStartWorkerJobWithOtherException() throws RecoverableMessageException, Exception {
-		String receiptHandle = "receiptHandle";
-		when(mockMessage.getReceiptHandle()).thenReturn(receiptHandle);
 
 		IllegalArgumentException toThrow = new IllegalArgumentException("Nope.");
-		doThrow(toThrow).when(mockWorker).run(any(), any());
+		doThrow(toThrow).when(mockWorker).run(any(ProgressCallback.class), any(com.amazonaws.services.sqs.model.Message.class));
 
 		// call under test
-		WorkerJob job = manager.startWorkerJob(queueUrl, lockTimeoutSec, mockWorker, mockMessage);
+		WorkerJob job = manager.startWorkerJob(queueUrl, lockTimeoutSec, mockWorker, message);
 		assertNotNull(job);
 		assertNotNull(job.getListener());
 		Throwable cause = assertThrows(ExecutionException.class, () -> {
@@ -320,31 +318,31 @@ public class ConcurrentManagerImplTest {
 		}).getCause();
 		assertEquals(toThrow, cause);
 
-		verify(mockAmazonSQSClient, never()).changeMessageVisibility(any());
-		verify(mockAmazonSQSClient)
-				.deleteMessage(new DeleteMessageRequest().withQueueUrl(queueUrl).withReceiptHandle(receiptHandle));
+		verify(mockSqsClient, never()).changeMessageVisibility(any(ChangeMessageVisibilityRequest.class));
+		verify(mockSqsClient)
+				.deleteMessage(DeleteMessageRequest.builder().queueUrl(queueUrl).receiptHandle(receiptHandle).build());
 	}
 
 	@Test
 	public void testPollForMessagesAndStartJobsWithNoMessages() {
-		when(mockAmazonSQSClient.receiveMessage(any(ReceiveMessageRequest.class)))
-				.thenReturn(new ReceiveMessageResult().withMessages(Collections.emptyList()));
+		when(mockSqsClient.receiveMessage(any(ReceiveMessageRequest.class)))
+				.thenReturn(ReceiveMessageResponse.builder().messages(Collections.emptyList()).build());
 
 		// call under test
 		List<WorkerJob> jobs = manager.pollForMessagesAndStartJobs(queueUrl, maxThreadCount, lockTimeoutSec,
 				mockWorker, isFifoQueue);
 		assertEquals(Collections.emptyList(), jobs);
 
-		verify(mockAmazonSQSClient).receiveMessage(new ReceiveMessageRequest().withQueueUrl(queueUrl)
-				.withWaitTimeSeconds(0).withMaxNumberOfMessages(maxThreadCount).withVisibilityTimeout(lockTimeoutSec));
+		verify(mockSqsClient).receiveMessage(ReceiveMessageRequest.builder().queueUrl(queueUrl)
+				.waitTimeSeconds(0).maxNumberOfMessages(maxThreadCount).visibilityTimeout(lockTimeoutSec).build());
 
 		verify(manager, never()).startWorkerJob(any(), anyInt(), any(), any());
 	}
 	
 	@Test
 	public void testPollForMessagesAndStartJobsWithMessageAttributes() {
-		when(mockAmazonSQSClient.receiveMessage(any(ReceiveMessageRequest.class)))
-				.thenReturn(new ReceiveMessageResult().withMessages(Collections.emptyList()));
+		when(mockSqsClient.receiveMessage(any(ReceiveMessageRequest.class)))
+				.thenReturn(ReceiveMessageResponse.builder().messages(Collections.emptyList()).build());
 
 		when(mockWorker.getMessageAttributeNames()).thenReturn(List.of("All"));
 		
@@ -353,12 +351,13 @@ public class ConcurrentManagerImplTest {
 				mockWorker, isFifoQueue);
 		assertEquals(Collections.emptyList(), jobs);
 
-		verify(mockAmazonSQSClient).receiveMessage(new ReceiveMessageRequest()
-			.withQueueUrl(queueUrl)
-			.withWaitTimeSeconds(0)
-			.withMaxNumberOfMessages(maxThreadCount)
-			.withVisibilityTimeout(lockTimeoutSec)
-			.withMessageAttributeNames("All")
+		verify(mockSqsClient).receiveMessage(ReceiveMessageRequest.builder()
+			.queueUrl(queueUrl)
+			.waitTimeSeconds(0)
+			.maxNumberOfMessages(maxThreadCount)
+			.visibilityTimeout(lockTimeoutSec)
+			.messageAttributeNames("All")
+			.build()
 		);
 
 		verify(manager, never()).startWorkerJob(any(), anyInt(), any(), any());
@@ -367,11 +366,11 @@ public class ConcurrentManagerImplTest {
 	@Test
 	public void testPollForMessagesAndStartJobsWithMessages() {
 
-		List<Message> messages = List.of(new Message().withReceiptHandle("one"),
-				new Message().withReceiptHandle("two"));
+		List<Message> messages = List.of(Message.builder().receiptHandle("one").build(),
+				Message.builder().receiptHandle("two").build());
 
-		when(mockAmazonSQSClient.receiveMessage(any(ReceiveMessageRequest.class)))
-				.thenReturn(new ReceiveMessageResult().withMessages(messages));
+		when(mockSqsClient.receiveMessage(any(ReceiveMessageRequest.class)))
+				.thenReturn(ReceiveMessageResponse.builder().messages(messages).build());
 
 		// call under test
 		List<WorkerJob> jobs = manager.pollForMessagesAndStartJobs(queueUrl, maxThreadCount, lockTimeoutSec,
@@ -380,8 +379,8 @@ public class ConcurrentManagerImplTest {
 		assertNotNull(jobs);
 		assertEquals(2, jobs.size());
 
-		verify(mockAmazonSQSClient).receiveMessage(new ReceiveMessageRequest().withQueueUrl(queueUrl)
-				.withWaitTimeSeconds(0).withMaxNumberOfMessages(maxThreadCount).withVisibilityTimeout(lockTimeoutSec));
+		verify(mockSqsClient).receiveMessage(ReceiveMessageRequest.builder().queueUrl(queueUrl)
+				.waitTimeSeconds(0).maxNumberOfMessages(maxThreadCount).visibilityTimeout(lockTimeoutSec).build());
 
 		verify(manager, times(2)).startWorkerJob(any(), anyInt(), any(), any());
 		verify(manager).startWorkerJob(queueUrl, lockTimeoutSec, mockWorker, messages.get(0));
@@ -391,8 +390,8 @@ public class ConcurrentManagerImplTest {
 	@Test
 	public void testPollForMessagesAndStartFifoJobsWithNoMessages() {
 		isFifoQueue = true;
-		when(mockAmazonSQSClient.receiveMessage(any(ReceiveMessageRequest.class)))
-				.thenReturn(new ReceiveMessageResult().withMessages(Collections.emptyList()));
+		when(mockSqsClient.receiveMessage(any(ReceiveMessageRequest.class)))
+				.thenReturn(ReceiveMessageResponse.builder().messages(Collections.emptyList()).build());
 
 		// call under test
 		List<WorkerJob> jobs = manager.pollForMessagesAndStartJobs(queueUrl, maxThreadCount, lockTimeoutSec,
@@ -400,8 +399,8 @@ public class ConcurrentManagerImplTest {
 		assertEquals(Collections.emptyList(), jobs);
 
 		// Should make a single call with maxNumberOfMessages=1, then stop (empty result)
-		verify(mockAmazonSQSClient).receiveMessage(new ReceiveMessageRequest().withQueueUrl(queueUrl)
-				.withWaitTimeSeconds(0).withMaxNumberOfMessages(1).withVisibilityTimeout(lockTimeoutSec));
+		verify(mockSqsClient).receiveMessage(ReceiveMessageRequest.builder().queueUrl(queueUrl)
+				.waitTimeSeconds(0).maxNumberOfMessages(1).visibilityTimeout(lockTimeoutSec).build());
 
 		verify(manager, never()).startWorkerJob(any(), anyInt(), any(), any());
 	}
@@ -409,13 +408,13 @@ public class ConcurrentManagerImplTest {
 	@Test
 	public void testPollForMessagesAndStartFifoJobsWithPartialMessages() {
 		isFifoQueue = true;
-		Message messageOne = new Message().withReceiptHandle("one");
-		Message messageTwo = new Message().withReceiptHandle("two");
+		Message messageOne = Message.builder().receiptHandle("one").build();
+		Message messageTwo = Message.builder().receiptHandle("two").build();
 
-		when(mockAmazonSQSClient.receiveMessage(any(ReceiveMessageRequest.class)))
-				.thenReturn(new ReceiveMessageResult().withMessages(messageOne))
-				.thenReturn(new ReceiveMessageResult().withMessages(messageTwo))
-				.thenReturn(new ReceiveMessageResult().withMessages(Collections.emptyList()));
+		when(mockSqsClient.receiveMessage(any(ReceiveMessageRequest.class)))
+				.thenReturn(ReceiveMessageResponse.builder().messages(messageOne).build())
+				.thenReturn(ReceiveMessageResponse.builder().messages(messageTwo).build())
+				.thenReturn(ReceiveMessageResponse.builder().messages(Collections.emptyList()).build());
 
 		maxThreadCount = 4;
 
@@ -426,11 +425,11 @@ public class ConcurrentManagerImplTest {
 		assertNotNull(jobs);
 		assertEquals(2, jobs.size());
 
-		ReceiveMessageRequest expectedRequest = new ReceiveMessageRequest().withQueueUrl(queueUrl)
-				.withWaitTimeSeconds(0).withMaxNumberOfMessages(1).withVisibilityTimeout(lockTimeoutSec);
+		ReceiveMessageRequest expectedRequest = ReceiveMessageRequest.builder().queueUrl(queueUrl)
+				.waitTimeSeconds(0).maxNumberOfMessages(1).visibilityTimeout(lockTimeoutSec).build();
 
 		// Should have made 3 individual calls: 2 returned messages, 3rd was empty so 4th never happens
-		verify(mockAmazonSQSClient, times(3)).receiveMessage(expectedRequest);
+		verify(mockSqsClient, times(3)).receiveMessage(expectedRequest);
 
 		verify(manager, times(2)).startWorkerJob(any(), anyInt(), any(), any());
 		verify(manager).startWorkerJob(queueUrl, lockTimeoutSec, mockWorker, messageOne);
@@ -441,14 +440,14 @@ public class ConcurrentManagerImplTest {
 	public void testPollForMessagesAndStartFifoJobsWithMaxMessages() {
 		isFifoQueue = true;
 
-		Message messageOne = new Message().withReceiptHandle("one");
-		Message messageTwo = new Message().withReceiptHandle("two");
-		Message messageThree = new Message().withReceiptHandle("three");
+		Message messageOne = Message.builder().receiptHandle("one").build();
+		Message messageTwo = Message.builder().receiptHandle("two").build();
+		Message messageThree = Message.builder().receiptHandle("three").build();
 
-		when(mockAmazonSQSClient.receiveMessage(any(ReceiveMessageRequest.class)))
-				.thenReturn(new ReceiveMessageResult().withMessages(messageOne))
-				.thenReturn(new ReceiveMessageResult().withMessages(messageTwo))
-				.thenReturn(new ReceiveMessageResult().withMessages(messageThree));
+		when(mockSqsClient.receiveMessage(any(ReceiveMessageRequest.class)))
+				.thenReturn(ReceiveMessageResponse.builder().messages(messageOne).build())
+				.thenReturn(ReceiveMessageResponse.builder().messages(messageTwo).build())
+				.thenReturn(ReceiveMessageResponse.builder().messages(messageThree).build());
 
 		maxThreadCount = 3;
 
@@ -459,11 +458,11 @@ public class ConcurrentManagerImplTest {
 		assertNotNull(jobs);
 		assertEquals(3, jobs.size());
 
-		ReceiveMessageRequest expectedRequest = new ReceiveMessageRequest().withQueueUrl(queueUrl)
-				.withWaitTimeSeconds(0).withMaxNumberOfMessages(1).withVisibilityTimeout(lockTimeoutSec);
+		ReceiveMessageRequest expectedRequest = ReceiveMessageRequest.builder().queueUrl(queueUrl)
+				.waitTimeSeconds(0).maxNumberOfMessages(1).visibilityTimeout(lockTimeoutSec).build();
 
 		// Should have made exactly 3 calls (all returned messages, hit the limit)
-		verify(mockAmazonSQSClient, times(3)).receiveMessage(expectedRequest);
+		verify(mockSqsClient, times(3)).receiveMessage(expectedRequest);
 
 		verify(manager, times(3)).startWorkerJob(any(), anyInt(), any(), any());
 		verify(manager).startWorkerJob(queueUrl, lockTimeoutSec, mockWorker, messageOne);
@@ -523,19 +522,17 @@ public class ConcurrentManagerImplTest {
 	
 	@Test
 	public void testStartWorkerJobWithShutDown() throws RecoverableMessageException, Exception {
-		String receiptHandle = "receiptHandle";
-		when(mockMessage.getReceiptHandle()).thenReturn(receiptHandle);
 		
 		doAnswer((a)->{
 			// We sleep to get a chance to call progressMade() before the job terminates.
 			Thread.sleep(100);
 			return null;
-		}).when(mockWorker).run(any(), any());
+		}).when(mockWorker).run(any(ProgressCallback.class), any(com.amazonaws.services.sqs.model.Message.class));
 		
 		manager.forceShutdown();
 
 		// call under test
-		WorkerJob job = manager.startWorkerJob(queueUrl, lockTimeoutSec, mockWorker, mockMessage);
+		WorkerJob job = manager.startWorkerJob(queueUrl, lockTimeoutSec, mockWorker, message);
 		assertNotNull(job);
 		assertNotNull(job.getListener());
 		// progress made should refresh the lock
@@ -546,31 +543,29 @@ public class ConcurrentManagerImplTest {
 		// the listener should be removed after the job is finished so this should be a no-op.
 		job.getListener().progressMade();
 
-		verify(mockAmazonSQSClient, times(1)).changeMessageVisibility(any());
-		verify(mockAmazonSQSClient, times(1)).changeMessageVisibility(new ChangeMessageVisibilityRequest()
-				.withQueueUrl(queueUrl).withReceiptHandle(receiptHandle).withVisibilityTimeout(lockTimeoutSec));
+		verify(mockSqsClient, times(1)).changeMessageVisibility(any(ChangeMessageVisibilityRequest.class));
+		verify(mockSqsClient, times(1)).changeMessageVisibility(ChangeMessageVisibilityRequest.builder()
+				.queueUrl(queueUrl).receiptHandle(receiptHandle).visibilityTimeout(lockTimeoutSec).build());
 
-		verify(mockWorker).run((ProgressCallback) job.getListener(), mockMessage);
+		verify(mockWorker).run((ProgressCallback) job.getListener(), SqsMessageBridge.toV1(message));
 		// the message should not be deleted after shutdown.
-		verify(mockAmazonSQSClient, never()).deleteMessage(any());
+		verify(mockSqsClient, never()).deleteMessage(any(DeleteMessageRequest.class));
 	}
 	
 	@Test
 	public void testStartWorkerJobWitDoubleException() throws RecoverableMessageException, Exception {
-		String receiptHandle = "receiptHandle";
-		when(mockMessage.getReceiptHandle()).thenReturn(receiptHandle);
 		IllegalArgumentException firstException = new IllegalArgumentException("one");
 
 		doAnswer((a) -> {
 			// We sleep to get a chance to call progressMade() before the job terminates.
 			Thread.sleep(100);
 			throw firstException;
-		}).when(mockWorker).run(any(), any());
+		}).when(mockWorker).run(any(ProgressCallback.class), any(com.amazonaws.services.sqs.model.Message.class));
 
-		when(mockAmazonSQSClient.deleteMessage(any())).thenThrow(new IllegalArgumentException("two"));
+		when(mockSqsClient.deleteMessage(any(DeleteMessageRequest.class))).thenThrow(new IllegalArgumentException("two"));
 
 		// call under test
-		WorkerJob job = manager.startWorkerJob(queueUrl, lockTimeoutSec, mockWorker, mockMessage);
+		WorkerJob job = manager.startWorkerJob(queueUrl, lockTimeoutSec, mockWorker, message);
 		assertNotNull(job);
 		assertNotNull(job.getListener());
 		// progress made should refresh the lock
@@ -585,12 +580,12 @@ public class ConcurrentManagerImplTest {
 		// no-op.
 		job.getListener().progressMade();
 
-		verify(mockAmazonSQSClient, times(1)).changeMessageVisibility(any());
-		verify(mockAmazonSQSClient, times(1)).changeMessageVisibility(new ChangeMessageVisibilityRequest()
-				.withQueueUrl(queueUrl).withReceiptHandle(receiptHandle).withVisibilityTimeout(lockTimeoutSec));
+		verify(mockSqsClient, times(1)).changeMessageVisibility(any(ChangeMessageVisibilityRequest.class));
+		verify(mockSqsClient, times(1)).changeMessageVisibility(ChangeMessageVisibilityRequest.builder()
+				.queueUrl(queueUrl).receiptHandle(receiptHandle).visibilityTimeout(lockTimeoutSec).build());
 
-		verify(mockWorker).run((ProgressCallback) job.getListener(), mockMessage);
-		verify(mockAmazonSQSClient)
-				.deleteMessage(new DeleteMessageRequest().withQueueUrl(queueUrl).withReceiptHandle(receiptHandle));
+		verify(mockWorker).run((ProgressCallback) job.getListener(), SqsMessageBridge.toV1(message));
+		verify(mockSqsClient)
+				.deleteMessage(DeleteMessageRequest.builder().queueUrl(queueUrl).receiptHandle(receiptHandle).build());
 	}
 }
