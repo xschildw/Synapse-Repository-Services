@@ -1,6 +1,6 @@
 package org.sagebionetworks.athena.workers;
 
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -15,9 +15,11 @@ import org.sagebionetworks.repo.model.athena.RecurrentAthenaQueryResult;
 import org.sagebionetworks.util.progress.ProgressCallback;
 import org.sagebionetworks.workers.util.aws.message.RecoverableMessageException;
 
-import com.amazonaws.services.sqs.AmazonSQSClient;
-import com.amazonaws.services.sqs.model.GetQueueUrlResult;
 import com.amazonaws.services.sqs.model.Message;
+
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlRequest;
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlResponse;
 
 @ExtendWith(MockitoExtension.class)
 public class RecurrentAthenaQueryWorkerTest {
@@ -29,7 +31,7 @@ public class RecurrentAthenaQueryWorkerTest {
 	private Message mockMessage;
 	
 	@Mock
-	private AmazonSQSClient mockSqsClient;
+	private SqsClient mockSqsClient;
 	
 	@Mock
 	private RecurrentAthenaQueryManager mockManager;
@@ -46,7 +48,7 @@ public class RecurrentAthenaQueryWorkerTest {
 	public void before() {
 		this.queueUrl = "queueUrl";
 		this.worker.setQueueName("queueName");		
-		when(mockSqsClient.getQueueUrl(anyString())).thenReturn(new GetQueueUrlResult().withQueueUrl(queueUrl));
+		when(mockSqsClient.getQueueUrl(any(GetQueueUrlRequest.class))).thenReturn(GetQueueUrlResponse.builder().queueUrl(queueUrl).build());
 		this.worker.configure();
 	}
 
@@ -57,6 +59,7 @@ public class RecurrentAthenaQueryWorkerTest {
 		worker.run(mockCallback, mockMessage, mockResult);
 		
 		verify(mockManager).processRecurrentAthenaQueryResult(mockResult, queueUrl);
+		verify(mockSqsClient).getQueueUrl(GetQueueUrlRequest.builder().queueName("queueName").build());
 	}
 
 }

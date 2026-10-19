@@ -12,8 +12,6 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.Region;
 import com.amazonaws.services.s3.transfer.TransferManager;
-import com.amazonaws.services.sqs.AmazonSQS;
-import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
 
 /**
  * A factory for creating AWS clients using credential chains.
@@ -67,18 +65,6 @@ public class AwsClientFactory {
 	 */
 	public static TransferManager createTransferManager() {
 		return new TransferManager(SynapseAWSCredentialsProviderChain.getInstance());
-	}
-
-	/**
-	 * Create an instance of the AmazonSQS using a credential chain.
-	 *
-	 * @return
-	 */
-	public static AmazonSQS createAmazonSQSClient() {
-		AmazonSQSClientBuilder builder = AmazonSQSClientBuilder.standard();
-		builder.withRegion(Regions.US_EAST_1);
-		builder.withCredentials(SynapseAWSCredentialsProviderChain.getInstance());
-		return builder.build();
 	}
 
 	/**

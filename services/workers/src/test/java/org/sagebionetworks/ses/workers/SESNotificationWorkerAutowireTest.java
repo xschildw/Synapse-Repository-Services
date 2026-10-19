@@ -18,8 +18,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import com.amazonaws.services.sqs.AmazonSQS;
 import com.google.common.collect.ImmutableSet;
+
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlRequest;
+import software.amazon.awssdk.services.sqs.model.SendMessageRequest;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(locations = { "classpath:test-context.xml" })
@@ -39,7 +42,7 @@ public class SESNotificationWorkerAutowireTest {
 	private StackConfiguration stackConfig;
 
 	@Autowired
-	private AmazonSQS sqsClient;
+	private SqsClient sqsClient;
 
 	private String sesMessageId = "000001378603177f-7a5433e7-8edb-42ae-af10-f0181f34d6ee-000000";
 	private String queueUrl;
@@ -49,7 +52,7 @@ public class SESNotificationWorkerAutowireTest {
 	public void before() throws Exception {
 		emailQuarantineDao.clearAll();
 		notificationDao.clearAll();
-		queueUrl = sqsClient.getQueueUrl(stackConfig.getQueueName(QUEUE_NAME)).getQueueUrl();
+		queueUrl = sqsClient.getQueueUrl(GetQueueUrlRequest.builder().queueName(stackConfig.getQueueName(QUEUE_NAME)).build()).queueUrl();
 		messageBody = TestUtils.loadFromClasspath("ses/message_permanent_general.json");
 	}
 
@@ -62,7 +65,7 @@ public class SESNotificationWorkerAutowireTest {
 	@Test
 	public void testMessageProcessed() throws Exception {
 		// Send the notification to the queue
-		sqsClient.sendMessage(queueUrl, messageBody);
+		sqsClient.sendMessage(SendMessageRequest.builder().queueUrl(queueUrl).messageBody(messageBody).build());
 
 		waitForMessage(sesMessageId);
 		

@@ -22,7 +22,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.quartz.SimpleTriggerFactoryBean;
 
-import com.amazonaws.services.sqs.AmazonSQSClient;
+import software.amazon.awssdk.services.sqs.SqsClient;
 
 @Configuration
 public class WorkersInfraConfig {
@@ -43,8 +43,8 @@ public class WorkersInfraConfig {
 	}
 
 	@Bean
-	public ConcurrentManager concurrentStackManager(CountingSemaphore countingSemaphore, AmazonSQSClient amazonSQSClient, StackStatusDao stackStatusDao) {
-		return new ConcurrentManagerImpl(countingSemaphore, amazonSQSClient, stackStatusDao);
+	public ConcurrentManager concurrentStackManager(CountingSemaphore countingSemaphore, SqsClient sqsClient, StackStatusDao stackStatusDao) {
+		return new ConcurrentManagerImpl(countingSemaphore, sqsClient, stackStatusDao);
 	}
 	
 	@Bean

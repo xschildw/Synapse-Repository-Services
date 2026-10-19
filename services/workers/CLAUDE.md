@@ -111,7 +111,7 @@ config.setSemaphoreLockAndMessageVisibilityTimeoutSec(60);
 config.setSemaphoreMaxLockCount(4);
 config.setSemaphoreLockKey("myWorker");
 
-MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 
 return new WorkerTriggerBuilder()
     .withStack(stack)

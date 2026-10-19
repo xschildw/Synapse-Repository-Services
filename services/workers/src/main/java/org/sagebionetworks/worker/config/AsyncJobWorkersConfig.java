@@ -47,7 +47,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.quartz.SimpleTriggerFactoryBean;
 
-import com.amazonaws.services.sqs.AmazonSQSClient;
+import software.amazon.awssdk.services.sqs.SqsClient;
 
 /**
  * Configuration for workers that run asynchronous jobs ({@link AsyncJobRunner})
@@ -55,16 +55,16 @@ import com.amazonaws.services.sqs.AmazonSQSClient;
 @Configuration
 public class AsyncJobWorkersConfig {
 	
-	private AmazonSQSClient amazonSQSClient;
+	private SqsClient sqsClient;
 	private StackConfiguration stackConfig;
 	private AsynchJobStatusManager jobStatusManager;
 	private UserManager userManager;
 	private CountingSemaphore countingSemaphore;
 	private StackStatusGate stackStatusGate;
 
-	public AsyncJobWorkersConfig(AmazonSQSClient amazonSQSClient, StackConfiguration stackConfig, AsynchJobStatusManager jobStatusManager,
+	public AsyncJobWorkersConfig(SqsClient sqsClient, StackConfiguration stackConfig, AsynchJobStatusManager jobStatusManager,
 			UserManager userManager, CountingSemaphore countingSemaphore, StackStatusGate stackStatusGate) {
-		this.amazonSQSClient = amazonSQSClient;
+		this.sqsClient = sqsClient;
 		this.stackConfig = stackConfig;
 		this.jobStatusManager = jobStatusManager;
 		this.userManager = userManager;
@@ -133,7 +133,7 @@ public class AsyncJobWorkersConfig {
 		config.setSemaphoreMaxLockCount(8);
 		config.setSemaphoreLockKey("addFilesToDownloadList");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(stack)
@@ -157,7 +157,7 @@ public class AsyncJobWorkersConfig {
 		config.setSemaphoreMaxLockCount(8);
 		config.setSemaphoreLockKey("doiWorker");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(stack)
@@ -181,7 +181,7 @@ public class AsyncJobWorkersConfig {
 		config.setSemaphoreMaxLockCount(8);
 		config.setSemaphoreLockKey("downloadListAdd");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(stack)
@@ -205,7 +205,7 @@ public class AsyncJobWorkersConfig {
 		config.setSemaphoreMaxLockCount(8);
 		config.setSemaphoreLockKey("downloadListAddStats");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(stack)
@@ -229,7 +229,7 @@ public class AsyncJobWorkersConfig {
 		config.setSemaphoreMaxLockCount(8);
 		config.setSemaphoreLockKey("downloadListQuery");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(stack)
@@ -253,7 +253,7 @@ public class AsyncJobWorkersConfig {
 		config.setSemaphoreMaxLockCount(8);
 		config.setSemaphoreLockKey("downloadListPackage");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(stack)
@@ -277,7 +277,7 @@ public class AsyncJobWorkersConfig {
 		config.setSemaphoreMaxLockCount(8);
 		config.setSemaphoreLockKey("downloadListManifest");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(stack)
@@ -301,7 +301,7 @@ public class AsyncJobWorkersConfig {
 		config.setSemaphoreMaxLockCount(2);
 		config.setSemaphoreLockKey("fileHandleRestoreRequestWorker");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(stack)
@@ -325,7 +325,7 @@ public class AsyncJobWorkersConfig {
 		config.setSemaphoreMaxLockCount(1);
 		config.setSemaphoreLockKey("fileHandleArchivalRequestWorker");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(stack)
@@ -349,7 +349,7 @@ public class AsyncJobWorkersConfig {
 		config.setSemaphoreMaxLockCount(4);
 		config.setSemaphoreLockKey("fileBulkDownload");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(stack)
@@ -373,7 +373,7 @@ public class AsyncJobWorkersConfig {
 		config.setSemaphoreMaxLockCount(8);
 		config.setSemaphoreLockKey("getValidationSchema");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(stack)
@@ -398,7 +398,7 @@ public class AsyncJobWorkersConfig {
 		config.setSemaphoreMaxLockCount(10);
 		config.setSemaphoreLockKey("migration");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(stack)
@@ -422,7 +422,7 @@ public class AsyncJobWorkersConfig {
 		config.setSemaphoreMaxLockCount(8);
 		config.setSemaphoreLockKey("jsonSchemaCreate");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(stack)
@@ -446,7 +446,7 @@ public class AsyncJobWorkersConfig {
 		config.setSemaphoreMaxLockCount(2);
 		config.setSemaphoreLockKey("storageReportWorker");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(stack)
@@ -470,7 +470,7 @@ public class AsyncJobWorkersConfig {
 		config.setSemaphoreMaxLockCount(4);
 		config.setSemaphoreLockKey("tableCSVAppenderPreview");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(stack)
@@ -494,7 +494,7 @@ public class AsyncJobWorkersConfig {
 		config.setSemaphoreMaxLockCount(4);
 		config.setSemaphoreLockKey("tableCSVDownloader");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(stack)
@@ -518,7 +518,7 @@ public class AsyncJobWorkersConfig {
 		config.setSemaphoreMaxLockCount(4);
 		config.setSemaphoreLockKey("queryAsPFBWorker");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(stack)
@@ -542,7 +542,7 @@ public class AsyncJobWorkersConfig {
 		config.setSemaphoreMaxLockCount(8);
 		config.setSemaphoreLockKey("tableUpdateRequestWorker");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(stack)
@@ -566,7 +566,7 @@ public class AsyncJobWorkersConfig {
 		config.setSemaphoreMaxLockCount(8);
 		config.setSemaphoreLockKey("viewColumnModelRequestWorker");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(stack)
@@ -637,7 +637,7 @@ public class AsyncJobWorkersConfig {
         config.setSemaphoreMaxLockCount(4);
         config.setSemaphoreLockKey("gridCSVDownloader");
 
-        MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+        MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 
         return new WorkerTriggerBuilder()
                 .withStack(stack)
@@ -661,7 +661,7 @@ public class AsyncJobWorkersConfig {
         config.setSemaphoreMaxLockCount(4);
         config.setSemaphoreLockKey("gridRecordSetExportWorker");
 
-        MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+        MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 
         return new WorkerTriggerBuilder()
                 .withStack(stack)
@@ -685,7 +685,7 @@ public class AsyncJobWorkersConfig {
         config.setSemaphoreMaxLockCount(4);
         config.setSemaphoreLockKey("gridCsvImportWorker");
 
-        MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+        MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 
         return new WorkerTriggerBuilder()
                 .withStack(stack)
@@ -711,7 +711,7 @@ public class AsyncJobWorkersConfig {
 		config.setSemaphoreMaxLockCount(4);
 		config.setSemaphoreLockKey("gridSynchronizationWorker");
 
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 
 		return new WorkerTriggerBuilder().withStack(stack).withRepeatInterval(1134).withStartDelay(131).build();
 	}
@@ -731,7 +731,7 @@ public class AsyncJobWorkersConfig {
 		config.setSemaphoreMaxLockCount(8);
 		config.setSemaphoreLockKey("gridQueryWorker");
 
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 
 		return new WorkerTriggerBuilder().withStack(stack).withRepeatInterval(1057).withStartDelay(443).build();
 	}
@@ -751,7 +751,7 @@ public class AsyncJobWorkersConfig {
 		config.setSemaphoreMaxLockCount(4);
 		config.setSemaphoreLockKey("gridUpdateWorker");
 
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 
 		return new WorkerTriggerBuilder().withStack(stack).withRepeatInterval(1213).withStartDelay(577).build();
 	}

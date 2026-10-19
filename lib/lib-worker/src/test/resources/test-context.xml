@@ -18,8 +18,8 @@
 	<bean id="awsSNSClient" class="org.sagebionetworks.aws.v2.AwsClientFactoryV2"
 		factory-method="createSnsClient" scope="prototype"/>
 
-	<bean id="awsSQSClient" class="org.sagebionetworks.aws.AwsClientFactory"
-		factory-method="createAmazonSQSClient" scope="singleton" />
+	<bean id="awsSQSClient" class="org.sagebionetworks.aws.v2.AwsClientFactoryV2"
+		factory-method="createSqsClient" scope="singleton" />
 	
 	<!-- Setups a test message queue with associated dead letter queue. -->
 	<bean id="testMessageQueue1"

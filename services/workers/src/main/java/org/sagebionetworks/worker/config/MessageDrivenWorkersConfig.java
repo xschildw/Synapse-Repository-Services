@@ -29,8 +29,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.quartz.SimpleTriggerFactoryBean;
 
-import com.amazonaws.services.sqs.AmazonSQSClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import software.amazon.awssdk.services.sqs.SqsClient;
 
 /**
  * Configuration for workers that are driven by generic SQS messages (For {@link ChangeMessage} driven workers see {@link ChangeMessageWorkersConfig})
@@ -40,16 +41,16 @@ public class MessageDrivenWorkersConfig {
 	
 	private ConcurrentManager concurrentStackManager;
 	private StackStatusGate stackStatusGate; 
-	private AmazonSQSClient amazonSQSClient;
+	private SqsClient sqsClient;
 	private StackConfiguration stackConfig;
 	private CountingSemaphore countingSemaphore;
 	private ObjectMapper objectMapper;
 
-	public MessageDrivenWorkersConfig(ConcurrentManager concurrentStackManager, StackStatusGate stackStatusGate, AmazonSQSClient amazonSQSClient, StackConfiguration stackConfig, CountingSemaphore countingSemaphore,
+	public MessageDrivenWorkersConfig(ConcurrentManager concurrentStackManager, StackStatusGate stackStatusGate, SqsClient sqsClient, StackConfiguration stackConfig, CountingSemaphore countingSemaphore,
 			ObjectMapper objectMapper) {
 		this.concurrentStackManager = concurrentStackManager;
 		this.stackStatusGate = stackStatusGate;
-		this.amazonSQSClient = amazonSQSClient;
+		this.sqsClient = sqsClient;
 		this.stackConfig = stackConfig;
 		this.countingSemaphore = countingSemaphore;
 		this.objectMapper = objectMapper;
@@ -93,7 +94,7 @@ public class MessageDrivenWorkersConfig {
 		config.setSemaphoreMaxLockCount(10);
 		config.setSemaphoreLockKey("fileHandleKeysArchiveWorker");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(stack)
@@ -117,7 +118,7 @@ public class MessageDrivenWorkersConfig {
 		config.setSemaphoreMaxLockCount(10);
 		config.setSemaphoreLockKey("fileHandleAssociationScanRangeWorker");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 				
 		return new WorkerTriggerBuilder()
 			.withStack(stack)
@@ -141,7 +142,7 @@ public class MessageDrivenWorkersConfig {
 		config.setSemaphoreMaxLockCount(8);
 		config.setSemaphoreLockKey("sesNotificationWorker");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(stack)

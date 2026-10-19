@@ -9,8 +9,10 @@ import org.sagebionetworks.worker.TypedMessageDrivenRunner;
 import org.sagebionetworks.workers.util.aws.message.RecoverableMessageException;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import com.amazonaws.services.sqs.AmazonSQSClient;
 import com.amazonaws.services.sqs.model.Message;
+
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlRequest;
 
 /**
  * The worker process the SQS messages coming from the step functions that execute some athena query
@@ -18,12 +20,12 @@ import com.amazonaws.services.sqs.model.Message;
 public class RecurrentAthenaQueryWorker implements TypedMessageDrivenRunner<RecurrentAthenaQueryResult> {
 
 	private RecurrentAthenaQueryManager manager;
-	private AmazonSQSClient sqsClient;
+	private SqsClient sqsClient;
 	private String queueName;
 	private String queueUrl;
 	
 	@Autowired
-	public RecurrentAthenaQueryWorker(RecurrentAthenaQueryManager manager, AmazonSQSClient sqsClient) {
+	public RecurrentAthenaQueryWorker(RecurrentAthenaQueryManager manager, SqsClient sqsClient) {
 		this.manager = manager;
 		this.sqsClient = sqsClient;
 	}
@@ -34,7 +36,7 @@ public class RecurrentAthenaQueryWorker implements TypedMessageDrivenRunner<Recu
 	
 	@PostConstruct
 	public void configure() {
-		this.queueUrl = sqsClient.getQueueUrl(queueName).getQueueUrl();
+		this.queueUrl = sqsClient.getQueueUrl(GetQueueUrlRequest.builder().queueName(queueName).build()).queueUrl();
 	}
 	
 	@Override

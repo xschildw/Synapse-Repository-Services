@@ -34,7 +34,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.sagebionetworks.StackConfiguration;
 import org.sagebionetworks.StackConfigurationSingleton;
-import org.sagebionetworks.aws.AwsClientFactory;
 import org.sagebionetworks.repo.manager.EntityManager;
 import org.sagebionetworks.repo.manager.UserManager;
 import org.sagebionetworks.repo.manager.oauth.OIDCTokenManager;
@@ -74,16 +73,17 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import org.sagebionetworks.aws.v2.AwsClientFactoryV2;
 
-import com.amazonaws.services.sqs.AmazonSQS;
 import software.amazon.awssdk.services.apigatewayv2.ApiGatewayV2Client;
 import software.amazon.awssdk.services.apigatewayv2.model.Api;
 import software.amazon.awssdk.services.apigatewayv2.model.GetApisRequest;
 import software.amazon.awssdk.services.apigatewayv2.model.GetApisResponse;
 import software.amazon.awssdk.services.apigatewayv2.model.UpdateApiRequest;
-import com.amazonaws.services.sqs.model.GetQueueUrlRequest;
-import com.amazonaws.services.sqs.model.Message;
-import com.amazonaws.services.sqs.model.MessageAttributeValue;
-import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.DeleteMessageRequest;
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlRequest;
+import software.amazon.awssdk.services.sqs.model.Message;
+import software.amazon.awssdk.services.sqs.model.MessageAttributeValue;
+import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(locations = { "classpath:test-context.xml" })
@@ -96,7 +96,7 @@ public class WebhookWorkerIntegrationTest {
 	private static final int ENDPOINT_STATUS_REQUIRED_CONSECUTIVE_MATCHES = 3;
 	
 	private static ApiGatewayV2Client apiGatewayClient;
-	private static AmazonSQS sqsClient;
+	private static SqsClient sqsClient;
 	
 	private static Api testApi;
 	private static String apiTestQueueUrl;
@@ -133,7 +133,7 @@ public class WebhookWorkerIntegrationTest {
 	@BeforeAll
 	public static void beforeAll() throws Exception {
 		
-		sqsClient = AwsClientFactory.createAmazonSQSClient();
+		sqsClient = AwsClientFactoryV2.createSqsClient();
 		apiGatewayClient = AwsClientFactoryV2.createApiGatewayV2Client();
 
 		StackConfiguration config = StackConfigurationSingleton.singleton();
@@ -172,14 +172,16 @@ public class WebhookWorkerIntegrationTest {
 		waitForEndpointStatus(true);
 
 		// This is the queue that the testing api gateway endpoint forwards the messages to
-		apiTestQueueUrl = sqsClient.getQueueUrl(new GetQueueUrlRequest()
-			.withQueueName(config.getQueueName("WEBHOOK_TEST"))
-		).getQueueUrl();
+		apiTestQueueUrl = sqsClient.getQueueUrl(GetQueueUrlRequest.builder()
+			.queueName(config.getQueueName("WEBHOOK_TEST"))
+			.build()
+		).queueUrl();
 
 		// This is a dead letter queue that collects failed attempts
-		deadLetterQueueUrl = sqsClient.getQueueUrl(new GetQueueUrlRequest()
-			.withQueueName(config.getQueueName("WEBHOOK_MESSAGE-dead-letter"))
-		).getQueueUrl();
+		deadLetterQueueUrl = sqsClient.getQueueUrl(GetQueueUrlRequest.builder()
+			.queueName(config.getQueueName("WEBHOOK_MESSAGE-dead-letter"))
+			.build()
+		).queueUrl();
 		
 	}
 	
@@ -469,17 +471,21 @@ public class WebhookWorkerIntegrationTest {
 		boolean validateAuthorization = queueUrl.equals(apiTestQueueUrl);
 		
 		TimeUtils.waitFor(TIMEOUT, 1000, () -> {
-			ReceiveMessageRequest request = new ReceiveMessageRequest(queueUrl)
-				.withMaxNumberOfMessages(1)
-				// With long polling SQS queries all the servers and avoid empty receive messages on almost empty queues
-				.withWaitTimeSeconds(10)
-				.withMessageAttributeNames(MSG_ATTR_WEBHOOK_MESSAGE_TYPE, MSG_ATTR_WEBHOOK_ID);
+			List<String> messageAttributeNames = new ArrayList<>(List.of(MSG_ATTR_WEBHOOK_MESSAGE_TYPE, MSG_ATTR_WEBHOOK_ID));
 			
 			if (validateAuthorization) {
-				request.withMessageAttributeNames("AuthorizationHeader");
+				messageAttributeNames.add("AuthorizationHeader");
 			}
 			
-			List<Message> messages = sqsClient.receiveMessage(request).getMessages();
+			ReceiveMessageRequest request = ReceiveMessageRequest.builder()
+				.queueUrl(queueUrl)
+				.maxNumberOfMessages(1)
+				// With long polling SQS queries all the servers and avoid empty receive messages on almost empty queues
+				.waitTimeSeconds(10)
+				.messageAttributeNames(messageAttributeNames)
+				.build();
+			
+			List<Message> messages = sqsClient.receiveMessage(request).messages();
 			
 			if (messages.isEmpty()) {
 				return Pair.create(false, null);
@@ -491,15 +497,15 @@ public class WebhookWorkerIntegrationTest {
 			// The test webhook API gateway is configured to forward the special request headers as message attributes
 			// X-Syn-Webhook-Id -> WebhookId
 			// X-Syn-Webhook-Message-Type -> WebhookMessageType
-			Map<String, MessageAttributeValue> sqsMessageAttributes = sqsMessage.getMessageAttributes();
+			Map<String, MessageAttributeValue> sqsMessageAttributes = sqsMessage.messageAttributes();
 			
 			// MessageType does not match
-			if (!messageType.name().equals(sqsMessageAttributes.get(MSG_ATTR_WEBHOOK_MESSAGE_TYPE).getStringValue())) {
+			if (!messageType.name().equals(sqsMessageAttributes.get(MSG_ATTR_WEBHOOK_MESSAGE_TYPE).stringValue())) {
 				return Pair.create(false, null);
 			}
 			
 			// Webhook id does not match
-			if (!webhookId.equals(sqsMessageAttributes.get(MSG_ATTR_WEBHOOK_ID).getStringValue())) {
+			if (!webhookId.equals(sqsMessageAttributes.get(MSG_ATTR_WEBHOOK_ID).stringValue())) {
 				return Pair.create(false, null);
 			}
 			
@@ -510,19 +516,19 @@ public class WebhookWorkerIntegrationTest {
 					throw new IllegalStateException("Expected authorization header");
 				}
 				
-				String webhookToken = authorizationHeaderValue.getStringValue().substring(AuthorizationConstants.BEARER_TOKEN_HEADER.length());
+				String webhookToken = authorizationHeaderValue.stringValue().substring(AuthorizationConstants.BEARER_TOKEN_HEADER.length());
 				
 				String messageMd5 = tokenManager.parseJWT(webhookToken).getBody().get("message_md5", String.class);
 				
-				if (!sqsMessage.getMD5OfBody().equals(messageMd5)) {
-					throw new IllegalStateException("Mismatching MD5 (Expected: " + messageMd5 + ", Was: " + sqsMessage.getMD5OfBody() + ")");
+				if (!sqsMessage.md5OfBody().equals(messageMd5)) {
+					throw new IllegalStateException("Mismatching MD5 (Expected: " + messageMd5 + ", Was: " + sqsMessage.md5OfBody() + ")");
 				}
 			}
 			
 			T message;
 			
 			try {
-				 message = EntityFactory.createEntityFromJSONString(sqsMessage.getBody(), messageClass);
+				 message = EntityFactory.createEntityFromJSONString(sqsMessage.body(), messageClass);
 			} catch (JSONObjectAdapterException e) {
 				e.printStackTrace();
 				return Pair.create(false, null);
@@ -530,7 +536,7 @@ public class WebhookWorkerIntegrationTest {
 			
 			polledMessages.add(message);
 			
-			sqsClient.deleteMessage(queueUrl, sqsMessage.getReceiptHandle());
+			sqsClient.deleteMessage(DeleteMessageRequest.builder().queueUrl(queueUrl).receiptHandle(sqsMessage.receiptHandle()).build());
 			
 			return Pair.create(filter == null || filter.test(polledMessages), null);
 			

@@ -644,7 +644,7 @@ public class ManagerConfiguration {
 		return S3Client.builder().credentialsProvider(credentialProvider).region(Region.US_EAST_1).build();
 	}
 
-	@Bean
+	@Bean(name = { "createSqsClient", "awsSQSClient" })
 	public SqsClient createSqsClient(AwsCredentialsProvider credentialProvider) {
 		return SqsClient.builder().credentialsProvider(credentialProvider).region(Region.US_EAST_1).build();
 	}

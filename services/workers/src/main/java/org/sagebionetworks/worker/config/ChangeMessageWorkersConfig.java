@@ -32,7 +32,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.quartz.SimpleTriggerFactoryBean;
 
-import com.amazonaws.services.sqs.AmazonSQSClient;
+import software.amazon.awssdk.services.sqs.SqsClient;
 
 /**
  * Configuration for workers that are driven by change messages
@@ -42,13 +42,13 @@ public class ChangeMessageWorkersConfig {
 	
 	// Shared components
 	private ConcurrentManager concurrentStackManager;
-	private AmazonSQSClient amazonSQSClient;
+	private SqsClient sqsClient;
 	private StackConfiguration stackConfig;
 	private CountingSemaphore countingSemaphore;
 	
-	public ChangeMessageWorkersConfig(ConcurrentManager concurrentStackManager, AmazonSQSClient amazonSQSClient, StackConfiguration stackConfig, CountingSemaphore countingSemaphore) {
+	public ChangeMessageWorkersConfig(ConcurrentManager concurrentStackManager, SqsClient sqsClient, StackConfiguration stackConfig, CountingSemaphore countingSemaphore) {
 		this.concurrentStackManager = concurrentStackManager;
-		this.amazonSQSClient = amazonSQSClient;
+		this.sqsClient = sqsClient;
 		this.stackConfig = stackConfig;
 		this.countingSemaphore = countingSemaphore;
 	}
@@ -57,7 +57,7 @@ public class ChangeMessageWorkersConfig {
 	public SimpleTriggerFactoryBean objectReplicationWorkerTrigger(ObjectReplicationWorker objectReplicationWorker) {
 		
 		String queueName = stackConfig.getQueueName("TABLE_ENTITY_REPLICATION");
-		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(amazonSQSClient, queueName, objectReplicationWorker);
+		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(sqsClient, queueName, objectReplicationWorker);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(ConcurrentWorkerStack.builder()
@@ -80,7 +80,7 @@ public class ChangeMessageWorkersConfig {
 	public SimpleTriggerFactoryBean objectReplicationReconciliationWorkerTrigger(ObjectReplicationReconciliationWorker objectReplicationReconciliationWorker) {
 		
 		String queueName = stackConfig.getQueueName("ENTITY_REPLICATION_RECONCILIATION");
-		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(amazonSQSClient, queueName, objectReplicationReconciliationWorker);
+		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(sqsClient, queueName, objectReplicationReconciliationWorker);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(ConcurrentWorkerStack.builder()
@@ -103,7 +103,7 @@ public class ChangeMessageWorkersConfig {
 	public SimpleTriggerFactoryBean tableIndexWorkerTrigger(TableIndexWorker tableIndexWorker) {
 		
 		String queueName = stackConfig.getQueueName("TABLE_UPDATE");
-		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(amazonSQSClient, queueName, tableIndexWorker);
+		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(sqsClient, queueName, tableIndexWorker);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(ConcurrentWorkerStack.builder()
@@ -126,7 +126,7 @@ public class ChangeMessageWorkersConfig {
 	public SimpleTriggerFactoryBean recordSetIndexWorkerTrigger(RecordSetIndexWorker recordSetIndexWorker) {
 
 		String queueName = stackConfig.getQueueName("RECORDSET_UPDATE");
-		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(amazonSQSClient, queueName, recordSetIndexWorker);
+		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(sqsClient, queueName, recordSetIndexWorker);
 
 		return new WorkerTriggerBuilder()
 			.withStack(ConcurrentWorkerStack.builder()
@@ -149,7 +149,7 @@ public class ChangeMessageWorkersConfig {
 	public SimpleTriggerFactoryBean tableViewWorkerTrigger(TableViewWorker tableViewWorker) {
 		
 		String queueName = stackConfig.getQueueName("TABLE_VIEW");
-		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(amazonSQSClient, queueName, tableViewWorker);
+		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(sqsClient, queueName, tableViewWorker);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(ConcurrentWorkerStack.builder()
@@ -172,7 +172,7 @@ public class ChangeMessageWorkersConfig {
 	public SimpleTriggerFactoryBean materializedViewWorkerTrigger(MaterializedViewUpdateWorker materializedViewUpdateWorker) {
 		
 		String queueName = stackConfig.getQueueName("MATERIALIZED_VIEW_UPDATE");
-		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(amazonSQSClient, queueName, materializedViewUpdateWorker);
+		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(sqsClient, queueName, materializedViewUpdateWorker);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(ConcurrentWorkerStack.builder()
@@ -195,7 +195,7 @@ public class ChangeMessageWorkersConfig {
 	public SimpleTriggerFactoryBean fileHandleStreamWorkerTrigger(StackStatusGate stackStatusGate, FileHandleStreamWorker fileHandleStreamWorker) {
 		
 		String queueName = stackConfig.getQueueName("FILE_HANDLE_STREAM");
-		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(amazonSQSClient, queueName, fileHandleStreamWorker);
+		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(sqsClient, queueName, fileHandleStreamWorker);
 		
 		MessageDrivenWorkerStackConfiguration config = new MessageDrivenWorkerStackConfiguration();
 		
@@ -206,7 +206,7 @@ public class ChangeMessageWorkersConfig {
 		config.setSemaphoreMaxLockCount(5);
 		config.setSemaphoreLockKey("fileHandleStreamWorker");
 		
-		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, amazonSQSClient, config);
+		MessageDrivenWorkerStack stack = new MessageDrivenWorkerStack(countingSemaphore, sqsClient, config);
 				
 		return new WorkerTriggerBuilder()
 			.withStack(stack)
@@ -224,7 +224,7 @@ public class ChangeMessageWorkersConfig {
 	public SimpleTriggerFactoryBean objectSnapshotWorkerTrigger(ObjectSnapshotWorker objectSnapshotWorker) {
 		
 		String queueName = stackConfig.getQueueName("OBJECT");
-		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(amazonSQSClient, queueName, objectSnapshotWorker);
+		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(sqsClient, queueName, objectSnapshotWorker);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(ConcurrentWorkerStack.builder()
@@ -248,7 +248,7 @@ public class ChangeMessageWorkersConfig {
 	public SimpleTriggerFactoryBean searchIndexMessageReceiverTrigger(SearchIndexWorker searchIndexWorker) {
 
 		String queueName = stackConfig.getQueueName("SEARCH_INDEX");
-		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(amazonSQSClient, queueName, searchIndexWorker);
+		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(sqsClient, queueName, searchIndexWorker);
 
 		return new WorkerTriggerBuilder()
 				.withStack(ConcurrentWorkerStack.builder()
@@ -271,7 +271,7 @@ public class ChangeMessageWorkersConfig {
 	public SimpleTriggerFactoryBean gridSessionIndexWorkerTrigger(GridSessionIndexWorker gridSessionIndexWorker) {
 
 		String queueName = stackConfig.getQueueName("GRID_SESSION_INDEX");
-		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(amazonSQSClient, queueName, gridSessionIndexWorker);
+		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(sqsClient, queueName, gridSessionIndexWorker);
 
 		return new WorkerTriggerBuilder()
 			.withStack(ConcurrentWorkerStack.builder()
@@ -294,7 +294,7 @@ public class ChangeMessageWorkersConfig {
 	public SimpleTriggerFactoryBean webhookChangeMessageWorkerTrigger(WebhookChangeMessageWorker webhookChangeMessageWorker) {
 		
 		String queueName = stackConfig.getQueueName("WEBHOOK_CHANGES");
-		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(amazonSQSClient, queueName, webhookChangeMessageWorker);
+		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(sqsClient, queueName, webhookChangeMessageWorker);
 		
 		return new WorkerTriggerBuilder()
 			.withStack(ConcurrentWorkerStack.builder()
@@ -317,7 +317,7 @@ public class ChangeMessageWorkersConfig {
 	public SimpleTriggerFactoryBean searchIndexLifecycleWorkerTrigger(SearchIndexLifecycleWorker searchIndexLifecycleWorker) {
 
 		String queueName = stackConfig.getQueueName("SEARCH_INDEX_LIFECYCLE");
-		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(amazonSQSClient, queueName, searchIndexLifecycleWorker);
+		MessageDrivenRunner worker = new ChangeMessageBatchProcessor(sqsClient, queueName, searchIndexLifecycleWorker);
 
 		return new WorkerTriggerBuilder()
 			.withStack(ConcurrentWorkerStack.builder()

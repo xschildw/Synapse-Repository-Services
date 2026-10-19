@@ -82,23 +82,25 @@ Branch from PR 1 (rebase on `develop` after PR 1 merges). Commits in this order:
 - [x] `mvn test -pl lib/lib-worker` green
 
 ### Commit 5: Wiring and removal of the v1 client bean
-- [ ] `ManagerConfiguration`: `@Bean(name = {"createSqsClient", "awsSQSClient"})` (or an XML `<alias>`)
-- [ ] Delete the v1 `awsSQSClient` bean from `private/aws-topic-publisher.spb.xml`
-- [ ] Delete `AwsClientFactory.createAmazonSQSClient()` and its imports
-- [ ] `WorkersInfraConfig`, `AsyncJobWorkersConfig`, `ChangeMessageWorkersConfig`, `MessageDrivenWorkersConfig`:
+- [x] `ManagerConfiguration`: `@Bean(name = {"createSqsClient", "awsSQSClient"})` (or an XML `<alias>`)
+- [x] Delete the v1 `awsSQSClient` bean from `private/aws-topic-publisher.spb.xml`
+- [x] Delete `AwsClientFactory.createAmazonSQSClient()` and its imports
+- [x] `WorkersInfraConfig`, `AsyncJobWorkersConfig`, `ChangeMessageWorkersConfig`, `MessageDrivenWorkersConfig`:
       inject `SqsClient`
-- [ ] `RecurrentAthenaQueryWorker`: constructor takes `SqsClient`; `GetQueueUrlRequest`
-  - [ ] `RecurrentAthenaQueryWorkerTest`
-- [ ] XML: verify that all 14 `ChangeMessageDrivenWorkerStack` and 3 `MessageDrivenWorkerStack` refs resolve to
-      the v2 bean through the alias (no edits expected)
-- [ ] Test contexts:
-  - [ ] `lib/lib-worker/src/test/resources/test-context.xml`: `awsSQSClient` →
+- [x] `RecurrentAthenaQueryWorker`: constructor takes `SqsClient`; `GetQueueUrlRequest`
+  - [x] `RecurrentAthenaQueryWorkerTest`
+- [x] XML: verify that all 14 `ChangeMessageDrivenWorkerStack` and 3 `MessageDrivenWorkerStack` refs resolve to
+      the v2 bean through the alias (no edits expected). Static check only; the Spring context needs a DB to load
+- [x] Test contexts:
+  - [x] `lib/lib-worker/src/test/resources/test-context.xml`: `awsSQSClient` →
         `AwsClientFactoryV2.createSqsClient`
-  - [ ] `services/workers/src/test/resources/test-context.xml` (`QueueCleaner`): resolves through the alias
-  - [ ] `services/repository/src/test/resources/test-context.xml` (`QueueCleaner`): resolves through the alias
-- [ ] Check: `grep -rn "AmazonSQS\b\|AmazonSQSClient\b" --include=*.java --include=*.xml lib services` is empty
-      (only v1 **model** imports remain)
-- [ ] `services/workers/CLAUDE.md`: update the `MessageDrivenWorkerStack` example (`amazonSQSClient` → `sqsClient`)
+  - [x] `services/workers/src/test/resources/test-context.xml` (`QueueCleaner`): resolves through the alias
+  - [x] `services/repository/src/test/resources/test-context.xml` (`QueueCleaner`): resolves through the alias
+- [x] Check: `grep -rn "AmazonSQS\b\|AmazonSQSClient\b" --include=*.java --include=*.xml lib services` is empty
+      (only v1 **model** imports remain). Exception: `PurgeAndRecordSqsQueue` builds its own v1 client (PR 3)
+- [x] Tests that used the v1 client directly: `WebhookWorkerIntegrationTest` (`AwsClientFactory.createAmazonSQSClient`),
+      `SESNotificationWorkerAutowireTest` (autowired `AmazonSQS`) → v2 `SqsClient`
+- [x] `services/workers/CLAUDE.md`: update the `MessageDrivenWorkerStack` example (`amazonSQSClient` → `sqsClient`)
 
 ### Before merge
 - [ ] `mvn clean install -DskipTests` (full reactor) green
