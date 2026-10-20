@@ -646,7 +646,13 @@ public class ManagerConfiguration {
 
 	@Bean(name = { "createSqsClient", "awsSQSClient" })
 	public SqsClient createSqsClient(AwsCredentialsProvider credentialProvider) {
-		return SqsClient.builder().credentialsProvider(credentialProvider).region(Region.US_EAST_1).build();
+		return SqsClient.builder()
+				.credentialsProvider(credentialProvider)
+				.region(Region.US_EAST_1)
+				// A single connection pool serves every SQS producer and consumer in the JVM, so it is sized above the
+				// default of 50 (PLFM-9749).
+				.httpClientBuilder(ApacheHttpClient.builder().maxConnections(100))
+				.build();
 	}
 
 	@Bean

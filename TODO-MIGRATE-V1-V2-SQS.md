@@ -103,16 +103,19 @@ Branch from PR 1 (rebase on `develop` after PR 1 merges). Commits in this order:
 - [x] `services/workers/CLAUDE.md`: update the `MessageDrivenWorkerStack` example (`amazonSQSClient` → `sqsClient`)
 
 ### Before merge
-- [ ] `mvn clean install -DskipTests` (full reactor) green
-- [ ] `mvn test` on `lib/lib-worker-common`, `lib/lib-worker`, `services/repository-managers`, `services/workers` green
-- [ ] Workers autowired and integration tests green (`SESNotificationWorkerAutowireTest`,
+- [x] `mvn clean install -DskipTests` (full reactor) green (fork CI build)
+- [x] `mvn test` on `lib/lib-worker-common`, `lib/lib-worker`, `services/repository-managers`, `services/workers` green (fork CI build)
+- [x] Workers autowired and integration tests green (fork CI build) (`SESNotificationWorkerAutowireTest`,
       `WebhookWorkerIntegrationTest`, `*IntegrationTest`)
-- [ ] Full `integration-test` run on a dev stack green
+- [x] Full `integration-test` run on a dev stack green (fork CI build)
 - [ ] Dev-stack CloudWatch: queue `ApproximateAgeOfOldestMessage` and `NumberOfMessagesDeleted` match the
-      previous build; no rise in table-query latency
-- [ ] Connection-pool sanity: peak concurrent SQS calls ≤ v2 Apache `maxConnections` (default 50); set it
-      explicitly if needed
-- [ ] Confirm that `SqsClient.close()` on context shutdown does not race the PLFM-6758 shutdown hook
+      previous build; no rise in table-query latency (check on the staging stack; a CI build stack has no baseline)
+- [x] Connection-pool sanity: peak concurrent SQS calls ≤ v2 Apache `maxConnections` (default 50); set it
+      explicitly if needed. Up to ~210 threads can call SQS at once in a workers JVM, so `maxConnections` is set
+      to 100 (the combined capacity of the separate v1 consumer and v2 producer pools before PR 2)
+- [x] Confirm that `SqsClient.close()` on context shutdown does not race the PLFM-6758 shutdown hook. Calls after
+      close fail fast (`IllegalStateException: Connection pool shut down`), so no message is deleted and every
+      in-flight message is redelivered. The only cost is WARN/ERROR log noise during shutdown
 - [ ] **Merge** once approved
 - [ ] **Wait for one staging-stack validation** (a release cycle) before merging PR 3
 
